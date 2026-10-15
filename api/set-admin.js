@@ -1,18 +1,8 @@
-// غنماية — منح صلاحية الأدمن (Vercel Serverless Function)
-// الاستدعاء: POST /api/set-admin  مع الهيدر  x-setup-secret  والجسم  {"email":"you@example.com"}
-// متغيرات البيئة في Vercel:
-//   FIREBASE_SERVICE_ACCOUNT  = محتوى ملف Service Account (JSON كامل)
-//   ADMIN_SETUP_SECRET        = كلمة سر طويلة عشوائية تعرفها أنت فقط
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
+// غنماية — منح صلاحية الأدمن
+// POST /api/set-admin  مع الهيدر  x-setup-secret  والجسم  {"email":"you@example.com"}  (أضف "revoke":true للسحب)
+// متغيرات البيئة: FIREBASE_SERVICE_ACCOUNT ، ADMIN_SETUP_SECRET
 import { timingSafeEqual } from 'node:crypto';
-
-function admin() {
-  if (!getApps().length) {
-    initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
-  }
-  return getAuth();
-}
+import { adminAuth } from './_firebase.js';
 
 function sameSecret(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
@@ -29,7 +19,7 @@ export default async function handler(req, res) {
   if (typeof email !== 'string' || !email.includes('@')) return res.status(400).json({ error: 'email مطلوب' });
 
   try {
-    const auth = admin();
+    const auth = adminAuth();
     const user = await auth.getUserByEmail(email.trim());
     const claims = { ...(user.customClaims || {}) };
     if (revoke) delete claims.admin; else claims.admin = true;

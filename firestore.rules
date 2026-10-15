@@ -56,6 +56,59 @@ service cloud.firestore {
       }
     }
 
+    // ===== المفضلة: لكل مستخدم قائمته الخاصة =====
+    match /users/{uid}/favorites/{listingId} {
+      allow read, delete: if isMe(uid);
+      allow create: if isMe(uid) && request.resource.data.keys().hasOnly(['createdAt']);
+    }
+
+    // ===== الإعلانات =====
+    function amSeller() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isSeller', false) == true;
+    }
+    function listingFields() {
+      return ['sellerId', 'sellerName', 'type', 'breed', 'sex', 'ageMonths', 'weightKg', 'price', 'qty',
+              'state', 'city', 'description', 'images', 'status', 'createdAt', 'updatedAt'];
+    }
+    function validListing(d) {
+      return d.type in ['goat', 'sheep', 'cattle', 'camel']
+        && str(d.breed, 2, 30)
+        && d.sex in ['m', 'f']
+        && d.ageMonths is int && d.ageMonths >= 0 && d.ageMonths <= 300
+        && (d.weightKg is int || d.weightKg is float) && d.weightKg > 0 && d.weightKg <= 2000
+        && d.price is int && d.price > 0 && d.price <= 100000000000
+        && d.qty is int && d.qty >= 1 && d.qty <= 999
+        && str(d.state, 2, 40) && str(d.city, 2, 60)
+        && str(d.sellerName, 2, 60)
+        && d.description is string && d.description.size() <= 1000
+        && d.images is list && d.images.size() >= 1 && d.images.size() <= 6
+        && d.images[0].url.matches('^https://ik\\.imagekit\\.io/7uwbsw4wl/.*');
+    }
+
+    match /listings/{id} {
+      // القراءة لأي مستخدم مسجّل؛ التطبيق يعرض النشط فقط في السوق
+      allow read: if signedIn();
+
+      allow create: if signedIn() && amSeller()
+        && request.resource.data.sellerId == request.auth.uid
+        && request.resource.data.keys().hasOnly(listingFields())
+        && request.resource.data.status == 'active'
+        && validListing(request.resource.data);
+
+      // صاحب الإعلان يعدّله أو يعلّمه "مباع"؛ لا يستطيع فك إيقاف الأدمن ولا تغيير المالك أو التمييز
+      allow update: if isAdmin() || (signedIn()
+        && resource.data.sellerId == request.auth.uid
+        && request.resource.data.sellerId == resource.data.sellerId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(listingFields())
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sellerId', 'createdAt'])
+        && validListing(request.resource.data)
+        && (resource.data.status == 'hidden'
+              ? request.resource.data.status == 'hidden'
+              : request.resource.data.status in ['active', 'sold']));
+
+      allow delete: if isAdmin() || (signedIn() && resource.data.sellerId == request.auth.uid);
+    }
+
     // ===== الإعدادات العامة (العمولة، السلالات...) =====
     match /settings/{id} {
       allow read: if signedIn();
@@ -63,7 +116,7 @@ service cloud.firestore {
     }
 
     // ===== مجموعات المراحل القادمة: مغلقة حتى تُكتب قواعدها =====
-    // listings, chats, orders, wallets, transactions, withdrawals, reviews, reports, blocks
+    // chats, orders, wallets, transactions, withdrawals, reviews, reports, blocks
     match /{document=**} {
       allow read: if isAdmin();
       allow write: if false;

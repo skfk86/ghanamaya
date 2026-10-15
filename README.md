@@ -31,12 +31,13 @@ SHA256: 98:36:D4:4A:17:29:E2:02:18:47:DC:44:84:69:DA:4A:D9:C6:C0:DE:A5:CD:31:22:
 انسخ محتوى `firestore.rules` إلى Firebase ← Firestore ← Rules ← Publish.
 (أو: `npm i -g firebase-tools && firebase deploy --only firestore:rules --project ghanamaya-4e639`)
 
-### 4. Vercel (الأدمن)
+### 4. Vercel (رفع الصور + الأدمن)
 1. اربط المستودع بمشروع Vercel جديد.
 2. Firebase ← Project settings ← Service accounts ← Generate new private key.
 3. في Vercel ← Environment Variables:
    - `FIREBASE_SERVICE_ACCOUNT` = محتوى ملف JSON كاملاً
    - `ADMIN_SETUP_SECRET` = كلمة سر عشوائية طويلة (32 حرفاً فأكثر)
+   - `IMAGEKIT_PRIVATE_KEY` = المفتاح الخاص من ImageKit ← Developer options
 4. امنح نفسك صلاحية الأدمن (بعد أن تسجّل في التطبيق مرة):
 ```bash
 curl -X POST https://<مشروعك>.vercel.app/api/set-admin \
@@ -50,10 +51,18 @@ curl -X POST https://<مشروعك>.vercel.app/api/set-admin \
 محلياً: `npm install && npx cap add android` ثم أضف `rgcfaIncludeGoogle = true` داخل `ext {}` في `android/variables.gradle`، ثم `npm run build:debug`.
 
 
-## الأمان في هذه المرحلة
+## المرحلة الثانية: السوق
+- الصور تُضغط على الهاتف (WebP، 1280px) ثم تُرفع إلى ImageKit بتوقيع من `/api/imagekit-auth` (للبائعين فقط).
+- إذا كان رابط Vercel غير `ghanamaya.vercel.app` غيّر `API_BASE` في `www/index.html`.
+- لا تحتاج أي فهارس مركّبة في Firestore: الفلترة والبحث على الجهاز من آخر 150 إعلاناً.
+
+## الأمان
 - المستخدم يكتب فقط حقول ملفه المسموحة؛ `verified` و `rating` لا يكتبها إلا السيرفر.
 - حساب بنكك في `users/{uid}/private/payout` لا يقرؤه إلا صاحبه والأدمن.
 - البائع لا يستطيع إلغاء صفة البائع من التطبيق، والتفعيل يتطلب اسم متجر وواتساب.
+- الإعلان يُنشئه بائع مفعّل فقط، وصاحبه وحده يعدّله أو يعلّمه مباعاً أو يحذفه.
+- البائع لا يستطيع فك إيقاف الأدمن عن إعلانه، ولا تمييز إعلانه بنفسه.
+- الصور مقبولة من حساب ImageKit الخاص بالتطبيق فقط.
 - كل مجموعات المراحل القادمة مغلقة تماماً حتى تُكتب قواعدها.
 
 ## اختبار سريع من السودان

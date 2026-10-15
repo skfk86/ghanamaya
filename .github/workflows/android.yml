@@ -13,13 +13,13 @@ jobs:
       KS_ALIAS: ghanamaya
       KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -61,12 +61,12 @@ jobs:
                 -Pandroid.injected.signing.key.password=$KS_PASS"
           ./gradlew assembleRelease bundleRelease $SIGN --no-daemon
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: ghanamaya-apk
           path: android/app/build/outputs/apk/release/*.apk
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: ghanamaya-aab-for-play
           path: android/app/build/outputs/bundle/release/*.aab

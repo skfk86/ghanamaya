@@ -129,6 +129,103 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 .spinner{width:28px;height:28px;border-radius:50%;border:3px solid var(--brand-tint);border-top-color:var(--brand);animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .center{flex:1;display:flex;align-items:center;justify-content:center}
+
+/* ========== المرحلة الثانية: السوق ========== */
+.topbar{position:sticky;top:0;z-index:10;background:var(--bg);padding:calc(14px + var(--safe-t)) 16px 10px;display:flex;align-items:center;gap:10px}
+.topbar h1{font-size:18px;flex:1}
+.ghost-btn{width:44px;height:44px;border-radius:var(--r-md);border:0;background:none;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.search{flex:1;display:flex;align-items:center;gap:10px;height:48px;padding:0 14px;background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow)}
+.search input{all:unset;flex:1;font-size:15px}
+.filter-btn{position:relative;width:48px;height:48px;border-radius:var(--r-md);border:0;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.filter-btn .dot{position:absolute;top:-4px;left:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:0 16px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;height:40px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-size:14px;font-weight:500}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
+.chip.sm{height:38px;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0 16px}
+.lcard{position:relative;background:var(--surface);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;border:0;padding:0;text-align:right}
+.lcard .img{aspect-ratio:1/1;background:var(--line);position:relative;overflow:hidden}
+.lcard .img img{width:100%;height:100%;object-fit:cover;display:block}
+.lcard .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:2px}
+.lcard .title{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lcard .meta{font-size:12px;color:var(--muted)}
+.lcard .foot{display:flex;justify-content:space-between;align-items:center;margin-top:4px;gap:4px}
+.price{font-weight:700;color:var(--brand);white-space:nowrap}
+.lcard .price{font-size:14px}
+.lcard .city{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:2px;white-space:nowrap;overflow:hidden}
+.tag{position:absolute;top:8px;right:8px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:8px}
+.tag.dark{background:rgba(31,29,26,.75)}
+.fav{position:absolute;top:6px;left:6px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;color:#1F1D1A}
+.fav .icon{width:18px;height:18px}
+.fav.on{color:var(--accent)}
+.fav.on .icon{fill:currentColor}
+.skel{background:linear-gradient(90deg,var(--line) 25%,var(--line-soft) 50%,var(--line) 75%);background-size:200% 100%;animation:sh 1.2s infinite;border-radius:var(--r-lg)}
+@keyframes sh{to{background-position:-200% 0}}
+
+/* التفاصيل */
+.gallery{position:relative;height:360px;background:var(--line)}
+.gallery .track{display:flex;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.gallery .track::-webkit-scrollbar{display:none}
+.gallery img{flex:0 0 100%;width:100%;height:100%;object-fit:cover;scroll-snap-align:center}
+.gallery .bar{position:absolute;top:calc(14px + var(--safe-t));left:14px;right:14px;display:flex;justify-content:space-between}
+.gallery .bar button{background:rgba(255,255,255,.94);color:#1F1D1A;box-shadow:none}
+.gallery .dots{position:absolute;bottom:30px;left:0;right:0;display:flex;justify-content:center;gap:6px}
+.gallery .dots span{width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.6);transition:width .2s}
+.gallery .dots span.on{width:18px;background:#fff}
+.sheet-body{margin-top:-20px;position:relative;background:var(--bg);border-radius:24px 24px 0 0;padding:22px 16px 120px;display:flex;flex-direction:column;gap:18px}
+.specs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.spec{background:var(--surface);border-radius:var(--r-md);padding:10px 4px;display:flex;flex-direction:column;align-items:center}
+.spec span{font-size:11px;color:var(--muted)}
+.spec b{font-size:14px}
+.bottombar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--line);padding:12px 16px calc(14px + var(--safe-b));display:flex;gap:10px;z-index:20}
+.bottombar .btn{height:50px}
+.btn-outline{background:none;border:1.5px solid var(--brand);color:var(--brand)}
+.pchip{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border-radius:12px;padding:8px 12px;font-size:13px;font-weight:500}
+.pchip .icon{width:16px;height:16px;color:var(--brand)}
+.sellerbox{display:flex;align-items:center;gap:12px;width:100%;border:0;text-align:right}
+.avatar.sm{width:48px;height:48px;font-size:18px}
+.verified{width:17px;height:17px;fill:var(--brand);stroke:#fff}
+
+/* البائع */
+.sellerhead{background:var(--brand);padding:calc(14px + var(--safe-t)) 16px 64px;display:flex;justify-content:space-between}
+.sellerhead button{background:rgba(255,255,255,.16);color:#fff;box-shadow:none}
+.statbox{background:var(--bg);border-radius:var(--r-md);padding:10px 4px;display:flex;flex-direction:column;align-items:center}
+.statbox b{font-size:16px}
+.statbox span{font-size:11px;color:var(--muted)}
+
+/* إضافة إعلان */
+.photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.photo{position:relative;aspect-ratio:1/1;border-radius:var(--r-md);overflow:hidden;background:var(--line)}
+.photo img{width:100%;height:100%;object-fit:cover}
+.photo .x{position:absolute;top:6px;left:6px;width:30px;height:30px;border-radius:50%;border:0;background:rgba(31,29,26,.7);color:#fff;display:flex;align-items:center;justify-content:center}
+.photo .x .icon{width:16px;height:16px}
+.addphoto{aspect-ratio:1/1;border-radius:var(--r-md);border:1.5px dashed var(--brand-tint);background:var(--brand-soft);color:var(--brand);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:700;cursor:pointer}
+.pick{display:grid;gap:8px}
+.pick button{height:46px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);font-weight:500}
+.pick button.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:700}
+.stepper{height:50px;border-radius:var(--r-sm);background:var(--bg);display:flex;align-items:center;justify-content:space-between;padding:0 4px}
+.stepper button{width:42px;height:42px;border-radius:10px;border:0;background:var(--surface);display:flex;align-items:center;justify-content:center}
+.stepper b{font-size:16px}
+.progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--brand);transition:width .3s}
+
+/* إعلاناتي والمفضلة */
+.mrow{background:var(--surface);border-radius:var(--r-lg);padding:12px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
+.mrow .thumb{width:84px;height:84px;border-radius:var(--r-md);overflow:hidden;background:var(--line);flex-shrink:0;position:relative;border:0;padding:0}
+.mrow .thumb img{width:100%;height:100%;object-fit:cover}
+.status{font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px;flex-shrink:0}
+.s-active{background:var(--brand-soft);color:var(--brand)}
+.s-sold{background:var(--line);color:var(--ink-2)}
+.s-hidden{background:var(--danger-soft);color:var(--danger)}
+.actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.actions button{height:40px;border-radius:12px;border:0;font-size:13px;font-weight:700;background:var(--bg)}
+.radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);flex-shrink:0}
+.radio.on{border:6px solid var(--brand)}
+.switch{width:48px;height:28px;border-radius:14px;background:var(--line);position:relative;flex-shrink:0;transition:background .2s}
+.switch::after{content:"";position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:right .2s}
+.switch.on{background:var(--brand)}
+.switch.on::after{right:23px}
 </style>
 </head>
 <body>
@@ -156,6 +253,21 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
   <symbol id="i-logo" viewBox="0 0 24 24"><path d="M6 9c-1.5-.5-3-2-3-4 2 0 3.5 1 4.2 2.2M18 9c1.5-.5 3-2 3-4-2 0-3.5 1-4.2 2.2"/><path d="M7 8.5C7 6 9.2 4.5 12 4.5S17 6 17 8.5V13c0 3.5-2.2 6.5-5 6.5S7 16.5 7 13z"/><path d="M10 12h.01M14 12h.01M10.5 16c1 .7 2 .7 3 0"/></symbol>
   <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.6 5.5 6 .8-4.4 4.2 1.1 6L12 16.6 6.7 19.5l1.1-6L3.4 9.3l6-.8z"/></symbol>
+  <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 10l9-6 9 6M5 10v8M19 10v8M9 10v8M15 10v8M3 20h18"/></symbol>
+  <symbol id="i-cash" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></symbol>
+  <symbol id="i-wa" viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 1c-1-.5-2-1.5-2.5-2.5l1-1-1-2z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></symbol>
 </svg>
 
 <div id="app"></div>
@@ -169,7 +281,8 @@ import {
   updateProfile, signOut
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp
+  getFirestore, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
+  collection, query, where, orderBy, limit, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -185,20 +298,54 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = getFirestore(fb);
 
-/* ========== Capacitor (Plugins الأصلية متاحة عبر window.Capacitor) ========== */
+/* ========== إعدادات الخدمات ========== */
+const API_BASE = 'https://ghanamaya.vercel.app';             // مشروع Vercel (الدوال السيرفرية)
+const IK_PUBLIC_KEY = 'public_soywGzkqnTQpOen97q8/RiIlLx0=';  // ImageKit (مفتاح عام)
+const IK_UPLOAD = 'https://upload.imagekit.io/api/v1/files/upload';
+
+/* ========== Capacitor ========== */
 const Cap = window.Capacitor;
 const isNative = !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
 const P = (Cap && Cap.Plugins) || {};
 
 /* ========== ثوابت ========== */
 const STATES = ['الخرطوم','الجزيرة','نهر النيل','الشمالية','البحر الأحمر','كسلا','القضارف','سنار','النيل الأبيض','النيل الأزرق','شمال كردفان','جنوب كردفان','غرب كردفان','شمال دارفور','جنوب دارفور','شرق دارفور','غرب دارفور','وسط دارفور'];
+const TYPES = [
+  { id: 'goat', label: 'ماعز', one: 'ماعز', breeds: ['شامي','نوبي','صحراوي','بلدي'] },
+  { id: 'sheep', label: 'ضأن', one: 'خروف', breeds: ['حمري','كباشي','زغاوي','بلدي'] },
+  { id: 'cattle', label: 'عجول', one: 'عجل', breeds: ['كناني','بطانة','بقارة','بلدي'] },
+  { id: 'camel', label: 'إبل', one: 'جمل', breeds: ['عنافي','بشاري','بلدي'] }
+];
+const typeOf = (id) => TYPES.find(t => t.id === id) || TYPES[0];
+const AGES = [{ label: 'أقل من 6 أشهر', min: 0, max: 5 }, { label: '6 – 12 شهر', min: 6, max: 12 }, { label: 'أكبر من سنة', min: 13, max: 999 }];
+const SORTS = ['الأحدث', 'الأقل سعراً', 'الأعلى سعراً'];
+const MAX_PHOTOS = 6;
 
 /* ========== أدوات ========== */
 const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const app = $('#app');
-const ic = (n, cls = '') => `<svg class="icon ${cls}"><use href="#i-${n}"/></svg>`;
+const ic = (n, attrs = '') => `<svg class="icon" ${attrs}><use href="#i-${n}"/></svg>`;
 const esc = (s = '') => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const initial = (n) => (n || '؟').trim().charAt(0);
+const money = (n) => Number(n || 0).toLocaleString('en-US') + ' ج.س';
+const ik = (url, w = 400) => url ? `${url}?tr=w-${w},q-70,f-auto` : '';
+// أقل من سنتين بالأشهر (هكذا يتعامل السوق)، وبعدها بالسنوات
+const ageText = (m) => {
+  if (m < 24) return `${m} ${m >= 3 && m <= 10 ? 'أشهر' : 'شهر'}`;
+  const y = Math.round(m / 12);
+  return y === 2 ? 'سنتان' : `${y} ${y <= 10 ? 'سنوات' : 'سنة'}`;
+};
+const titleOf = (l) => `${typeOf(l.type).one} ${l.breed}`;
+const millis = (t) => t && t.toMillis ? t.toMillis() : (t && t.seconds ? t.seconds * 1000 : Date.now());
+function ago(t) {
+  const s = Math.max(1, (Date.now() - millis(t)) / 1000);
+  if (s < 3600) return `منذ ${Math.max(1, Math.round(s / 60))} دقيقة`;
+  if (s < 86400) return `منذ ${Math.round(s / 3600)} ساعة`;
+  const d = Math.round(s / 86400);
+  return d === 1 ? 'منذ يوم' : d === 2 ? 'منذ يومين' : `منذ ${d} أيام`;
+}
+const isFeatured = (l) => l.featuredUntil && millis(l.featuredUntil) > Date.now();
 
 function toast(msg, type = '') {
   const t = document.createElement('div');
@@ -222,36 +369,107 @@ const ERR = {
   'permission-denied': 'ليس لديك صلاحية لهذا الإجراء',
   'unavailable': 'الخدمة غير متاحة الآن، تحقق من الإنترنت'
 };
-const errMsg = (e) => ERR[e && e.code] || 'حدث خطأ، حاول مرة أخرى';
+const errMsg = (e) => ERR[e && e.code] || (e && e.userMsg) || 'حدث خطأ، حاول مرة أخرى';
 
 async function busy(btn, fn) {
   const old = btn.innerHTML; btn.disabled = true;
   btn.innerHTML = '<span class="spinner" style="width:22px;height:22px;border-width:2.5px;border-color:rgba(255,255,255,.4);border-top-color:#fff"></span>';
-  try { return await fn(); } finally { btn.disabled = false; btn.innerHTML = old; }
+  try { return await fn(); } finally { if (btn.isConnected) { btn.disabled = false; btn.innerHTML = old; } }
 }
 
-/* ========== الحالة ========== */
-const S = { user: null, profile: null, tab: 'home', loginMode: 'in' };
+/* ========== الحالة والتنقل ========== */
+const S = {
+  user: null, profile: null, tab: 'home', loginMode: 'in',
+  stack: [],                 // شاشات فوق التبويبات: {name, params}
+  listings: null,            // آخر الإعلانات من السوق
+  favs: new Set(),
+  cat: 'all', q: '',
+  f: { types: [], breeds: [], min: '', max: '', age: -1, sort: 0, verified: false, state: '' },
+  sellers: {}                // ذاكرة مؤقتة لملفات البائعين
+};
+const push = (name, params = {}) => { S.stack.push({ name, params }); render(); window.scrollTo(0, 0); };
+const pop = () => { S.stack.pop(); render(); };
+function render() {
+  if (closeSheet) closeSheet();
+  const top = S.stack[S.stack.length - 1];
+  if (!top) return renderShell();
+  ({ details: renderDetails, seller: renderSeller, edit: renderEditor, mine: renderMine, favs: renderFavs })[top.name](top.params);
+}
 
-/* ========== الملف الشخصي ========== */
+/* ========== البيانات ========== */
 async function loadProfile(uid) {
   const snap = await getDoc(doc(db, 'users', uid));
   return snap.exists() ? snap.data() : null;
+}
+async function getSeller(uid) {
+  if (S.sellers[uid]) return S.sellers[uid];
+  const p = await loadProfile(uid);
+  S.sellers[uid] = p || { name: 'بائع' };
+  return S.sellers[uid];
+}
+async function loadListings(force = false) {
+  if (S.listings && !force) return S.listings;
+  const snap = await getDocs(query(collection(db, 'listings'), orderBy('createdAt', 'desc'), limit(150)));
+  S.listings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return S.listings;
+}
+async function getListing(id) {
+  const c = S.listings && S.listings.find(l => l.id === id);
+  if (c) return c;
+  const s = await getDoc(doc(db, 'listings', id));
+  return s.exists() ? { id: s.id, ...s.data() } : null;
+}
+async function loadFavs(uid) {
+  const snap = await getDocs(collection(db, 'users', uid, 'favorites'));
+  S.favs = new Set(snap.docs.map(d => d.id));
+}
+async function toggleFav(id, btn) {
+  const uid = S.user.uid, on = S.favs.has(id);
+  on ? S.favs.delete(id) : S.favs.add(id);
+  if (btn) { btn.classList.toggle('on', !on); btn.setAttribute('aria-pressed', String(!on)); }
+  haptic();
+  try {
+    const ref = doc(db, 'users', uid, 'favorites', id);
+    on ? await deleteDoc(ref) : await setDoc(ref, { createdAt: serverTimestamp() });
+  } catch (e) {
+    on ? S.favs.add(id) : S.favs.delete(id);
+    if (btn) btn.classList.toggle('on', on);
+    toast(errMsg(e), 'error');
+  }
+}
+
+/* ---------- الفلترة (على الجهاز) ---------- */
+function filtered() {
+  const f = S.f, q = S.q.trim();
+  let out = (S.listings || []).filter(l => l.status === 'active');
+  if (S.cat !== 'all') out = out.filter(l => l.type === S.cat);
+  if (f.types.length) out = out.filter(l => f.types.includes(l.type));
+  if (f.breeds.length) out = out.filter(l => f.breeds.includes(l.breed));
+  if (f.min !== '') out = out.filter(l => l.price >= +f.min);
+  if (f.max !== '') out = out.filter(l => l.price <= +f.max);
+  if (f.age >= 0) out = out.filter(l => l.ageMonths >= AGES[f.age].min && l.ageMonths <= AGES[f.age].max);
+  if (f.state) out = out.filter(l => l.state === f.state);
+  if (f.verified) out = out.filter(l => S.sellers[l.sellerId] && S.sellers[l.sellerId].verified);
+  if (q) out = out.filter(l => [titleOf(l), l.breed, l.city, l.state, l.description, typeOf(l.type).label].join(' ').includes(q));
+  const cmp = [(a, b) => millis(b.createdAt) - millis(a.createdAt), (a, b) => a.price - b.price, (a, b) => b.price - a.price][f.sort];
+  return out.sort((a, b) => (isFeatured(b) - isFeatured(a)) || cmp(a, b));
+}
+function activeFilterCount() {
+  const f = S.f;
+  return f.types.length + f.breeds.length + (f.min !== '' || f.max !== '' ? 1 : 0) + (f.age >= 0 ? 1 : 0) + (f.state ? 1 : 0) + (f.verified ? 1 : 0) + (f.sort ? 1 : 0);
 }
 
 /* ========== المصادقة ========== */
 async function googleSignIn() {
   if (isNative && P.FirebaseAuthentication) {
-    // تسجيل أصلي على أندرويد ثم تمرير التوكن للـ Web SDK
     const res = await P.FirebaseAuthentication.signInWithGoogle({ skipNativeAuth: true });
-    const cred = GoogleAuthProvider.credential(res.credential && res.credential.idToken);
-    await signInWithCredential(auth, cred);
+    await signInWithCredential(auth, GoogleAuthProvider.credential(res.credential && res.credential.idToken));
   } else {
     await signInWithPopup(auth, new GoogleAuthProvider());
   }
 }
 
-/* ========== الشاشات ========== */
+/* ========== شاشات الدخول ========== */
 function renderLoading() {
   app.innerHTML = `<div class="screen"><div class="center"><div class="spinner" aria-label="جارٍ التحميل"></div></div></div>`;
 }
@@ -261,7 +479,7 @@ function renderLogin() {
   app.innerHTML = `
   <div class="screen">
     <div class="hero">
-      <div class="logo">${ic('logo', '').replace('class="icon ', 'style="width:34px;height:34px;stroke:#fff" class="icon ')}</div>
+      <div class="logo">${ic('logo', 'style="width:34px;height:34px;color:#fff"')}</div>
       <h1 style="color:#fff">أهلاً بك في غنماية</h1>
       <p>سوق المواشي الموثوق في السودان. اشترِ وبِع الماعز والضأن بأمان.</p>
     </div>
@@ -283,8 +501,7 @@ function renderLogin() {
       <p class="muted" style="text-align:center;margin:4px 0 0">بالمتابعة أنت توافق على شروط الاستخدام وسياسة الخصوصية.</p>
     </form>
   </div>`;
-
-  app.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { S.loginMode = b.dataset.mode; renderLogin(); });
+  $$('[data-mode]').forEach(b => b.onclick = () => { S.loginMode = b.dataset.mode; renderLogin(); });
   $('#googleBtn').onclick = (e) => busy(e.currentTarget, async () => {
     try { await googleSignIn(); } catch (err) { toast(errMsg(err), 'error'); }
   });
@@ -313,8 +530,8 @@ function renderLogin() {
   };
 }
 
-function stateOptions(sel) {
-  return `<option value="" disabled ${sel ? '' : 'selected'}>اختر الولاية</option>` +
+function stateOptions(sel, placeholder = 'اختر الولاية') {
+  return `<option value="" ${sel ? '' : 'selected'}>${placeholder}</option>` +
     STATES.map(s => `<option ${s === sel ? 'selected' : ''}>${s}</option>`).join('');
 }
 
@@ -339,19 +556,16 @@ function renderOnboarding() {
     if (data.name.length < 2 || !data.state || data.city.length < 2) return toast('أكمل كل الحقول', 'error');
     busy(e.currentTarget, async () => {
       try {
-        const profile = {
-          ...data, photo: u.photoURL || '', isSeller: false,
-          createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-        };
+        const profile = { ...data, photo: u.photoURL || '', isSeller: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
         await setDoc(doc(db, 'users', u.uid), profile);
         S.profile = { ...profile, verified: false };
-        haptic(); renderShell();
+        haptic(); render();
       } catch (err) { toast(errMsg(err), 'error'); }
     });
   };
 }
 
-/* ---------- الهيكل والتبويبات ---------- */
+/* ========== الهيكل والتبويبات ========== */
 const TABS = [
   { id: 'home', label: 'الرئيسية', icon: 'home' },
   { id: 'chats', label: 'المحادثات', icon: 'chat' },
@@ -362,8 +576,9 @@ const TABS = [
 
 function renderShell() {
   const body = {
-    home: viewHome, chats: () => viewEmpty('chat', 'لا توجد محادثات بعد', 'عندما تتواصل مع بائع أو مشترٍ ستظهر محادثاتك هنا.'),
-    orders: () => viewEmpty('bag', 'لا توجد طلبات بعد', 'طلباتك ومشترياتك ستظهر هنا.'),
+    home: viewHome,
+    chats: () => `<div class="topbar"><h1>المحادثات</h1></div>` + viewEmpty('chat', 'لا توجد محادثات بعد', 'الشات داخل التطبيق قادم قريباً. حالياً تواصل مع البائع عبر واتساب من صفحة الإعلان.'),
+    orders: () => `<div class="topbar"><h1>طلباتي</h1></div>` + viewEmpty('bag', 'لا توجد طلبات بعد', 'نظام الطلبات والدفع قادم في المرحلة القادمة.'),
     account: viewAccount
   }[S.tab]();
   app.innerHTML = `
@@ -373,109 +588,569 @@ function renderShell() {
       ? `<button class="fab" data-tab="add" aria-label="أضف إعلان">${ic('plus')}</button>`
       : `<button class="tab ${S.tab === t.id ? 'on' : ''}" data-tab="${t.id}" ${S.tab === t.id ? 'aria-current="page"' : ''}>${ic(t.icon)}${t.label}</button>`).join('')}
   </nav>`;
-  app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => {
+  $$('[data-tab]').forEach(b => b.onclick = () => {
     const id = b.dataset.tab;
     if (id === 'add') return onAdd();
+    if (id === S.tab && id === 'home') { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     S.tab = id; haptic(); renderShell(); window.scrollTo(0, 0);
   });
+  if (S.tab === 'home') bindHome();
   if (S.tab === 'account') bindAccount();
 }
 
-function viewEmpty(icon, title, text) {
-  return `<div class="empty"><div class="circle">${ic(icon)}</div><h2>${title}</h2><p style="margin:0;max-width:260px">${text}</p></div>`;
+function viewEmpty(icon, title, text, action = '') {
+  return `<div class="empty"><div class="circle">${ic(icon)}</div><h2>${title}</h2><p style="margin:0;max-width:270px">${text}</p>${action}</div>`;
 }
 
-function viewHome() {
-  const p = S.profile;
+/* ---------- بطاقة إعلان ---------- */
+function cardHTML(l) {
+  const img = l.images && l.images[0] ? `<img src="${esc(ik(l.images[0].url, 400))}" alt="" loading="lazy">` : '';
+  const fav = S.favs.has(l.id);
   return `
-  <div class="pad stack" style="gap:18px">
+  <div class="lcard" data-open="${l.id}" role="link" tabindex="0" aria-label="${esc(titleOf(l))}">
+    <div class="img">${img}
+      ${isFeatured(l) ? '<span class="tag">مميز</span>' : ''}
+      ${l.status === 'sold' ? '<span class="tag dark">مباع</span>' : ''}
+      <button class="fav ${fav ? 'on' : ''}" data-fav="${l.id}" aria-label="المفضلة" aria-pressed="${fav}">${ic('heart')}</button>
+    </div>
+    <div class="body">
+      <span class="title">${esc(titleOf(l))}</span>
+      <span class="meta">${ageText(l.ageMonths)} · ${l.weightKg} كجم${l.qty > 1 ? ` · ${l.qty} رأس` : ''}</span>
+      <div class="foot"><span class="price">${money(l.price)}</span><span class="city">${ic('pin', 'style="width:12px;height:12px"')}${esc(l.city)}</span></div>
+    </div>
+  </div>`;
+}
+function bindCards(root = app) {
+  $$('[data-fav]', root).forEach(b => b.onclick = (e) => { e.stopPropagation(); toggleFav(b.dataset.fav, b); });
+  $$('[data-open]', root).forEach(c => {
+    c.onclick = () => push('details', { id: c.dataset.open });
+    c.onkeydown = (e) => { if (e.key === 'Enter') c.click(); };
+  });
+}
+const skeletons = (n = 4) => `<div class="grid">${Array.from({ length: n }, () => '<div class="skel" style="aspect-ratio:3/4"></div>').join('')}</div>`;
+
+/* ---------- الرئيسية ---------- */
+function viewHome() {
+  const p = S.profile, n = activeFilterCount();
+  const cats = [{ id: 'all', label: 'الكل' }, ...TYPES];
+  return `
+  <div style="padding:calc(18px + var(--safe-t)) 16px 0" class="stack">
     <div class="row">
       <div class="grow">
         <span class="muted">موقعك</span>
-        <div class="row" style="gap:4px;font-weight:700;font-size:16px">${ic('pin', '').replace('class="icon ', 'style="width:18px;height:18px;color:var(--brand)" class="icon ')}${esc(p.city)}، ${esc(p.state)}</div>
+        <div class="row" style="gap:4px;font-weight:700;font-size:16px">${ic('pin', 'style="width:18px;height:18px;color:var(--brand)"')}${esc(p.city)}، ${esc(p.state)}</div>
       </div>
-      <button class="icon-btn" aria-label="الإشعارات">${ic('bell')}</button>
+      <button class="icon-btn" id="refresh" aria-label="تحديث">${ic('refresh')}</button>
     </div>
-    <div class="card" style="background:var(--brand);color:#fff;padding:20px">
-      <span style="font-size:12px;color:var(--brand-tint);font-weight:500">قريباً</span>
-      <h2 style="color:#fff;font-size:19px;margin-top:4px">الإعلانات في الطريق</h2>
-      <p style="margin:6px 0 0;color:var(--brand-tint);font-size:14px">نجهّز السوق الآن. ابدأ بتفعيل حساب البائع لتكون من أوائل من ينشرون مواشيهم.</p>
+    <div class="row">
+      <label class="search">${ic('search', 'style="color:var(--muted);width:20px;height:20px"')}<input id="q" type="search" placeholder="ابحث: حمري، شامي، بحري..." value="${esc(S.q)}" aria-label="بحث"></label>
+      <button class="filter-btn" id="openFilters" aria-label="الفلاتر">${ic('filter')}${n ? `<span class="dot">${n}</span>` : ''}</button>
     </div>
-    ${viewEmpty('store', 'لا توجد إعلانات بعد', 'كن أول من يعرض ماعزه أو ضأنه في منطقتك.')}
-  </div>`;
+  </div>
+  <div class="chips" style="margin:14px 0">${cats.map(c => `<button class="chip ${S.cat === c.id ? 'on' : ''}" data-cat="${c.id}">${c.label}</button>`).join('')}</div>
+  <div id="feed">${S.listings ? feedHTML() : skeletons()}</div>`;
+}
+function feedHTML() {
+  const list = filtered();
+  if (!S.listings.length) return viewEmpty('store', 'لا توجد إعلانات بعد', 'كن أول من يعرض ماعزه أو ضأنه في غنماية.', `<button class="btn btn-accent" style="width:auto;padding:0 24px;height:48px" id="emptyAdd">أضف أول إعلان</button>`);
+  if (!list.length) return viewEmpty('search', 'لا نتائج', 'جرّب تغيير البحث أو الفلاتر.', `<button class="btn btn-ghost" style="width:auto;padding:0 24px;height:48px" id="clearAll">مسح الفلاتر</button>`);
+  return `<div class="muted" style="padding:0 16px 10px">${list.length} إعلان</div><div class="grid">${list.map(cardHTML).join('')}</div>`;
+}
+function refreshFeed() {
+  const feed = $('#feed'); if (!feed) return;
+  feed.innerHTML = feedHTML(); bindCards(feed);
+  const ea = $('#emptyAdd'); if (ea) ea.onclick = onAdd;
+  const ca = $('#clearAll'); if (ca) ca.onclick = () => { resetFilters(); S.q = ''; S.cat = 'all'; renderShell(); };
+}
+function resetFilters() { S.f = { types: [], breeds: [], min: '', max: '', age: -1, sort: 0, verified: false, state: '' }; }
+async function fetchFeed(force) {
+  try {
+    await loadListings(force);
+    // ملفات البائعين (للتوثيق) تُجلب مرة واحدة
+    await Promise.all([...new Set(S.listings.map(l => l.sellerId))].map(getSeller));
+    if (S.tab === 'home' && !S.stack.length) refreshFeed();
+  } catch (e) {
+    const feed = $('#feed'); if (feed) feed.innerHTML = viewEmpty('help', 'تعذّر تحميل الإعلانات', errMsg(e));
+  }
+}
+function bindHome() {
+  $$('[data-cat]').forEach(b => b.onclick = () => { S.cat = b.dataset.cat; $$('[data-cat]').forEach(x => x.classList.toggle('on', x === b)); refreshFeed(); });
+  let t; $('#q').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.q = e.target.value; refreshFeed(); }, 250); };
+  $('#openFilters').onclick = openFilters;
+  $('#refresh').onclick = (e) => { e.currentTarget.style.transform = 'rotate(360deg)'; e.currentTarget.style.transition = 'transform .6s'; fetchFeed(true); };
+  if (S.listings) refreshFeed(); else fetchFeed();
 }
 
+/* ---------- الفلاتر ---------- */
+function openFilters() {
+  const f = JSON.parse(JSON.stringify(S.f));
+  const breeds = [...new Set(TYPES.filter(t => !f.types.length || f.types.includes(t.id)).flatMap(t => t.breeds))];
+  const draw = (sh) => {
+    const bs = [...new Set(TYPES.filter(t => !f.types.length || f.types.includes(t.id)).flatMap(t => t.breeds))];
+    f.breeds = f.breeds.filter(b => bs.includes(b));
+    $('#fBody', sh).innerHTML = `
+      <section class="stack" style="gap:10px"><h2 style="font-size:15px">النوع</h2>
+        <div class="row" style="flex-wrap:wrap;gap:8px">${TYPES.map(t => `<button class="chip ${f.types.includes(t.id) ? 'on' : ''}" data-ft="${t.id}" aria-pressed="${f.types.includes(t.id)}">${t.label}</button>`).join('')}</div></section>
+      <section class="stack" style="gap:10px"><h2 style="font-size:15px">السلالة</h2>
+        <div class="row" style="flex-wrap:wrap;gap:8px">${bs.map(b => `<button class="chip ${f.breeds.includes(b) ? 'on' : ''}" data-fb="${b}" aria-pressed="${f.breeds.includes(b)}">${b}</button>`).join('')}</div></section>
+      <section class="stack" style="gap:10px"><h2 style="font-size:15px">السعر للرأس (ج.س)</h2>
+        <div class="row"><input class="input" id="fMin" inputmode="numeric" placeholder="من" value="${f.min}" aria-label="أقل سعر"><input class="input" id="fMax" inputmode="numeric" placeholder="إلى" value="${f.max}" aria-label="أعلى سعر"></div></section>
+      <section class="stack" style="gap:10px"><h2 style="font-size:15px">العمر</h2>
+        <div class="pick" style="grid-template-columns:repeat(3,1fr)">${AGES.map((a, i) => `<button class="${f.age === i ? 'on' : ''}" data-fa="${i}" style="font-size:13px">${a.label}</button>`).join('')}</div></section>
+      <section class="stack" style="gap:10px"><h2 style="font-size:15px">الولاية</h2>
+        <select class="input" id="fState">${stateOptions(f.state, 'كل الولايات')}</select></section>
+      <section class="stack" style="gap:4px"><h2 style="font-size:15px">ترتيب حسب</h2>
+        ${SORTS.map((s, i) => `<button class="row" data-fs="${i}" role="radio" aria-checked="${f.sort === i}" style="border:0;background:none;min-height:44px;padding:0;font-size:14px"><span class="radio ${f.sort === i ? 'on' : ''}"></span>${s}</button>`).join('')}</section>
+      <button class="row note note-ok" id="fVer" role="switch" aria-checked="${f.verified}" style="border:0;width:100%;align-items:center;font-size:14px;font-weight:700">
+        ${ic('badge', 'style="width:22px;height:22px;fill:var(--brand);stroke:var(--brand-soft)"')}<span class="grow" style="text-align:right">تجار موثّقون فقط</span><span class="switch ${f.verified ? 'on' : ''}"></span></button>`;
+    $$('[data-ft]', sh).forEach(b => b.onclick = () => { const v = b.dataset.ft; f.types = f.types.includes(v) ? f.types.filter(x => x !== v) : [...f.types, v]; draw(sh); });
+    $$('[data-fb]', sh).forEach(b => b.onclick = () => { const v = b.dataset.fb; f.breeds = f.breeds.includes(v) ? f.breeds.filter(x => x !== v) : [...f.breeds, v]; draw(sh); });
+    $$('[data-fa]', sh).forEach(b => b.onclick = () => { const v = +b.dataset.fa; f.age = f.age === v ? -1 : v; draw(sh); });
+    $$('[data-fs]', sh).forEach(b => b.onclick = () => { f.sort = +b.dataset.fs; draw(sh); });
+    $('#fVer', sh).onclick = () => { f.verified = !f.verified; draw(sh); };
+    $('#fMin', sh).oninput = (e) => { f.min = e.target.value.replace(/\D/g, ''); count(sh); };
+    $('#fMax', sh).oninput = (e) => { f.max = e.target.value.replace(/\D/g, ''); count(sh); };
+    $('#fState', sh).onchange = (e) => { f.state = e.target.value; count(sh); };
+    count(sh);
+  };
+  const count = (sh) => { const keep = S.f; S.f = f; const n = S.listings ? filtered().length : 0; S.f = keep; $('#fApply', sh).textContent = `عرض ${n} إعلان`; };
+  openSheet(`
+    <div class="row" style="margin-bottom:8px"><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button>
+      <h2 class="grow" style="text-align:center">الفلاتر</h2><button class="btn-link" id="fReset">مسح الكل</button></div>
+    <div id="fBody" class="stack" style="gap:20px;padding-bottom:12px"></div>
+    <div style="position:sticky;bottom:calc(-24px - var(--safe-b));background:var(--surface);padding:12px 0 4px;border-top:1px solid var(--line)"><button class="btn btn-primary" id="fApply">عرض</button></div>`, (sh) => {
+    draw(sh);
+    $('#fReset', sh).onclick = () => { Object.assign(f, { types: [], breeds: [], min: '', max: '', age: -1, sort: 0, verified: false, state: '' }); draw(sh); };
+    $('#fApply', sh).onclick = () => { S.f = f; closeSheet(); renderShell(); };
+  });
+  void breeds;
+}
+
+/* ---------- تفاصيل الإعلان ---------- */
+async function renderDetails({ id }) {
+  renderLoading();
+  let l, seller;
+  try { l = await getListing(id); if (l) seller = await getSeller(l.sellerId); }
+  catch (e) { return renderError(e); }
+  if (!l) { app.innerHTML = `<div class="screen">${viewEmpty('search', 'الإعلان غير موجود', 'ربما حُذف أو بيع.')}<div class="pad"><button class="btn btn-primary" id="back">رجوع</button></div></div>`; $('#back').onclick = pop; return; }
+  const mine = l.sellerId === S.user.uid, fav = S.favs.has(l.id);
+  const imgs = l.images || [];
+  app.innerHTML = `
+  <div class="screen">
+    <div class="gallery">
+      <div class="track" id="track">${imgs.map((im, i) => `<img src="${esc(ik(im.url, 900))}" alt="صورة ${i + 1}" ${i ? 'loading="lazy"' : ''}>`).join('')}</div>
+      <div class="bar">
+        <button class="icon-btn" id="back" aria-label="رجوع">${ic('back')}</button>
+        <div class="row" style="gap:8px">
+          <button class="icon-btn" id="share" aria-label="مشاركة">${ic('share')}</button>
+          ${mine ? '' : `<button class="icon-btn fav ${fav ? 'on' : ''}" style="position:static;width:44px;height:44px;border-radius:14px" data-fav="${l.id}" aria-label="المفضلة" aria-pressed="${fav}">${ic('heart')}</button>`}
+        </div>
+      </div>
+      ${imgs.length > 1 ? `<div class="dots">${imgs.map((_, i) => `<span class="${i ? '' : 'on'}"></span>`).join('')}</div>` : ''}
+    </div>
+    <div class="sheet-body">
+      ${l.status !== 'active' ? `<div class="note ${l.status === 'hidden' ? 'note-warn' : 'note-ok'}">${l.status === 'sold' ? 'هذا الإعلان مباع.' : 'هذا الإعلان موقوف بعد مراجعة الإدارة.'}</div>` : ''}
+      <div class="stack" style="gap:4px">
+        <div class="row" style="align-items:flex-start;justify-content:space-between"><h1 style="font-size:22px">${esc(titleOf(l))}</h1><span class="price" style="font-size:20px">${money(l.price)}</span></div>
+        <span class="muted row" style="gap:4px">${ic('pin', 'style="width:14px;height:14px"')}${esc(l.city)}، ${esc(l.state)} · ${ago(l.createdAt)}</span>
+      </div>
+      <div class="specs">
+        <div class="spec"><span>العمر</span><b>${ageText(l.ageMonths)}</b></div>
+        <div class="spec"><span>الوزن</span><b>${l.weightKg} كجم</b></div>
+        <div class="spec"><span>الجنس</span><b>${l.sex === 'm' ? 'ذكر' : 'أنثى'}</b></div>
+        <div class="spec"><span>المتاح</span><b>${l.qty}</b></div>
+      </div>
+      <button class="card sellerbox" id="sellerBox">
+        <div class="avatar sm">${seller.photo ? `<img src="${esc(seller.photo)}" alt="">` : esc(initial(seller.storeName || seller.name))}</div>
+        <span class="grow" style="display:flex;flex-direction:column">
+          <span class="row" style="gap:4px;font-weight:700">${esc(seller.storeName || seller.name)}${seller.verified ? `<svg class="verified" role="img" aria-label="تاجر موثّق"><use href="#i-badge"/></svg>` : ''}</span>
+          <span class="muted">${esc(seller.city || '')}${seller.verified ? ' · تاجر موثّق' : ''}</span>
+        </span>
+        <span class="btn-link" style="padding:0">الملف</span>
+      </button>
+      ${l.description ? `<div class="stack" style="gap:6px"><h2 style="font-size:16px">الوصف</h2><p style="margin:0;color:var(--ink-2);white-space:pre-line">${esc(l.description)}</p></div>` : ''}
+      <div class="stack" style="gap:10px"><h2 style="font-size:16px">طرق الدفع</h2>
+        <div class="row" style="flex-wrap:wrap;gap:8px"><span class="pchip">${ic('bank')}بنكك</span><span class="pchip">${ic('cash')}عند الاستلام</span></div>
+        <div class="note note-warn">${ic('shield', 'style="width:20px;height:20px"')}<span>لا تحوّل أي مبلغ قبل معاينة الحيوان واستلامه.</span></div>
+      </div>
+      ${mine ? '' : `<button class="row" id="report" style="border:0;background:none;color:var(--danger);font-size:13px;font-weight:500;padding:6px 0;align-self:flex-start;gap:6px">${ic('flag', 'style="width:16px;height:16px"')}الإبلاغ عن هذا الإعلان</button>`}
+    </div>
+    <div class="bottombar">
+      ${mine
+        ? `<button class="btn btn-outline" id="editL">${ic('edit')}تعديل</button>${l.status === 'active' ? `<button class="btn btn-primary" id="soldL">${ic('check')}تم البيع</button>` : ''}`
+        : `<button class="btn btn-outline" id="call" style="flex:0 0 64px" aria-label="اتصال">${ic('phone')}</button><button class="btn btn-primary" id="wa" ${l.status !== 'active' ? 'disabled' : ''}>${ic('wa')}تواصل عبر واتساب</button>`}
+    </div>
+  </div>`;
+  $('#back').onclick = pop;
+  bindCards();
+  const track = $('#track'), dots = $$('.dots span');
+  if (track && dots.length) track.onscroll = () => { const i = Math.round(Math.abs(track.scrollLeft) / track.clientWidth); dots.forEach((d, k) => d.classList.toggle('on', k === i)); };
+  $('#sellerBox').onclick = () => push('seller', { uid: l.sellerId });
+  $('#share').onclick = async () => {
+    const text = `${titleOf(l)} — ${money(l.price)} في ${l.city}\nعلى تطبيق غنماية`;
+    try { if (P.Share) await P.Share.share({ title: 'غنماية', text }); else if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(text); toast('نُسخ النص'); } } catch (e) {}
+  };
+  const rep = $('#report'); if (rep) rep.onclick = () => toast('نظام البلاغات يُطلق قريباً');
+  if (mine) {
+    $('#editL').onclick = () => push('edit', { id: l.id });
+    const s = $('#soldL'); if (s) s.onclick = (e) => markSold(l, e.currentTarget);
+  } else {
+    const phone = (seller.whatsapp || '').replace(/[^\d]/g, '');
+    $('#wa').onclick = () => {
+      if (!phone) return toast('البائع لم يضف رقم واتساب');
+      const msg = encodeURIComponent(`السلام عليكم، رأيت إعلانك في غنماية: ${titleOf(l)} بسعر ${money(l.price)}. هل ما زال متاحاً؟`);
+      window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+    };
+    $('#call').onclick = () => { if (!phone) return toast('لا يوجد رقم'); window.open(`tel:+${phone}`, '_system'); };
+  }
+}
+async function markSold(l, btn) {
+  await busy(btn, async () => {
+    try {
+      await updateDoc(doc(db, 'listings', l.id), { status: 'sold', updatedAt: serverTimestamp() });
+      l.status = 'sold'; toast('تم تعليم الإعلان كمباع', 'success'); render();
+    } catch (e) { toast(errMsg(e), 'error'); }
+  });
+}
+function renderError(e) {
+  app.innerHTML = `<div class="screen">${viewEmpty('help', 'تعذّر التحميل', errMsg(e))}<div class="pad"><button class="btn btn-primary" id="back">رجوع</button></div></div>`;
+  $('#back').onclick = pop;
+}
+
+/* ---------- صفحة البائع ---------- */
+async function renderSeller({ uid }) {
+  renderLoading();
+  let seller, items;
+  try {
+    seller = await getSeller(uid);
+    const snap = await getDocs(query(collection(db, 'listings'), where('sellerId', '==', uid)));
+    items = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(l => l.status === 'active').sort((a, b) => millis(b.createdAt) - millis(a.createdAt));
+  } catch (e) { return renderError(e); }
+  const name = seller.storeName || seller.name;
+  app.innerHTML = `
+  <div class="screen" style="padding-bottom:110px">
+    <div class="sellerhead"><button class="icon-btn" id="back" aria-label="رجوع">${ic('back')}</button></div>
+    <div class="card stack" style="margin:-48px 16px 0;padding:18px;border-radius:22px">
+      <div class="row" style="gap:14px">
+        <div class="avatar">${seller.photo ? `<img src="${esc(seller.photo)}" alt="">` : esc(initial(name))}</div>
+        <div class="grow">
+          <div class="row" style="gap:5px;font-size:18px;font-weight:700">${esc(name)}${seller.verified ? `<svg class="verified" style="width:19px;height:19px" role="img" aria-label="تاجر موثّق"><use href="#i-badge"/></svg>` : ''}</div>
+          <span class="muted row" style="gap:4px">${ic('pin', 'style="width:14px;height:14px"')}${esc(seller.city || '')}، ${esc(seller.state || '')}</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+        <div class="statbox"><b>${items.length}</b><span>إعلان نشط</span></div>
+        <div class="statbox"><b>${seller.verified ? 'موثّق' : 'غير موثّق'}</b><span>حالة التاجر</span></div>
+      </div>
+    </div>
+    <h2 style="padding:20px 16px 12px;font-size:16px">الإعلانات</h2>
+    ${items.length ? `<div class="grid">${items.map(cardHTML).join('')}</div>` : viewEmpty('store', 'لا توجد إعلانات نشطة', 'هذا البائع لا يعرض شيئاً حالياً.')}
+    ${uid !== S.user.uid && seller.whatsapp ? `<div class="bottombar"><button class="btn btn-primary" id="wa">${ic('wa')}راسل البائع عبر واتساب</button></div>` : ''}
+  </div>`;
+  $('#back').onclick = pop;
+  bindCards();
+  const wa = $('#wa'); if (wa) wa.onclick = () => window.open(`https://wa.me/${seller.whatsapp.replace(/[^\d]/g, '')}`, '_blank');
+}
+
+/* ---------- ضغط الصور ورفعها ---------- */
+function compress(file, max = 1280, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const s = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b ? resolve(b) : reject(new Error('compress')), 'image/webp', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(Object.assign(new Error('img'), { userMsg: 'تعذّر قراءة الصورة' })); };
+    img.src = url;
+  });
+}
+async function uploadImage(blob) {
+  const idToken = await S.user.getIdToken();
+  const r = await fetch(`${API_BASE}/api/imagekit-auth`, { headers: { Authorization: `Bearer ${idToken}` } });
+  const a = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error('auth'), { userMsg: a.error || 'تعذّر الاتصال بخادم الصور' });
+  const fd = new FormData();
+  fd.append('file', blob, 'photo.webp');
+  fd.append('fileName', `${S.user.uid}_${Date.now()}.webp`);
+  fd.append('publicKey', IK_PUBLIC_KEY);
+  fd.append('signature', a.signature);
+  fd.append('expire', String(a.expire));
+  fd.append('token', a.token);
+  fd.append('folder', a.folder);
+  fd.append('useUniqueFileName', 'true');
+  const u = await fetch(IK_UPLOAD, { method: 'POST', body: fd });
+  const res = await u.json().catch(() => ({}));
+  if (!u.ok || !res.url) throw Object.assign(new Error('upload'), { userMsg: 'فشل رفع الصورة، تحقق من الإنترنت' });
+  return { url: res.url, fileId: res.fileId };
+}
+
+/* ---------- إضافة / تعديل إعلان ---------- */
+async function renderEditor({ id } = {}) {
+  let existing = null;
+  if (id) { renderLoading(); try { existing = await getListing(id); } catch (e) { return renderError(e); } }
+  const p = S.profile;
+  const st = existing ? {
+    photos: existing.images.map(im => ({ ...im, preview: ik(im.url, 300) })),
+    type: existing.type, breed: existing.breed, sex: existing.sex, age: existing.ageMonths, weight: existing.weightKg,
+    price: existing.price, qty: existing.qty, state: existing.state, city: existing.city, desc: existing.description || ''
+  } : { photos: [], type: 'sheep', breed: '', sex: 'm', age: '', weight: '', price: '', qty: 1, state: p.state, city: p.city, desc: '' };
+
+  const photosHTML = () => st.photos.map((ph, i) => `
+    <div class="photo"><img src="${esc(ph.preview)}" alt="">
+      ${i === 0 ? '<span class="tag dark" style="top:auto;bottom:6px">الغلاف</span>' : ''}
+      <button class="x" data-rm="${i}" aria-label="حذف الصورة">${ic('close')}</button></div>`).join('') +
+    (st.photos.length < MAX_PHOTOS ? `<label class="addphoto">${ic('camera', 'style="width:26px;height:26px"')}أضف صورة<input type="file" id="pick" accept="image/*" multiple hidden></label>` : '');
+
+  app.innerHTML = `
+  <div class="screen" style="padding-bottom:110px">
+    <div class="topbar" style="background:var(--surface);border-bottom:1px solid var(--line)">
+      <button class="ghost-btn" id="back" aria-label="إغلاق">${ic('close')}</button>
+      <h1>${existing ? 'تعديل الإعلان' : 'إضافة إعلان'}</h1>
+    </div>
+    <div class="stack" style="padding:18px 16px;gap:20px">
+      <section class="stack" style="gap:10px">
+        <div class="row" style="justify-content:space-between"><h2 style="font-size:15px">الصور</h2><span class="muted" id="pcount">${st.photos.length} من ${MAX_PHOTOS}</span></div>
+        <div class="photos" id="photos">${photosHTML()}</div>
+        <span class="muted">صوّر الحيوان كاملاً في ضوء النهار. الصور الحقيقية تبيع أسرع.</span>
+      </section>
+      <section class="stack" style="gap:10px"><h2 style="font-size:15px">النوع</h2>
+        <div class="pick" style="grid-template-columns:repeat(4,1fr)" id="types">${TYPES.map(t => `<button type="button" data-type="${t.id}" class="${st.type === t.id ? 'on' : ''}">${t.label}</button>`).join('')}</div></section>
+      <form class="card stack" id="ef" novalidate>
+        <label class="field"><span>السلالة</span><select class="input" name="breed" id="breed"></select></label>
+        <div class="field"><span>الجنس</span><div class="pick" style="grid-template-columns:1fr 1fr" id="sex">
+          <button type="button" data-sex="m" class="${st.sex === 'm' ? 'on' : ''}">ذكر</button><button type="button" data-sex="f" class="${st.sex === 'f' ? 'on' : ''}">أنثى</button></div></div>
+        <div class="row" style="align-items:flex-start">
+          <label class="field grow"><span>العمر (بالأشهر)</span><input class="input" name="age" inputmode="numeric" value="${st.age}" placeholder="14"></label>
+          <label class="field grow"><span>الوزن التقريبي (كجم)</span><input class="input" name="weight" inputmode="decimal" value="${st.weight}" placeholder="55"></label>
+        </div>
+        <div class="row" style="align-items:flex-start">
+          <label class="field grow"><span>سعر الرأس (ج.س)</span><input class="input" name="price" inputmode="numeric" value="${st.price}" placeholder="0"></label>
+          <div class="field grow"><span>العدد المتاح</span><div class="stepper">
+            <button type="button" id="inc" aria-label="زيادة">${ic('plus', 'style="width:18px;height:18px"')}</button><b id="qty">${st.qty}</b><button type="button" id="dec" aria-label="إنقاص">${ic('minus', 'style="width:18px;height:18px"')}</button></div></div>
+        </div>
+      </form>
+      <div class="card stack">
+        <div class="row" style="align-items:flex-start">
+          <label class="field grow"><span>الولاية</span><select class="input" id="state">${stateOptions(st.state)}</select></label>
+          <label class="field grow"><span>المدينة أو الحي</span><input class="input" id="city" value="${esc(st.city)}"></label>
+        </div>
+        <label class="field"><span>الوصف</span><textarea class="input" id="desc" maxlength="1000" style="height:auto;min-height:96px;padding:12px 14px;line-height:1.7" placeholder="الحالة الصحية، التغذية، اللقاحات، مكان الاستلام...">${esc(st.desc)}</textarea></label>
+      </div>
+      <div id="prog" class="stack hidden" style="gap:6px"><span class="muted" id="progText"></span><div class="progress"><i id="progBar" style="width:0"></i></div></div>
+    </div>
+    <div class="bottombar"><button class="btn btn-primary" id="publish">${ic('check')}${existing ? 'حفظ التعديلات' : 'نشر الإعلان'}</button></div>
+  </div>`;
+
+  const ef = $('#ef');
+  const fillBreeds = () => {
+    const bs = typeOf(st.type).breeds;
+    if (!bs.includes(st.breed)) st.breed = bs[0];
+    $('#breed').innerHTML = bs.map(b => `<option ${b === st.breed ? 'selected' : ''}>${b}</option>`).join('');
+  };
+  const drawPhotos = () => {
+    $('#photos').innerHTML = photosHTML(); $('#pcount').textContent = `${st.photos.length} من ${MAX_PHOTOS}`;
+    $$('[data-rm]').forEach(b => b.onclick = () => { st.photos.splice(+b.dataset.rm, 1); drawPhotos(); });
+    const pick = $('#pick');
+    if (pick) pick.onchange = async (e) => {
+      const files = [...e.target.files].slice(0, MAX_PHOTOS - st.photos.length);
+      for (const file of files) {
+        try { const blob = await compress(file); st.photos.push({ blob, preview: URL.createObjectURL(blob) }); }
+        catch (err) { toast(errMsg(err), 'error'); }
+      }
+      drawPhotos();
+    };
+  };
+  fillBreeds(); drawPhotos();
+  $('#back').onclick = pop;
+  $$('[data-type]').forEach(b => b.onclick = () => { st.type = b.dataset.type; $$('[data-type]').forEach(x => x.classList.toggle('on', x === b)); fillBreeds(); });
+  $$('[data-sex]').forEach(b => b.onclick = () => { st.sex = b.dataset.sex; $$('[data-sex]').forEach(x => x.classList.toggle('on', x === b)); });
+  $('#breed').onchange = (e) => st.breed = e.target.value;
+  $('#inc').onclick = () => { st.qty = Math.min(999, st.qty + 1); $('#qty').textContent = st.qty; };
+  $('#dec').onclick = () => { st.qty = Math.max(1, st.qty - 1); $('#qty').textContent = st.qty; };
+
+  $('#publish').onclick = (e) => {
+    const age = parseInt(ef.age.value, 10), weight = parseFloat(ef.weight.value), price = parseInt(String(ef.price.value).replace(/\D/g, ''), 10);
+    const state = $('#state').value, city = $('#city').value.trim(), desc = $('#desc').value.trim();
+    if (!st.photos.length) return toast('أضف صورة واحدة على الأقل', 'error');
+    if (!(age >= 0 && age <= 300)) return toast('اكتب العمر بالأشهر', 'error');
+    if (!(weight > 0 && weight <= 2000)) return toast('اكتب الوزن التقريبي', 'error');
+    if (!(price > 0)) return toast('اكتب السعر', 'error');
+    if (!state || city.length < 2) return toast('حدد الولاية والمدينة', 'error');
+    busy(e.currentTarget, async () => {
+      const prog = $('#prog'), bar = $('#progBar'), txt = $('#progText');
+      try {
+        const pending = st.photos.filter(ph => ph.blob);
+        if (pending.length) prog.classList.remove('hidden');
+        let done = 0;
+        for (const ph of pending) {
+          txt.textContent = `رفع الصور ${done + 1} من ${pending.length}...`;
+          Object.assign(ph, await uploadImage(ph.blob)); delete ph.blob;
+          bar.style.width = `${(++done / pending.length) * 100}%`;
+        }
+        txt.textContent = 'حفظ الإعلان...';
+        const data = {
+          sellerName: p.storeName || p.name, type: st.type, breed: st.breed, sex: st.sex,
+          ageMonths: age, weightKg: weight, price, qty: st.qty, state, city, description: desc,
+          images: st.photos.map(ph => ({ url: ph.url, fileId: ph.fileId })), updatedAt: serverTimestamp()
+        };
+        if (existing) {
+          await updateDoc(doc(db, 'listings', existing.id), data);
+        } else {
+          await addDoc(collection(db, 'listings'), { ...data, sellerId: S.user.uid, status: 'active', createdAt: serverTimestamp() });
+        }
+        S.listings = null; haptic();
+        toast(existing ? 'تم حفظ التعديلات' : 'نُشر إعلانك', 'success');
+        S.stack = existing ? [] : []; S.tab = 'home';
+        if (existing) push('mine'); else render();
+      } catch (err) { prog.classList.add('hidden'); toast(errMsg(err), 'error'); }
+    });
+  };
+}
+
+/* ---------- إعلاناتي ---------- */
+async function renderMine({ tab = 'active' } = {}) {
+  renderLoading();
+  let items;
+  try {
+    const snap = await getDocs(query(collection(db, 'listings'), where('sellerId', '==', S.user.uid)));
+    items = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => millis(b.createdAt) - millis(a.createdAt));
+  } catch (e) { return renderError(e); }
+  const groups = [['active', 'نشطة'], ['sold', 'مباعة'], ['hidden', 'موقوفة']];
+  const list = items.filter(l => l.status === tab);
+  app.innerHTML = `
+  <div class="screen" style="padding-bottom:110px">
+    <div class="topbar"><button class="ghost-btn" id="back" aria-label="رجوع">${ic('back')}</button><h1>إعلاناتي</h1></div>
+    <div class="chips" style="margin-bottom:14px" role="tablist">${groups.map(([k, l]) => `<button class="chip sm ${tab === k ? 'on' : ''}" data-mt="${k}" role="tab" aria-selected="${tab === k}">${l} (${items.filter(x => x.status === k).length})</button>`).join('')}</div>
+    <div class="stack" style="padding:0 16px;gap:12px">
+      ${list.length ? list.map(l => `
+      <div class="mrow">
+        <div class="row" style="align-items:flex-start;gap:12px">
+          <button class="thumb" data-open="${l.id}" aria-label="${esc(titleOf(l))}">${l.images[0] ? `<img src="${esc(ik(l.images[0].url, 200))}" alt="">` : ''}</button>
+          <div class="grow stack" style="gap:2px">
+            <div class="row" style="justify-content:space-between;align-items:flex-start"><b>${esc(titleOf(l))}</b><span class="status s-${l.status}">${{ active: 'نشط', sold: 'مباع', hidden: 'موقوف' }[l.status]}</span></div>
+            <span class="muted">${ageText(l.ageMonths)} · ${l.weightKg} كجم · ${l.qty} متاح</span>
+            <span class="price">${money(l.price)}</span>
+            <span class="muted" style="font-size:12px">${ago(l.createdAt)}</span>
+          </div>
+        </div>
+        ${l.status === 'hidden' ? `<div class="note note-warn">أوقفته الإدارة بعد مراجعة بلاغ. عدّل الإعلان بصور ومعلومات صحيحة ثم تواصل مع الدعم.</div>` : ''}
+        <div class="actions">
+          <button data-edit="${l.id}">${'تعديل'}</button>
+          ${l.status === 'active' ? `<button data-sold="${l.id}" style="background:var(--brand-soft);color:var(--brand)">تم البيع</button>` : ''}
+          ${l.status === 'sold' ? `<button data-relist="${l.id}" style="background:var(--brand-soft);color:var(--brand)">إعادة نشر</button>` : ''}
+          <button data-del="${l.id}" style="background:var(--danger-soft);color:var(--danger)">حذف</button>
+        </div>
+      </div>`).join('') : viewEmpty('list', 'لا توجد إعلانات هنا', tab === 'active' ? 'أضف إعلانك الأول ليظهر للمشترين.' : 'لا شيء في هذا التبويب.')}
+    </div>
+    <div class="bottombar"><button class="btn btn-accent" id="newL">${ic('plus')}إعلان جديد</button></div>
+  </div>`;
+  $('#back').onclick = pop;
+  $('#newL').onclick = () => push('edit');
+  $$('[data-mt]').forEach(b => b.onclick = () => { S.stack[S.stack.length - 1].params = { tab: b.dataset.mt }; render(); });
+  $$('[data-open]').forEach(b => b.onclick = () => push('details', { id: b.dataset.open }));
+  $$('[data-edit]').forEach(b => b.onclick = () => push('edit', { id: b.dataset.edit }));
+  const setStatus = (id, status, btn, msg) => busy(btn, async () => {
+    try { await updateDoc(doc(db, 'listings', id), { status, updatedAt: serverTimestamp() }); S.listings = null; toast(msg, 'success'); render(); }
+    catch (e) { toast(errMsg(e), 'error'); }
+  });
+  $$('[data-sold]').forEach(b => b.onclick = () => setStatus(b.dataset.sold, 'sold', b, 'تم تعليمه كمباع'));
+  $$('[data-relist]').forEach(b => b.onclick = () => setStatus(b.dataset.relist, 'active', b, 'أُعيد نشر الإعلان'));
+  $$('[data-del]').forEach(b => b.onclick = () => confirmSheet('حذف الإعلان؟', 'لا يمكن التراجع عن الحذف.', 'حذف', async () => {
+    await deleteDoc(doc(db, 'listings', b.dataset.del)); S.listings = null; toast('حُذف الإعلان'); render();
+  }));
+}
+
+/* ---------- المفضلة ---------- */
+async function renderFavs() {
+  renderLoading();
+  let items = [];
+  try { items = (await Promise.all([...S.favs].map(id => getListing(id).catch(() => null)))).filter(Boolean); }
+  catch (e) { return renderError(e); }
+  app.innerHTML = `
+  <div class="screen" style="padding-bottom:24px">
+    <div class="topbar"><button class="ghost-btn" id="back" aria-label="رجوع">${ic('back')}</button><h1>المفضلة</h1><span class="muted">${items.length} إعلان</span></div>
+    ${items.length ? `<div class="grid">${items.map(cardHTML).join('')}</div>` : viewEmpty('heart', 'لا توجد إعلانات محفوظة', 'اضغط على القلب في أي إعلان لتحفظه هنا وتقارن بين الخيارات.', `<button class="btn btn-primary" style="width:auto;padding:0 24px;height:48px" id="browse">تصفح السوق</button>`)}
+  </div>`;
+  $('#back').onclick = pop;
+  bindCards();
+  const br = $('#browse'); if (br) br.onclick = () => { S.stack = []; S.tab = 'home'; render(); };
+}
+
+/* ---------- الحساب ---------- */
 function viewAccount() {
   const p = S.profile, u = S.user;
   const avatar = p.photo ? `<img src="${esc(p.photo)}" alt="">` : esc(initial(p.name));
   const role = p.isSeller ? 'مشترٍ وبائع' : 'مشترٍ';
+  const item = (key, icon, label) => `<button data-go="${key}">${ic(icon, 'style="width:20px;height:20px;color:var(--ink-2)"')}<span class="grow">${label}</span>${ic('chev')}</button>`;
   return `
-  <div class="pad stack" style="gap:18px">
+  <div class="pad stack" style="gap:18px;padding-top:calc(20px + var(--safe-t))">
     <div class="row" style="gap:14px">
       <div class="avatar">${avatar}</div>
       <div class="grow">
-        <div class="row" style="gap:6px;font-size:18px;font-weight:700">${esc(p.name)}
-          ${p.verified ? ic('badge', '').replace('class="icon ', 'style="width:18px;height:18px;fill:var(--brand);stroke:#fff" aria-label="تاجر موثّق" class="icon ') : ''}
-        </div>
+        <div class="row" style="gap:6px;font-size:18px;font-weight:700">${esc(p.name)}${p.verified ? `<svg class="verified" role="img" aria-label="تاجر موثّق"><use href="#i-badge"/></svg>` : ''}</div>
         <span class="muted">${role} · ${esc(p.city)}</span>
       </div>
       <button class="icon-btn" id="editProfile" aria-label="تعديل الملف">${ic('edit')}</button>
     </div>
-
     <button class="card row" style="border:0;background:var(--brand);color:#fff;text-align:right;width:100%" id="walletCard">
-      ${ic('wallet', '').replace('class="icon ', 'style="width:26px;height:26px;color:var(--brand-tint)" class="icon ')}
+      ${ic('wallet', 'style="width:26px;height:26px;color:var(--brand-tint)"')}
       <span class="grow" style="display:flex;flex-direction:column"><span style="font-size:12px;color:var(--brand-tint)">المحفظة الرقمية</span><span style="font-weight:700">قريباً</span></span>
       ${ic('chev')}
     </button>
-
     ${p.isSeller ? `
     <div class="card stack">
       <div class="row"><h2 class="grow">حساب البائع</h2><span class="badge">مفعّل</span></div>
       <div class="muted" style="font-size:14px">${esc(p.storeName || '')} · <span class="ltr" style="display:inline-block">${esc(p.whatsapp || '')}</span></div>
-      ${p.verified ? '' : `<div class="note note-ok">${ic('badge', '').replace('class="icon ', 'style="width:20px;height:20px" class="icon ')}<span class="grow">احصل على شارة <strong>تاجر موثّق</strong> لثقة أكبر. سيُفتح طلب التوثيق مع إطلاق الإعلانات.</span></div>`}
+      ${p.verified ? '' : `<div class="note note-ok">${ic('badge', 'style="width:20px;height:20px"')}<span class="grow">احصل على شارة <strong>تاجر موثّق</strong> لثقة أكبر. طلب التوثيق يُفتح قريباً.</span></div>`}
     </div>` : `
     <div class="card seller-cta stack">
-      <div class="row" style="gap:12px">
-        <div class="tile">${ic('store')}</div>
-        <div class="grow"><h2>ابدأ البيع على غنماية</h2><span class="muted">اعرض مواشيك لآلاف المشترين، مجاناً.</span></div>
-      </div>
+      <div class="row" style="gap:12px"><div class="tile">${ic('store')}</div>
+        <div class="grow"><h2>ابدأ البيع على غنماية</h2><span class="muted">اعرض مواشيك لآلاف المشترين، مجاناً.</span></div></div>
       <button class="btn btn-accent" id="becomeSeller">فعّل حساب البائع</button>
     </div>`}
-
     <nav class="card menu" aria-label="إعدادات الحساب">
-      ${p.isSeller ? `<button data-soon>${ic('list', '').replace('class="icon ', 'style="width:20px;height:20px;color:var(--ink-2)" class="icon ')}<span class="grow">إعلاناتي</span>${ic('chev')}</button>
-      <button data-soon>${ic('inbox', '').replace('class="icon ', 'style="width:20px;height:20px;color:var(--ink-2)" class="icon ')}<span class="grow">الطلبات الواردة</span>${ic('chev')}</button>` : ''}
-      <button data-soon>${ic('heart', '').replace('class="icon ', 'style="width:20px;height:20px;color:var(--ink-2)" class="icon ')}<span class="grow">المفضلة</span>${ic('chev')}</button>
-      <button data-soon>${ic('bell', '').replace('class="icon ', 'style="width:20px;height:20px;color:var(--ink-2)" class="icon ')}<span class="grow">الإشعارات</span>${ic('chev')}</button>
-      <button data-soon>${ic('help', '').replace('class="icon ', 'style="width:20px;height:20px;color:var(--ink-2)" class="icon ')}<span class="grow">المساعدة والدعم</span>${ic('chev')}</button>
+      ${p.isSeller ? item('mine', 'list', 'إعلاناتي') : ''}
+      ${item('favs', 'heart', `المفضلة${S.favs.size ? ` (${S.favs.size})` : ''}`)}
+      ${item('soon', 'bell', 'الإشعارات')}
+      ${item('soon', 'help', 'المساعدة والدعم')}
     </nav>
     <span class="muted" style="text-align:center">${esc(u.email || '')}</span>
     <button class="btn-danger-link" id="logout" style="align-self:center">تسجيل الخروج</button>
   </div>`;
 }
-
 function bindAccount() {
-  const bs = $('#becomeSeller'); if (bs) bs.onclick = openSellerSheet;
-  $('#logout').onclick = async () => { await signOut(auth); };
+  const bs = $('#becomeSeller'); if (bs) bs.onclick = () => openSellerSheet();
+  $('#logout').onclick = () => confirmSheet('تسجيل الخروج؟', '', 'خروج', () => signOut(auth));
   $('#editProfile').onclick = openProfileSheet;
   $('#walletCard').onclick = () => toast('المحفظة الرقمية تُطلق في مرحلة لاحقة');
-  app.querySelectorAll('[data-soon]').forEach(b => b.onclick = () => toast('هذا القسم قيد التجهيز'));
+  $$('[data-go]').forEach(b => b.onclick = () => b.dataset.go === 'soon' ? toast('هذا القسم قيد التجهيز') : push(b.dataset.go));
 }
 
-/* ---------- نافذة سفلية عامة ---------- */
+/* ---------- نوافذ سفلية ---------- */
 let closeSheet = null;
 function openSheet(html, onMount) {
+  if (closeSheet) closeSheet();
   const bg = document.createElement('div'); bg.className = 'sheet-bg';
   const sh = document.createElement('div'); sh.className = 'sheet'; sh.setAttribute('role', 'dialog');
   sh.innerHTML = `<div class="grip"></div>${html}`;
   document.body.append(bg, sh);
   closeSheet = () => { bg.remove(); sh.remove(); closeSheet = null; };
   bg.onclick = closeSheet;
-  sh.querySelectorAll('[data-close]').forEach(b => b.onclick = closeSheet);
+  $$('[data-close]', sh).forEach(b => b.onclick = closeSheet);
   onMount && onMount(sh);
 }
+function confirmSheet(title, text, okLabel, onOk) {
+  openSheet(`<div class="stack" style="gap:16px;padding-top:6px"><h2 style="font-size:19px">${title}</h2>${text ? `<p class="muted" style="margin:0;font-size:14px">${text}</p>` : ''}
+    <div class="row"><button class="btn btn-ghost" data-close>إلغاء</button><button class="btn" id="okBtn" style="background:var(--danger);color:#fff">${okLabel}</button></div></div>`, (sh) => {
+    $('#okBtn', sh).onclick = (e) => busy(e.currentTarget, async () => { try { await onOk(); if (closeSheet) closeSheet(); } catch (err) { toast(errMsg(err), 'error'); } });
+  });
+}
 
-function openSellerSheet() {
+function openSellerSheet(after) {
   const p = S.profile;
   openSheet(`
     <div class="stack">
@@ -485,7 +1160,7 @@ function openSellerSheet() {
         <label class="field"><span>اسم المزرعة أو المتجر</span><input class="input" name="storeName" value="${esc(p.name)}" required></label>
         <label class="field"><span>رقم واتساب</span><input class="input ltr" name="whatsapp" type="tel" inputmode="tel" placeholder="+2499XXXXXXXX" required></label>
         <label class="field"><span>حساب بنكك (اختياري، لا يظهر إلا لمن يطلب منك)</span><input class="input ltr" name="bankak" inputmode="numeric" placeholder="رقم الحساب"></label>
-        <div class="note note-warn">${ic('shield', '').replace('class="icon ', 'style="width:20px;height:20px" class="icon ')}<span>لا تسلّم أي حيوان قبل التأكد من وصول المبلغ في تطبيق بنكك نفسه، فصور الإشعارات يمكن تزويرها.</span></div>
+        <div class="note note-warn">${ic('shield', 'style="width:20px;height:20px"')}<span>لا تسلّم أي حيوان قبل التأكد من وصول المبلغ في تطبيق بنكك نفسه، فصور الإشعارات يمكن تزويرها.</span></div>
         <button class="btn btn-primary" type="submit">تفعيل</button>
       </form>
     </div>`, (sh) => {
@@ -493,7 +1168,8 @@ function openSellerSheet() {
       e.preventDefault();
       const f = e.currentTarget;
       const storeName = f.storeName.value.trim();
-      const whatsapp = f.whatsapp.value.replace(/[\s-]/g, '');
+      let whatsapp = f.whatsapp.value.replace(/[\s-]/g, '');
+      if (/^0\d{9}$/.test(whatsapp)) whatsapp = '+249' + whatsapp.slice(1); // 0912345678 → +249912345678
       const bankak = f.bankak.value.replace(/\s/g, '');
       if (storeName.length < 2) return toast('اكتب اسم المتجر', 'error');
       if (!/^\+?\d{9,15}$/.test(whatsapp)) return toast('رقم واتساب غير صحيح', 'error');
@@ -504,7 +1180,9 @@ function openSellerSheet() {
           await updateDoc(doc(db, 'users', uid), { isSeller: true, storeName, whatsapp, updatedAt: serverTimestamp() });
           if (bankak) await setDoc(doc(db, 'users', uid, 'private', 'payout'), { bankak, updatedAt: serverTimestamp() });
           Object.assign(S.profile, { isSeller: true, storeName, whatsapp });
-          closeSheet(); haptic(); toast('تم تفعيل حساب البائع', 'success'); renderShell();
+          S.sellers[uid] = S.profile;
+          closeSheet(); haptic(); toast('تم تفعيل حساب البائع', 'success');
+          after ? after() : renderShell();
         } catch (err) { toast(errMsg(err), 'error'); }
       });
     };
@@ -527,7 +1205,7 @@ function openProfileSheet() {
       e.preventDefault();
       const f = e.currentTarget;
       const data = { name: f.name.value.trim(), state: f.state.value, city: f.city.value.trim() };
-      if (data.name.length < 2 || data.city.length < 2) return toast('أكمل الحقول', 'error');
+      if (data.name.length < 2 || !data.state || data.city.length < 2) return toast('أكمل الحقول', 'error');
       busy(f.querySelector('[type=submit]'), async () => {
         try {
           await updateDoc(doc(db, 'users', S.user.uid), { ...data, updatedAt: serverTimestamp() });
@@ -539,14 +1217,15 @@ function openProfileSheet() {
 }
 
 function onAdd() {
-  if (!S.profile.isSeller) { S.tab = 'account'; renderShell(); return openSellerSheet(); }
-  toast('إضافة الإعلانات تُطلق في المرحلة القادمة');
+  if (!S.profile.isSeller) return openSellerSheet(() => push('edit'));
+  push('edit');
 }
 
 /* ========== زر الرجوع في أندرويد ========== */
 if (isNative && P.App) {
   P.App.addListener('backButton', () => {
     if (closeSheet) return closeSheet();
+    if (S.stack.length) return pop();
     if (S.user && S.profile && S.tab !== 'home') { S.tab = 'home'; return renderShell(); }
     P.App.exitApp();
   });
@@ -555,13 +1234,16 @@ if (isNative && P.App) {
 /* ========== التشغيل ========== */
 renderLoading();
 onAuthStateChanged(auth, async (user) => {
-  S.user = user;
+  S.user = user; S.stack = []; S.listings = null; S.favs = new Set();
   if (!user) { S.profile = null; return renderLogin(); }
   renderLoading();
   try {
     S.profile = await loadProfile(user.uid);
     S.tab = 'home';
-    S.profile ? renderShell() : renderOnboarding();
+    if (!S.profile) return renderOnboarding();
+    S.sellers[user.uid] = S.profile;
+    loadFavs(user.uid).catch(() => {});
+    renderShell();
   } catch (err) {
     app.innerHTML = `<div class="screen">${viewEmpty('help', 'تعذّر الاتصال', errMsg(err))}<div class="pad"><button class="btn btn-primary" onclick="location.reload()">إعادة المحاولة</button></div></div>`;
   }
