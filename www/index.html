@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F7F3EC">
+<title>غنماية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ========== نظام التصميم ========== */
+:root{
+  --brand:#3F5A2E; --brand-dark:#2C4120; --brand-soft:#EEF2E6; --brand-tint:#D9E3C8;
+  --accent:#C8601E; --accent-soft:#FFF4E8; --accent-ink:#7A3D12;
+  --danger:#9A2E1C; --danger-soft:#F8E9E5;
+  --bg:#F7F3EC; --surface:#FFFFFF; --line:#ECE6DB; --line-soft:#F1ECE3;
+  --ink:#1F1D1A; --ink-2:#45413B; --muted:#6B655C;
+  --r-sm:12px; --r-md:14px; --r-lg:18px; --r-xl:24px;
+  --shadow:0 1px 3px rgba(31,29,26,.07);
+  --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --brand:#8DB06F; --brand-dark:#A9C78E; --brand-soft:#26301F; --brand-tint:#3A4A2C;
+    --accent:#E07A38; --accent-soft:#3A2618; --accent-ink:#F3B98F;
+    --danger:#E0745F; --danger-soft:#3A201B;
+    --bg:#151412; --surface:#201E1B; --line:#2E2B27; --line-soft:#2A2723;
+    --ink:#F2EEE7; --ink-2:#D5CFC5; --muted:#A39C91;
+    --shadow:none;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;font-size:15px;line-height:1.6;overscroll-behavior:none}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.icon{width:22px;height:22px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.hidden{display:none!important}
+
+/* شاشات */
+.screen{min-height:100%;display:flex;flex-direction:column;padding-top:var(--safe-t);animation:in .25s ease}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.pad{padding:20px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;align-items:center;gap:10px}
+.grow{flex:1;min-width:0}
+h1{margin:0;font-size:24px;font-weight:700;line-height:1.35}
+h2{margin:0;font-size:17px;font-weight:700}
+.muted{color:var(--muted);font-size:13px}
+
+/* أزرار */
+.btn{border:0;height:52px;border-radius:16px;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;transition:transform .12s,opacity .2s}
+.btn:active{transform:scale(.98)}
+.btn[disabled]{opacity:.55;pointer-events:none}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.btn-link{background:none;border:0;color:var(--brand);font-weight:700;font-size:14px;padding:10px 4px}
+.btn-danger-link{background:none;border:0;color:var(--danger);font-weight:700;font-size:14px;padding:12px}
+.icon-btn{width:44px;height:44px;border-radius:var(--r-md);background:var(--surface);border:0;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow)}
+
+/* حقول */
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:13px;font-weight:500;color:var(--ink-2)}
+.input{height:50px;border-radius:var(--r-sm);background:var(--surface);border:1.5px solid var(--line);padding:0 14px;font-size:15px;outline:none;width:100%;transition:border-color .2s}
+.input:focus{border-color:var(--brand)}
+.card .input{background:var(--bg);border-color:transparent}
+.card .input:focus{border-color:var(--brand)}
+select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236B655C' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left 14px center}
+.ltr{direction:ltr;text-align:right}
+
+.card{background:var(--surface);border-radius:var(--r-lg);padding:16px;box-shadow:var(--shadow)}
+.badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:8px;background:var(--brand-soft);color:var(--brand)}
+
+/* تبويبات مقسّمة */
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--line);border-radius:var(--r-md);padding:4px}
+.seg button{border:0;background:none;height:42px;border-radius:11px;font-weight:500;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:var(--shadow)}
+
+/* الدخول */
+.hero{background:var(--brand);color:#fff;border-radius:0 0 32px 32px;padding:calc(36px + var(--safe-t)) 24px 32px;display:flex;flex-direction:column;gap:14px}
+.logo{width:60px;height:60px;border-radius:18px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center}
+.hero p{margin:0;color:var(--brand-tint);font-size:15px}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.google{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+
+/* الهيكل والتنقل */
+.shell{min-height:100%;padding-bottom:calc(84px + var(--safe-b))}
+.tabbar{position:fixed;bottom:0;left:0;right:0;height:calc(72px + var(--safe-b));padding-bottom:var(--safe-b);background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:flex-start;padding-top:8px;z-index:20}
+.tab{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--muted);min-width:58px;min-height:48px}
+.tab.on{color:var(--brand);font-weight:700}
+.tab.on .icon{fill:currentColor;stroke:currentColor}
+.fab{width:52px;height:52px;margin-top:-22px;border-radius:18px;background:var(--accent);color:#fff;border:0;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 14px rgba(200,96,30,.3)}
+.fab .icon{width:26px;height:26px;stroke-width:2.2}
+
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:60px 24px;color:var(--muted)}
+.empty .circle{width:76px;height:76px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center}
+.empty .circle .icon{width:34px;height:34px}
+.empty h2{color:var(--ink)}
+
+/* الحساب */
+.avatar{width:64px;height:64px;border-radius:50%;background:var(--brand-tint);color:var(--brand-dark);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;flex-shrink:0;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.seller-cta{border:1.5px dashed var(--brand-tint)}
+.tile{width:48px;height:48px;border-radius:var(--r-md);background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.menu{padding:4px 14px}
+.menu button{width:100%;border:0;background:none;display:flex;align-items:center;gap:12px;min-height:52px;border-bottom:1px solid var(--line-soft);font-size:15px;text-align:right}
+.menu button:last-child{border-bottom:0}
+.menu .icon{color:var(--muted);width:18px;height:18px}
+
+/* نافذة سفلية */
+.sheet-bg{position:fixed;inset:0;background:rgba(31,29,26,.45);z-index:40;animation:fade .2s}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:92%;overflow-y:auto;background:var(--surface);border-radius:28px 28px 0 0;padding:10px 20px calc(24px + var(--safe-b));z-index:41;animation:up .28s cubic-bezier(.2,.8,.2,1)}
+.sheet .grip{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 12px}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* تنبيهات */
+.note{display:flex;gap:10px;align-items:flex-start;border-radius:var(--r-md);padding:12px 14px;font-size:13px;line-height:1.7}
+.note-ok{background:var(--brand-soft);color:var(--brand-dark)}
+.note-warn{background:var(--accent-soft);color:var(--accent-ink)}
+
+.toast{position:fixed;bottom:calc(96px + var(--safe-b));left:50%;transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:12px 20px;border-radius:16px;font-size:14px;opacity:0;transition:all .25s;z-index:99;max-width:calc(100% - 40px);text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.toast.error{background:var(--danger);color:#fff}
+.toast.success{background:var(--brand);color:#fff}
+
+.spinner{width:28px;height:28px;border-radius:50%;border:3px solid var(--brand-tint);border-top-color:var(--brand);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.center{flex:1;display:flex;align-items:center;justify-content:center}
+</style>
+</head>
+<body>
+
+<!-- ========== الأيقونات (SVG sprite مضمّن، يعمل بدون إنترنت) ========== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 7h14l-1.2 12.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8z"/><path d="M9 7a3 3 0 0 1 6 0"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 10l1.5-5h13L20 10M4 10v10h16V10M4 10h16"/><path d="M10 20v-5h4v5"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M16 12.5h2M3 10h18"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l9 4v5c0 5-4 8.5-9 9-5-.5-9-4-9-9V7z"/><path d="M8.5 12l2.5 2.5 4.5-4.5"/></symbol>
+  <symbol id="i-badge" viewBox="0 0 24 24"><path d="M12 2l2.4 1.8 3-.1.9 2.9 2.4 1.8-1 2.8 1 2.8-2.4 1.8-.9 2.9-3-.1L12 22l-2.4-1.8-3 .1-.9-2.9-2.4-1.8 1-2.8-1-2.8 2.4-1.8.9-2.9 3 .1z"/><path d="M8.5 12l2.3 2.3 4.7-4.6"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.4M12 17v.3"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 2h6l1-2h5"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M6 9c-1.5-.5-3-2-3-4 2 0 3.5 1 4.2 2.2M18 9c1.5-.5 3-2 3-4-2 0-3.5 1-4.2 2.2"/><path d="M7 8.5C7 6 9.2 4.5 12 4.5S17 6 17 8.5V13c0 3.5-2.2 6.5-5 6.5S7 16.5 7 13z"/><path d="M10 12h.01M14 12h.01M10.5 16c1 .7 2 .7 3 0"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></symbol>
+</svg>
+
+<div id="app"></div>
+
+<script type="module">
+/* ========== Firebase ========== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithCredential,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail,
+  updateProfile, signOut
+} from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDT2eTXJ5gkXh31W5MoOmHfHmOrveKTkU8",
+  authDomain: "ghanamaya-4e639.firebaseapp.com",
+  projectId: "ghanamaya-4e639",
+  storageBucket: "ghanamaya-4e639.firebasestorage.app",
+  messagingSenderId: "613815409706",
+  appId: "1:613815409706:web:521b1514afd1bc2e16f753",
+  measurementId: "G-1M90J4DLHL"
+};
+const fb = initializeApp(firebaseConfig);
+const auth = getAuth(fb);
+const db = getFirestore(fb);
+
+/* ========== Capacitor (Plugins الأصلية متاحة عبر window.Capacitor) ========== */
+const Cap = window.Capacitor;
+const isNative = !!(Cap && Cap.isNativePlatform && Cap.isNativePlatform());
+const P = (Cap && Cap.Plugins) || {};
+
+/* ========== ثوابت ========== */
+const STATES = ['الخرطوم','الجزيرة','نهر النيل','الشمالية','البحر الأحمر','كسلا','القضارف','سنار','النيل الأبيض','النيل الأزرق','شمال كردفان','جنوب كردفان','غرب كردفان','شمال دارفور','جنوب دارفور','شرق دارفور','غرب دارفور','وسط دارفور'];
+
+/* ========== أدوات ========== */
+const $ = (s, r = document) => r.querySelector(s);
+const app = $('#app');
+const ic = (n, cls = '') => `<svg class="icon ${cls}"><use href="#i-${n}"/></svg>`;
+const esc = (s = '') => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const initial = (n) => (n || '؟').trim().charAt(0);
+
+function toast(msg, type = '') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + type; t.textContent = msg; t.setAttribute('role', 'status');
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3200);
+}
+function haptic() { try { P.Haptics && P.Haptics.impact({ style: 'LIGHT' }); } catch (e) {} }
+
+const ERR = {
+  'auth/invalid-credential': 'البريد أو كلمة المرور غير صحيحة',
+  'auth/user-not-found': 'هذا البريد غير مسجل',
+  'auth/wrong-password': 'كلمة المرور غير صحيحة',
+  'auth/email-already-in-use': 'هذا البريد مسجل مسبقاً، سجّل الدخول',
+  'auth/weak-password': 'كلمة المرور قصيرة، استخدم 6 أحرف على الأقل',
+  'auth/invalid-email': 'صيغة البريد غير صحيحة',
+  'auth/too-many-requests': 'محاولات كثيرة، انتظر قليلاً ثم حاول',
+  'auth/network-request-failed': 'لا يوجد اتصال بالإنترنت',
+  'auth/popup-closed-by-user': 'أُلغي تسجيل الدخول',
+  'permission-denied': 'ليس لديك صلاحية لهذا الإجراء',
+  'unavailable': 'الخدمة غير متاحة الآن، تحقق من الإنترنت'
+};
+const errMsg = (e) => ERR[e && e.code] || 'حدث خطأ، حاول مرة أخرى';
+
+async function busy(btn, fn) {
+  const old = btn.innerHTML; btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:22px;height:22px;border-width:2.5px;border-color:rgba(255,255,255,.4);border-top-color:#fff"></span>';
+  try { return await fn(); } finally { btn.disabled = false; btn.innerHTML = old; }
+}
+
+/* ========== الحالة ========== */
+const S = { user: null, profile: null, tab: 'home', loginMode: 'in' };
+
+/* ========== الملف الشخصي ========== */
+async function loadProfile(uid) {
+  const snap = await getDoc(doc(db, 'users', uid));
+  return snap.exists() ? snap.data() : null;
+}
+
+/* ========== المصادقة ========== */
+async function googleSignIn() {
+  if (isNative && P.FirebaseAuthentication) {
+    // تسجيل أصلي على أندرويد ثم تمرير التوكن للـ Web SDK
+    const res = await P.FirebaseAuthentication.signInWithGoogle({ skipNativeAuth: true });
+    const cred = GoogleAuthProvider.credential(res.credential && res.credential.idToken);
+    await signInWithCredential(auth, cred);
+  } else {
+    await signInWithPopup(auth, new GoogleAuthProvider());
+  }
+}
+
+/* ========== الشاشات ========== */
+function renderLoading() {
+  app.innerHTML = `<div class="screen"><div class="center"><div class="spinner" aria-label="جارٍ التحميل"></div></div></div>`;
+}
+
+function renderLogin() {
+  const up = S.loginMode === 'up';
+  app.innerHTML = `
+  <div class="screen">
+    <div class="hero">
+      <div class="logo">${ic('logo', '').replace('class="icon ', 'style="width:34px;height:34px;stroke:#fff" class="icon ')}</div>
+      <h1 style="color:#fff">أهلاً بك في غنماية</h1>
+      <p>سوق المواشي الموثوق في السودان. اشترِ وبِع الماعز والضأن بأمان.</p>
+    </div>
+    <form id="authForm" class="pad stack" novalidate>
+      <div class="seg" role="tablist">
+        <button type="button" role="tab" data-mode="in" class="${up ? '' : 'on'}" aria-selected="${!up}">تسجيل الدخول</button>
+        <button type="button" role="tab" data-mode="up" class="${up ? 'on' : ''}" aria-selected="${up}">حساب جديد</button>
+      </div>
+      ${up ? `<label class="field"><span>الاسم الكامل</span><input class="input" name="name" autocomplete="name" required></label>` : ''}
+      <label class="field"><span>البريد الإلكتروني</span><input class="input ltr" name="email" type="email" autocomplete="email" inputmode="email" required></label>
+      <label class="field"><span>كلمة المرور</span><input class="input ltr" name="password" type="password" autocomplete="${up ? 'new-password' : 'current-password'}" minlength="6" required></label>
+      ${up ? '' : `<button type="button" class="btn-link" id="forgot" style="align-self:flex-start;margin-top:-6px">نسيت كلمة المرور؟</button>`}
+      <button class="btn btn-primary" type="submit">${up ? 'إنشاء الحساب' : 'دخول'}</button>
+      <div class="divider">أو</div>
+      <button type="button" class="btn google" id="googleBtn">
+        <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+        المتابعة بحساب Google
+      </button>
+      <p class="muted" style="text-align:center;margin:4px 0 0">بالمتابعة أنت توافق على شروط الاستخدام وسياسة الخصوصية.</p>
+    </form>
+  </div>`;
+
+  app.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { S.loginMode = b.dataset.mode; renderLogin(); });
+  $('#googleBtn').onclick = (e) => busy(e.currentTarget, async () => {
+    try { await googleSignIn(); } catch (err) { toast(errMsg(err), 'error'); }
+  });
+  const forgot = $('#forgot');
+  if (forgot) forgot.onclick = async () => {
+    const email = $('#authForm').email.value.trim();
+    if (!email) return toast('اكتب بريدك أولاً ثم اضغط "نسيت كلمة المرور"');
+    try { await sendPasswordResetEmail(auth, email); toast('أرسلنا رابط إعادة التعيين لبريدك', 'success'); }
+    catch (err) { toast(errMsg(err), 'error'); }
+  };
+  $('#authForm').onsubmit = (e) => {
+    e.preventDefault();
+    const f = e.currentTarget, btn = f.querySelector('[type=submit]');
+    const email = f.email.value.trim(), pass = f.password.value;
+    if (up && f.name.value.trim().length < 2) return toast('اكتب اسمك الكامل', 'error');
+    busy(btn, async () => {
+      try {
+        if (up) {
+          const { user } = await createUserWithEmailAndPassword(auth, email, pass);
+          await updateProfile(user, { displayName: f.name.value.trim() });
+        } else {
+          await signInWithEmailAndPassword(auth, email, pass);
+        }
+      } catch (err) { toast(errMsg(err), 'error'); }
+    });
+  };
+}
+
+function stateOptions(sel) {
+  return `<option value="" disabled ${sel ? '' : 'selected'}>اختر الولاية</option>` +
+    STATES.map(s => `<option ${s === sel ? 'selected' : ''}>${s}</option>`).join('');
+}
+
+function renderOnboarding() {
+  const u = S.user;
+  app.innerHTML = `
+  <div class="screen pad stack" style="gap:20px">
+    <div class="stack" style="gap:6px;margin-top:20px">
+      <h1>أكمل ملفك</h1>
+      <p class="muted" style="margin:0;font-size:14px">نحتاج موقعك لنعرض لك المواشي القريبة منك.</p>
+    </div>
+    <form id="ob" class="card stack" novalidate>
+      <label class="field"><span>الاسم</span><input class="input" name="name" value="${esc(u.displayName || '')}" autocomplete="name" required></label>
+      <label class="field"><span>الولاية</span><select class="input" name="state" required>${stateOptions('')}</select></label>
+      <label class="field"><span>المدينة أو الحي</span><input class="input" name="city" placeholder="مثال: بحري، الحلفايا" required></label>
+    </form>
+    <button class="btn btn-primary" id="obSave">ابدأ التصفح</button>
+  </div>`;
+  $('#obSave').onclick = (e) => {
+    const f = $('#ob');
+    const data = { name: f.name.value.trim(), state: f.state.value, city: f.city.value.trim() };
+    if (data.name.length < 2 || !data.state || data.city.length < 2) return toast('أكمل كل الحقول', 'error');
+    busy(e.currentTarget, async () => {
+      try {
+        const profile = {
+          ...data, photo: u.photoURL || '', isSeller: false,
+          createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+        };
+        await setDoc(doc(db, 'users', u.uid), profile);
+        S.profile = { ...profile, verified: false };
+        haptic(); renderShell();
+      } catch (err) { toast(errMsg(err), 'error'); }
+    });
+  };
+}
+
+/* ---------- الهيكل والتبويبات ---------- */
+const TABS = [
+  { id: 'home', label: 'الرئيسية', icon: 'home' },
+  { id: 'chats', label: 'المحادثات', icon: 'chat' },
+  { id: 'add', fab: true },
+  { id: 'orders', label: 'طلباتي', icon: 'bag' },
+  { id: 'account', label: 'حسابي', icon: 'user' }
+];
+
+function renderShell() {
+  const body = {
+    home: viewHome, chats: () => viewEmpty('chat', 'لا توجد محادثات بعد', 'عندما تتواصل مع بائع أو مشترٍ ستظهر محادثاتك هنا.'),
+    orders: () => viewEmpty('bag', 'لا توجد طلبات بعد', 'طلباتك ومشترياتك ستظهر هنا.'),
+    account: viewAccount
+  }[S.tab]();
+  app.innerHTML = `
+  <div class="screen shell">${body}</div>
+  <nav class="tabbar" aria-label="التنقل الرئيسي">
+    ${TABS.map(t => t.fab
+      ? `<button class="fab" data-tab="add" aria-label="أضف إعلان">${ic('plus')}</button>`
+      : `<button class="tab ${S.tab === t.id ? 'on' : ''}" data-tab="${t.id}" ${S.tab === t.id ? 'aria-current="page"' : ''}>${ic(t.icon)}${t.label}</button>`).join('')}
+  </nav>`;
+  app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => {
+    const id = b.dataset.tab;
+    if (id === 'add') return onAdd();
+    S.tab = id; haptic(); renderShell(); window.scrollTo(0, 0);
+  });
+  if (S.tab === 'account') bindAccount();
+}
+
+function viewEmpty(icon, title, text) {
+  return `<div class="empty"><div class="circle">${ic(icon)}</div><h2>${title}</h2><p style="margin:0;max-width:260px">${text}</p></div>`;
+}
+
+function viewHome() {
+  const p = S.profile;
+  return `
+  <div class="pad stack" style="gap:18px">
+    <div class="row">
+      <div class="grow">
+        <span class="muted">موقعك</span>
+        <div class="row" style="gap:4px;font-weight:700;font-size:16px">${ic('pin', '').replace('class="icon ', 'style="width:18px;height:18px;color:var(--brand)" class="icon ')}${esc(p.city)}، ${esc(p.state)}</div>
+      </div>
+      <button class="icon-btn" aria-label="الإشعارات">${ic('bell')}</button>
+    </div>
+    <div class="card" style="background:var(--brand);color:#fff;padding:20px">
+      <span style="font-size:12px;color:var(--brand-tint);font-weight:500">قريباً</span>
+      <h2 style="color:#fff;font-size:19px;margin-top:4px">الإعلانات في الطريق</h2>
+      <p style="margin:6px 0 0;color:var(--brand-tint);font-size:14px">نجهّز السوق الآن. ابدأ بتفعيل حساب البائع لتكون من أوائل من ينشرون مواشيهم.</p>
+    </div>
+    ${viewEmpty('store', 'لا توجد إعلانات بعد', 'كن أول من يعرض ماعزه أو ضأنه في منطقتك.')}
+  </div>`;
+}
+
+function viewAccount() {
+  const p = S.profile, u = S.user;
+  const avatar = p.photo ? `<img src="${esc(p.photo)}" alt="">` : esc(initial(p.name));
+  const role = p.isSeller ? 'مشترٍ وبائع' : 'مشترٍ';
+  return `
+  <div class="pad stack" style="gap:18px">
+    <div class="row" style="gap:14px">
+      <div class="avatar">${avatar}</div>
+      <div class="grow">
+        <div class="row" style="gap:6px;font-size:18px;font-weight:700">${esc(p.name)}
+          ${p.verified ? ic('badge', '').replace('class="icon ', 'style="width:18px;height:18px;fill:var(--brand);stroke:#fff" aria-label="تاجر موثّق" class="icon ') : ''}
+        </div>
+        <span class="muted">${role} · ${esc(p.city)}</span>
+      </div>
+      <button class="icon-btn" id="editProfile" aria-label="تعديل الملف">${ic('edit')}</button>
+    </div>
+
+    <button class="card row" style="border:0;background:var(--brand);color:#fff;text-align:right;width:100%" id="walletCard">
+      ${ic('wallet', '').replace('class="icon ', 'style="width:26px;height:26px;color:var(--brand-tint)" class="icon ')}
+      <span class="grow" style="display:flex;flex-direction:column"><span style="font-size:12px;color:var(--brand-tint)">المحفظة الرقمية</span><span style="font-weight:700">قريباً</span></span>
+      ${ic('chev')}
+    </button>
+
+    ${p.isSeller ? `
+    <div class="card stack">
+      <div class="row"><h2 class="grow">حساب البائع</h2><span class="badge">مفعّل</span></div>
+      <div class="muted" style="font-size:14px">${esc(p.storeName || '')} · <span class="ltr" style="display:inline-block">${esc(p.whatsapp || '')}</span></div>
+      ${p.verified ? '' : `<div class="note note-ok">${ic('badge', '').replace('class="icon ', 'style="width:20px;height:20px" class="icon ')}<span class="grow">احصل على شارة <strong>تاجر موثّق</strong> لثقة أكبر. سيُفتح طلب التوثيق مع إطلاق الإعلانات.</span></div>`}
+    </div>` : `
+    <div class="card seller-cta stack">
+      <div class="row" style="gap:12px">
+        <div class="tile">${ic('store')}</div>
+        <div class="grow"><h2>ابدأ البيع على غنماية</h2><span class="muted">اعرض مواشيك لآلاف المشترين، مجاناً.</span></div>
+      </div>
+      <button class="btn btn-accent" id="becomeSeller">فعّل حساب البائع</button>
+    </div>`}
+
+    <nav class="card menu" aria-label="إعدادات الحساب">
+      ${p.isSeller ? `<button data-soon>${ic('list', '').replace('class="icon ', 'style="width:20px;height:20px;color:var(--ink-2)" class="icon ')}<span class="grow">إعلاناتي</span>${ic('chev')}</button>
+      <button data-soon>${ic('inbox', '').replace('class="icon ', 'style="width:20px;height:20px;color:var(--ink-2)" class="icon ')}<span class="grow">الطلبات الواردة</span>${ic('chev')}</button>` : ''}
+      <button data-soon>${ic('heart', '').replace('class="icon ', 'style="width:20px;height:20px;color:var(--ink-2)" class="icon ')}<span class="grow">المفضلة</span>${ic('chev')}</button>
+      <button data-soon>${ic('bell', '').replace('class="icon ', 'style="width:20px;height:20px;color:var(--ink-2)" class="icon ')}<span class="grow">الإشعارات</span>${ic('chev')}</button>
+      <button data-soon>${ic('help', '').replace('class="icon ', 'style="width:20px;height:20px;color:var(--ink-2)" class="icon ')}<span class="grow">المساعدة والدعم</span>${ic('chev')}</button>
+    </nav>
+    <span class="muted" style="text-align:center">${esc(u.email || '')}</span>
+    <button class="btn-danger-link" id="logout" style="align-self:center">تسجيل الخروج</button>
+  </div>`;
+}
+
+function bindAccount() {
+  const bs = $('#becomeSeller'); if (bs) bs.onclick = openSellerSheet;
+  $('#logout').onclick = async () => { await signOut(auth); };
+  $('#editProfile').onclick = openProfileSheet;
+  $('#walletCard').onclick = () => toast('المحفظة الرقمية تُطلق في مرحلة لاحقة');
+  app.querySelectorAll('[data-soon]').forEach(b => b.onclick = () => toast('هذا القسم قيد التجهيز'));
+}
+
+/* ---------- نافذة سفلية عامة ---------- */
+let closeSheet = null;
+function openSheet(html, onMount) {
+  const bg = document.createElement('div'); bg.className = 'sheet-bg';
+  const sh = document.createElement('div'); sh.className = 'sheet'; sh.setAttribute('role', 'dialog');
+  sh.innerHTML = `<div class="grip"></div>${html}`;
+  document.body.append(bg, sh);
+  closeSheet = () => { bg.remove(); sh.remove(); closeSheet = null; };
+  bg.onclick = closeSheet;
+  sh.querySelectorAll('[data-close]').forEach(b => b.onclick = closeSheet);
+  onMount && onMount(sh);
+}
+
+function openSellerSheet() {
+  const p = S.profile;
+  openSheet(`
+    <div class="stack">
+      <div class="row"><h2 class="grow" style="font-size:19px">تفعيل حساب البائع</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
+      <p class="muted" style="margin:-6px 0 0;font-size:14px">هذه البيانات تظهر للمشترين في إعلاناتك.</p>
+      <form id="sf" class="stack" novalidate>
+        <label class="field"><span>اسم المزرعة أو المتجر</span><input class="input" name="storeName" value="${esc(p.name)}" required></label>
+        <label class="field"><span>رقم واتساب</span><input class="input ltr" name="whatsapp" type="tel" inputmode="tel" placeholder="+2499XXXXXXXX" required></label>
+        <label class="field"><span>حساب بنكك (اختياري، لا يظهر إلا لمن يطلب منك)</span><input class="input ltr" name="bankak" inputmode="numeric" placeholder="رقم الحساب"></label>
+        <div class="note note-warn">${ic('shield', '').replace('class="icon ', 'style="width:20px;height:20px" class="icon ')}<span>لا تسلّم أي حيوان قبل التأكد من وصول المبلغ في تطبيق بنكك نفسه، فصور الإشعارات يمكن تزويرها.</span></div>
+        <button class="btn btn-primary" type="submit">تفعيل</button>
+      </form>
+    </div>`, (sh) => {
+    $('#sf', sh).onsubmit = (e) => {
+      e.preventDefault();
+      const f = e.currentTarget;
+      const storeName = f.storeName.value.trim();
+      const whatsapp = f.whatsapp.value.replace(/[\s-]/g, '');
+      const bankak = f.bankak.value.replace(/\s/g, '');
+      if (storeName.length < 2) return toast('اكتب اسم المتجر', 'error');
+      if (!/^\+?\d{9,15}$/.test(whatsapp)) return toast('رقم واتساب غير صحيح', 'error');
+      if (bankak && !/^\d{6,20}$/.test(bankak)) return toast('رقم حساب بنكك غير صحيح', 'error');
+      busy(f.querySelector('[type=submit]'), async () => {
+        try {
+          const uid = S.user.uid;
+          await updateDoc(doc(db, 'users', uid), { isSeller: true, storeName, whatsapp, updatedAt: serverTimestamp() });
+          if (bankak) await setDoc(doc(db, 'users', uid, 'private', 'payout'), { bankak, updatedAt: serverTimestamp() });
+          Object.assign(S.profile, { isSeller: true, storeName, whatsapp });
+          closeSheet(); haptic(); toast('تم تفعيل حساب البائع', 'success'); renderShell();
+        } catch (err) { toast(errMsg(err), 'error'); }
+      });
+    };
+  });
+}
+
+function openProfileSheet() {
+  const p = S.profile;
+  openSheet(`
+    <div class="stack">
+      <div class="row"><h2 class="grow" style="font-size:19px">تعديل الملف</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
+      <form id="pf" class="stack" novalidate>
+        <label class="field"><span>الاسم</span><input class="input" name="name" value="${esc(p.name)}" required></label>
+        <label class="field"><span>الولاية</span><select class="input" name="state">${stateOptions(p.state)}</select></label>
+        <label class="field"><span>المدينة أو الحي</span><input class="input" name="city" value="${esc(p.city)}" required></label>
+        <button class="btn btn-primary" type="submit">حفظ</button>
+      </form>
+    </div>`, (sh) => {
+    $('#pf', sh).onsubmit = (e) => {
+      e.preventDefault();
+      const f = e.currentTarget;
+      const data = { name: f.name.value.trim(), state: f.state.value, city: f.city.value.trim() };
+      if (data.name.length < 2 || data.city.length < 2) return toast('أكمل الحقول', 'error');
+      busy(f.querySelector('[type=submit]'), async () => {
+        try {
+          await updateDoc(doc(db, 'users', S.user.uid), { ...data, updatedAt: serverTimestamp() });
+          Object.assign(S.profile, data); closeSheet(); toast('تم الحفظ', 'success'); renderShell();
+        } catch (err) { toast(errMsg(err), 'error'); }
+      });
+    };
+  });
+}
+
+function onAdd() {
+  if (!S.profile.isSeller) { S.tab = 'account'; renderShell(); return openSellerSheet(); }
+  toast('إضافة الإعلانات تُطلق في المرحلة القادمة');
+}
+
+/* ========== زر الرجوع في أندرويد ========== */
+if (isNative && P.App) {
+  P.App.addListener('backButton', () => {
+    if (closeSheet) return closeSheet();
+    if (S.user && S.profile && S.tab !== 'home') { S.tab = 'home'; return renderShell(); }
+    P.App.exitApp();
+  });
+}
+
+/* ========== التشغيل ========== */
+renderLoading();
+onAuthStateChanged(auth, async (user) => {
+  S.user = user;
+  if (!user) { S.profile = null; return renderLogin(); }
+  renderLoading();
+  try {
+    S.profile = await loadProfile(user.uid);
+    S.tab = 'home';
+    S.profile ? renderShell() : renderOnboarding();
+  } catch (err) {
+    app.innerHTML = `<div class="screen">${viewEmpty('help', 'تعذّر الاتصال', errMsg(err))}<div class="pad"><button class="btn btn-primary" onclick="location.reload()">إعادة المحاولة</button></div></div>`;
+  }
+});
+</script>
+</body>
+</html>

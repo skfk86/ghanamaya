@@ -1,0 +1,7 @@
+node_modules/
+android/
+service-account*.json
+.env*
+.vercel
+# ملاحظة: signing/ghanamaya.keystore و google-services.json مرفوعان عمداً
+# لذلك يجب أن يبقى هذا المستودع خاصاً (Private)

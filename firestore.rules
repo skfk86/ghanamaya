@@ -1,0 +1,72 @@
+rules_version = '2';
+// غنماية — قواعد الأمان (المرحلة الأولى)
+// المبدأ: التطبيق لا يكتب أبداً على المال أو الصلاحيات أو التوثيق. كل ذلك من السيرفر (Admin SDK يتجاوز هذه القواعد).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isMe(uid) { return signedIn() && request.auth.uid == uid; }
+    function isAdmin() { return signedIn() && request.auth.token.admin == true; }
+    function str(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+
+    // الحقول التي يحق للمستخدم كتابتها في ملفه
+    function userFields() {
+      return ['name', 'photo', 'state', 'city', 'isSeller', 'storeName', 'whatsapp',
+              'fcmToken', 'createdAt', 'updatedAt'];
+    }
+    function validUser(d) {
+      return str(d.name, 2, 60)
+        && str(d.state, 2, 40)
+        && str(d.city, 2, 60)
+        && (!('photo' in d) || str(d.photo, 0, 500))
+        && (!('isSeller' in d) || d.isSeller is bool)
+        && (!('storeName' in d) || str(d.storeName, 2, 60))
+        && (!('whatsapp' in d) || d.whatsapp.matches('^\\+?[0-9]{9,15}$'))
+        && (!('fcmToken' in d) || str(d.fcmToken, 0, 400));
+    }
+    // البائع لا يستطيع إلغاء البيع من التطبيق بعد التفعيل (يتم عبر الدعم)
+    function sellerNotDowngraded() {
+      return !(resource.data.get('isSeller', false) == true && request.resource.data.get('isSeller', false) == false);
+    }
+    // التفعيل كبائع يتطلب اسم متجر وواتساب
+    function sellerComplete(d) {
+      return d.get('isSeller', false) == false || ('storeName' in d && 'whatsapp' in d);
+    }
+
+    // ===== المستخدمون (ملف عام: يُقرأ من أي مستخدم مسجّل) =====
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create: if isMe(uid)
+        && request.resource.data.keys().hasOnly(userFields())
+        && validUser(request.resource.data)
+        && request.resource.data.get('isSeller', false) == false;
+      allow update: if isMe(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userFields())
+        && validUser(request.resource.data)
+        && sellerNotDowngraded()
+        && sellerComplete(request.resource.data);
+      allow delete: if false;
+
+      // ===== بيانات خاصة (حساب بنكك): للمالك والأدمن فقط =====
+      match /private/{docId} {
+        allow read: if isMe(uid) || isAdmin();
+        allow write: if isMe(uid) && docId == 'payout'
+          && request.resource.data.keys().hasOnly(['bankak', 'updatedAt'])
+          && request.resource.data.bankak.matches('^[0-9]{6,20}$');
+      }
+    }
+
+    // ===== الإعدادات العامة (العمولة، السلالات...) =====
+    match /settings/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ===== مجموعات المراحل القادمة: مغلقة حتى تُكتب قواعدها =====
+    // listings, chats, orders, wallets, transactions, withdrawals, reviews, reports, blocks
+    match /{document=**} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+  }
+}
