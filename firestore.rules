@@ -109,6 +109,69 @@ service cloud.firestore {
       allow delete: if isAdmin() || (signedIn() && resource.data.sellerId == request.auth.uid);
     }
 
+    // ===== الحظر: كل مستخدم يدير قائمته =====
+    match /users/{uid}/blocks/{otherId} {
+      allow read, delete: if isMe(uid);
+      allow create: if isMe(uid) && otherId != uid && request.resource.data.keys().hasOnly(['createdAt']);
+    }
+    function blockedBy(owner, other) {
+      return exists(/databases/$(database)/documents/users/$(owner)/blocks/$(other));
+    }
+
+    // ===== المحادثات: واحدة لكل (إعلان + مشترٍ) ومعرّفها listingId_buyerId =====
+    function chatDoc(chatId) { return get(/databases/$(database)/documents/chats/$(chatId)).data; }
+    function inChat(chatId) { return signedIn() && request.auth.uid in chatDoc(chatId).participants; }
+    function otherOf(c) { return c.participants[0] == request.auth.uid ? c.participants[1] : c.participants[0]; }
+
+    match /chats/{chatId} {
+      allow read: if signedIn() && (resource == null || request.auth.uid in resource.data.participants);
+
+      allow create: if signedIn()
+        && request.resource.data.buyerId == request.auth.uid
+        && chatId == request.resource.data.listingId + '_' + request.auth.uid
+        && request.resource.data.sellerId == get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.sellerId
+        && request.resource.data.sellerId != request.auth.uid
+        && request.resource.data.participants == [request.auth.uid, request.resource.data.sellerId]
+        && !blockedBy(request.resource.data.sellerId, request.auth.uid)
+        && request.resource.data.keys().hasOnly(['listingId', 'buyerId', 'sellerId', 'participants', 'buyerName', 'sellerName',
+             'listingTitle', 'listingImage', 'listingPrice', 'lastMessage', 'lastSenderId', 'updatedAt', 'readAt', 'createdAt']);
+
+      allow update: if signedIn() && request.auth.uid in resource.data.participants
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessage', 'lastSenderId', 'updatedAt', 'readAt'])
+        && (!('lastSenderId' in request.resource.data) || request.resource.data.lastSenderId == request.auth.uid
+            || request.resource.data.lastSenderId == resource.data.get('lastSenderId', ''));
+
+      match /messages/{msgId} {
+        allow read: if inChat(chatId);
+
+        allow create: if inChat(chatId)
+          && request.resource.data.senderId == request.auth.uid
+          && !blockedBy(otherOf(chatDoc(chatId)), request.auth.uid)
+          && request.resource.data.keys().hasOnly(['senderId', 'kind', 'text', 'imageUrl', 'offer', 'createdAt'])
+          && (
+            (request.resource.data.kind == 'text' && str(request.resource.data.text, 1, 1000))
+            || (request.resource.data.kind == 'image' && request.resource.data.imageUrl.matches('^https://ik\\.imagekit\\.io/7uwbsw4wl/.*'))
+            || (request.resource.data.kind == 'offer'
+                && request.resource.data.offer.price is int && request.resource.data.offer.price > 0
+                && request.resource.data.offer.qty is int && request.resource.data.offer.qty >= 1 && request.resource.data.offer.qty <= 999
+                && request.resource.data.offer.status == 'pending'
+                && request.resource.data.offer.expiresAt is int)
+          );
+
+        // الطرف الآخر فقط يرد على العرض، مرة واحدة، وقبل انتهاء صلاحيته
+        allow update: if inChat(chatId)
+          && resource.data.kind == 'offer'
+          && resource.data.senderId != request.auth.uid
+          && resource.data.offer.status == 'pending'
+          && request.time.toMillis() < resource.data.offer.expiresAt
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['offer'])
+          && request.resource.data.offer.price == resource.data.offer.price
+          && request.resource.data.offer.qty == resource.data.offer.qty
+          && request.resource.data.offer.expiresAt == resource.data.offer.expiresAt
+          && request.resource.data.offer.status in ['accepted', 'rejected', 'countered'];
+      }
+    }
+
     // ===== الإعدادات العامة (العمولة، السلالات...) =====
     match /settings/{id} {
       allow read: if signedIn();
@@ -116,7 +179,7 @@ service cloud.firestore {
     }
 
     // ===== مجموعات المراحل القادمة: مغلقة حتى تُكتب قواعدها =====
-    // chats, orders, wallets, transactions, withdrawals, reviews, reports, blocks
+    // orders, wallets, transactions, withdrawals, reviews, reports, blocks
     match /{document=**} {
       allow read: if isAdmin();
       allow write: if false;

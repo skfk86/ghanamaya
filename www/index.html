@@ -231,6 +231,52 @@ html,body{overflow-x:hidden;max-width:100%}
 .switch::after{content:"";position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:right .2s}
 .switch.on{background:var(--brand)}
 .switch.on::after{right:23px}
+
+/* ========== المرحلة الثالثة: المحادثات ========== */
+.tab{position:relative}
+.tab .count{position:absolute;top:-2px;left:calc(50% - 22px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.clist{display:flex;flex-direction:column;padding:0 16px;gap:2px}
+.citem{display:flex;gap:12px;align-items:center;padding:12px 4px;border:0;background:none;text-align:right;border-bottom:1px solid var(--line-soft);width:100%}
+.citem .pic{position:relative;width:56px;height:56px;flex-shrink:0}
+.citem .pic img,.citem .pic .ph{width:56px;height:56px;border-radius:var(--r-md);object-fit:cover;background:var(--line)}
+.citem .pic .who{position:absolute;bottom:-4px;left:-4px;width:26px;height:26px;border-radius:50%;background:var(--brand-tint);color:var(--brand-dark);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg)}
+.citem b{font-size:15px}
+.citem .last{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.citem.unread .last{color:var(--ink);font-weight:700}
+.citem .udot{width:10px;height:10px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.chat{height:100vh;height:100dvh;display:flex;flex-direction:column;background:var(--bg)}
+.chat-head{background:var(--surface);border-bottom:1px solid var(--line);padding:calc(10px + var(--safe-t)) 12px 10px;display:flex;flex-direction:column;gap:10px}
+.mini{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:var(--r-md);padding:8px;border:0;width:100%;text-align:right}
+.mini img{width:44px;height:44px;border-radius:10px;object-fit:cover;background:var(--line)}
+.msgs{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain}
+.day{align-self:center;font-size:12px;color:var(--muted);background:var(--line);padding:3px 12px;border-radius:10px;margin:6px 0}
+.bubble{max-width:78%;padding:9px 13px;border-radius:18px;font-size:15px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;position:relative}
+.bubble time{display:block;font-size:10px;opacity:.7;margin-top:2px}
+.me{align-self:flex-start;background:var(--brand);color:#fff;border-bottom-right-radius:6px}
+.them{align-self:flex-end;background:var(--surface);border-bottom-left-radius:6px;box-shadow:var(--shadow)}
+.bubble.img{padding:4px;background:var(--surface)}
+.bubble.img img{display:block;max-width:220px;max-height:280px;border-radius:14px}
+.bubble.img time{color:var(--muted);padding:2px 6px}
+.offer{width:270px;max-width:86%;background:var(--surface);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 2px 8px rgba(31,29,26,.08)}
+.offer.me{align-self:flex-start;border:1.5px solid var(--brand);color:var(--ink);box-shadow:none}
+.offer.them{align-self:flex-end}
+.offer .lbl{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--brand)}
+.offer.them .lbl{color:var(--accent)}
+.offer .amt{font-size:21px;font-weight:700}
+.offer .sub{font-size:12px;color:var(--muted)}
+.offer .acts{display:flex;gap:8px;margin-top:2px}
+.offer .acts button{flex:1;height:42px;border-radius:12px;border:0;font-weight:700;font-size:14px;background:var(--bg)}
+.offer .acts .ok{background:var(--brand);color:#fff}
+.offer .acts .no{flex:0 0 42px;color:var(--danger)}
+.ostate{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px}
+.ostate.accepted{color:var(--brand)}.ostate.rejected{color:var(--danger)}.ostate.countered,.ostate.expired{color:var(--muted)}
+.composer{background:var(--surface);border-top:1px solid var(--line);padding:8px 10px calc(10px + var(--safe-b));display:flex;align-items:flex-end;gap:8px}
+.composer .box{flex:1;min-width:0;display:flex;align-items:flex-end;gap:6px;background:var(--bg);border-radius:var(--r-md);padding:0 6px 0 12px}
+.composer textarea{all:unset;flex:1;min-width:0;padding:11px 0;font-size:15px;line-height:1.5;max-height:120px;overflow-y:auto;white-space:pre-wrap}
+.composer .ib{width:44px;height:44px;border:0;background:none;display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0;border-radius:12px}
+.composer .send{background:var(--brand);color:#fff}
+.composer .offerbtn{height:44px;padding:0 12px;border-radius:var(--r-md);border:0;background:var(--brand-soft);color:var(--brand);font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.blocked{padding:14px 16px calc(14px + var(--safe-b));background:var(--surface);border-top:1px solid var(--line);text-align:center;color:var(--muted);font-size:14px}
 </style>
 </head>
 <body>
@@ -273,6 +319,13 @@ html,body{overflow-x:hidden;max-width:100%}
   <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></symbol>
   <symbol id="i-wa" viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 1c-1-.5-2-1.5-2.5-2.5l1-1-1-2z"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M20 12L4 4l2 8-2 8z"/><path d="M6 12h7"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 9h13l-3-3M20 15H7l3 3"/></symbol>
+  <symbol id="i-block" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
 </svg>
 
 <div id="app"></div>
@@ -287,7 +340,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
-  collection, query, where, orderBy, limit, serverTimestamp
+  collection, query, where, orderBy, limit, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -390,15 +443,19 @@ const S = {
   favs: new Set(),
   cat: 'all', q: '',
   f: { types: [], breeds: [], min: '', max: '', age: -1, sort: 0, verified: false, state: '' },
-  sellers: {}                // ذاكرة مؤقتة لملفات البائعين
+  sellers: {},               // ذاكرة مؤقتة لملفات البائعين
+  chats: [],                 // محادثاتي (مباشرة)
+  blocked: new Set()         // من حظرتهم
 };
+let screenUnsub = null, chatsUnsub = null;
 const push = (name, params = {}) => { S.stack.push({ name, params }); render(); window.scrollTo(0, 0); };
 const pop = () => { S.stack.pop(); render(); };
 function render() {
   if (closeSheet) closeSheet();
+  if (screenUnsub) { screenUnsub(); screenUnsub = null; }
   const top = S.stack[S.stack.length - 1];
   if (!top) return renderShell();
-  ({ details: renderDetails, seller: renderSeller, edit: renderEditor, mine: renderMine, favs: renderFavs })[top.name](top.params);
+  ({ details: renderDetails, seller: renderSeller, edit: renderEditor, mine: renderMine, favs: renderFavs, chat: renderChat })[top.name](top.params);
 }
 
 /* ========== البيانات ========== */
@@ -446,7 +503,7 @@ async function toggleFav(id, btn) {
 /* ---------- الفلترة (على الجهاز) ---------- */
 function filtered() {
   const f = S.f, q = S.q.trim();
-  let out = (S.listings || []).filter(l => l.status === 'active');
+  let out = (S.listings || []).filter(l => l.status === 'active' && !S.blocked.has(l.sellerId));
   if (S.cat !== 'all') out = out.filter(l => l.type === S.cat);
   if (f.types.length) out = out.filter(l => f.types.includes(l.type));
   if (f.breeds.length) out = out.filter(l => f.breeds.includes(l.breed));
@@ -564,6 +621,7 @@ function renderOnboarding() {
         const profile = { ...data, photo: u.photoURL || '', isSeller: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
         await setDoc(doc(db, 'users', u.uid), profile);
         S.profile = { ...profile, verified: false };
+        startChatsListener(u.uid); setupPush();
         haptic(); render();
       } catch (err) { toast(errMsg(err), 'error'); }
     });
@@ -582,7 +640,7 @@ const TABS = [
 function renderShell() {
   const body = {
     home: viewHome,
-    chats: () => `<div class="topbar"><h1>المحادثات</h1></div>` + viewEmpty('chat', 'لا توجد محادثات بعد', 'الشات داخل التطبيق قادم قريباً. حالياً تواصل مع البائع عبر واتساب من صفحة الإعلان.'),
+    chats: viewChats,
     orders: () => `<div class="topbar"><h1>طلباتي</h1></div>` + viewEmpty('bag', 'لا توجد طلبات بعد', 'نظام الطلبات والدفع قادم في المرحلة القادمة.'),
     account: viewAccount
   }[S.tab]();
@@ -591,7 +649,7 @@ function renderShell() {
   <nav class="tabbar" aria-label="التنقل الرئيسي">
     ${TABS.map(t => t.fab
       ? `<button class="fab" data-tab="add" aria-label="أضف إعلان">${ic('plus')}</button>`
-      : `<button class="tab ${S.tab === t.id ? 'on' : ''}" data-tab="${t.id}" ${S.tab === t.id ? 'aria-current="page"' : ''}>${ic(t.icon)}${t.label}</button>`).join('')}
+      : `<button class="tab ${S.tab === t.id ? 'on' : ''}" data-tab="${t.id}" ${S.tab === t.id ? 'aria-current="page"' : ''}>${ic(t.icon)}${t.label}${t.id === 'chats' ? '<span class="count hidden" id="chatCount"></span>' : ''}</button>`).join('')}
   </nav>`;
   $$('[data-tab]').forEach(b => b.onclick = () => {
     const id = b.dataset.tab;
@@ -601,6 +659,8 @@ function renderShell() {
   });
   if (S.tab === 'home') bindHome();
   if (S.tab === 'account') bindAccount();
+  if (S.tab === 'chats') bindChats();
+  updateChatBadge();
 }
 
 function viewEmpty(icon, title, text, action = '') {
@@ -783,7 +843,7 @@ async function renderDetails({ id }) {
     <div class="bottombar">
       ${mine
         ? `<button class="btn btn-outline" id="editL">${ic('edit')}تعديل</button>${l.status === 'active' ? `<button class="btn btn-primary" id="soldL">${ic('check')}تم البيع</button>` : ''}`
-        : `<button class="btn btn-outline" id="call" style="flex:0 0 64px" aria-label="اتصال">${ic('phone')}</button><button class="btn btn-primary" id="wa" ${l.status !== 'active' ? 'disabled' : ''}>${ic('wa')}تواصل عبر واتساب</button>`}
+        : `<button class="btn btn-outline" id="wa" style="flex:0 0 64px" aria-label="واتساب">${ic('wa')}</button><button class="btn btn-primary" id="chatL" ${l.status !== 'active' ? 'disabled' : ''}>${ic('chat')}تواصل وفاوض</button>`}
     </div>
   </div>`;
   $('#back').onclick = pop;
@@ -806,7 +866,7 @@ async function renderDetails({ id }) {
       const msg = encodeURIComponent(`السلام عليكم، رأيت إعلانك في غنماية: ${titleOf(l)} بسعر ${money(l.price)}. هل ما زال متاحاً؟`);
       window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
     };
-    $('#call').onclick = () => { if (!phone) return toast('لا يوجد رقم'); window.open(`tel:+${phone}`, '_system'); };
+    $('#chatL').onclick = (e) => busy(e.currentTarget, () => openChat(l, seller));
   }
 }
 async function markSold(l, btn) {
@@ -873,9 +933,9 @@ function compress(file, max = 1280, quality = 0.8) {
     img.src = url;
   });
 }
-async function uploadImage(blob) {
+async function uploadImage(blob, purpose = '') {
   const idToken = await S.user.getIdToken();
-  const r = await fetch(`${API_BASE}/api/imagekit-auth`, { headers: { Authorization: `Bearer ${idToken}` } });
+  const r = await fetch(`${API_BASE}/api/imagekit-auth${purpose ? `?purpose=${purpose}` : ''}`, { headers: { Authorization: `Bearer ${idToken}` } });
   const a = await r.json().catch(() => ({}));
   if (!r.ok) throw Object.assign(new Error('auth'), { userMsg: a.error || 'تعذّر الاتصال بخادم الصور' });
   const fd = new FormData();
@@ -1085,6 +1145,278 @@ async function renderFavs() {
   const br = $('#browse'); if (br) br.onclick = () => { S.stack = []; S.tab = 'home'; render(); };
 }
 
+/* ========== المحادثات ========== */
+const OFFER_TTL = 24 * 3600 * 1000;
+const otherId = (c) => c.participants.find(p => p !== S.user.uid);
+const otherName = (c) => c.buyerId === S.user.uid ? c.sellerName : c.buyerName;
+const isUnread = (c) => c.lastSenderId && c.lastSenderId !== S.user.uid && (!c.readAt || !c.readAt[S.user.uid] || millis(c.readAt[S.user.uid]) < millis(c.updatedAt));
+const clock = (t) => new Date(millis(t)).toLocaleTimeString('ar', { hour: 'numeric', minute: '2-digit' });
+function shortTime(t) {
+  const d = new Date(millis(t)), now = new Date();
+  if (d.toDateString() === now.toDateString()) return clock(t);
+  const days = Math.round((now - d) / 86400000);
+  return days < 7 ? d.toLocaleDateString('ar', { weekday: 'long' }) : d.toLocaleDateString('ar', { day: 'numeric', month: 'short' });
+}
+
+function startChatsListener(uid) {
+  if (chatsUnsub) chatsUnsub();
+  chatsUnsub = onSnapshot(query(collection(db, 'chats'), where('participants', 'array-contains', uid)), (snap) => {
+    S.chats = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => millis(b.updatedAt) - millis(a.updatedAt));
+    updateChatBadge();
+    if (S.tab === 'chats' && !S.stack.length && $('#clist')) { $('#clist').outerHTML = chatListHTML(); bindChats(); }
+  }, () => {});
+}
+function updateChatBadge() {
+  const el = $('#chatCount'); if (!el) return;
+  const n = S.chats.filter(isUnread).length;
+  el.textContent = n > 9 ? '9+' : n; el.classList.toggle('hidden', !n);
+}
+async function loadBlocks(uid) {
+  const snap = await getDocs(collection(db, 'users', uid, 'blocks'));
+  S.blocked = new Set(snap.docs.map(d => d.id));
+}
+
+function viewChats() {
+  return `<div class="topbar"><h1>المحادثات</h1></div>${chatListHTML()}`;
+}
+function chatListHTML() {
+  if (!S.chats.length) return `<div id="clist">${viewEmpty('chat', 'لا توجد محادثات بعد', 'افتح أي إعلان واضغط "تواصل وفاوض" لتبدأ محادثة مع البائع.')}</div>`;
+  return `<div class="clist" id="clist">${S.chats.map(c => {
+    const un = isUnread(c), name = otherName(c) || '';
+    return `<button class="citem ${un ? 'unread' : ''}" data-chat="${c.id}">
+      <span class="pic">${c.listingImage ? `<img src="${esc(ik(c.listingImage, 120))}" alt="">` : '<span class="ph"></span>'}<span class="who">${esc(initial(name))}</span></span>
+      <span class="grow" style="display:flex;flex-direction:column;gap:1px">
+        <span class="row" style="justify-content:space-between"><b class="ellipsis">${esc(name)}</b><span class="muted" style="font-size:12px;flex-shrink:0">${c.updatedAt ? shortTime(c.updatedAt) : ''}</span></span>
+        <span class="muted ellipsis" style="font-size:12px">${esc(c.listingTitle)}</span>
+        <span class="row"><span class="last grow">${c.lastSenderId === S.user.uid ? 'أنت: ' : ''}${esc(c.lastMessage || 'ابدأ المحادثة')}</span>${un ? '<span class="udot" aria-label="غير مقروءة"></span>' : ''}</span>
+      </span>
+    </button>`;
+  }).join('')}</div>`;
+}
+function bindChats() { $$('[data-chat]').forEach(b => b.onclick = () => push('chat', { id: b.dataset.chat })); }
+
+// يفتح محادثة الإعلان أو ينشئها (واحدة لكل مشترٍ وإعلان)
+async function openChat(l, seller) {
+  const id = `${l.id}_${S.user.uid}`;
+  try {
+    const ref = doc(db, 'chats', id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        listingId: l.id, buyerId: S.user.uid, sellerId: l.sellerId, participants: [S.user.uid, l.sellerId],
+        buyerName: S.profile.name, sellerName: seller.storeName || seller.name || l.sellerName,
+        listingTitle: titleOf(l), listingImage: (l.images[0] || {}).url || '', listingPrice: l.price,
+        lastMessage: '', lastSenderId: '', updatedAt: serverTimestamp(), createdAt: serverTimestamp(),
+        readAt: { [S.user.uid]: serverTimestamp() }
+      });
+    }
+    push('chat', { id });
+  } catch (e) {
+    toast(e.code === 'permission-denied' ? 'لا يمكنك مراسلة هذا البائع' : errMsg(e), 'error');
+  }
+}
+
+function notify(chatId, messageId, event) {
+  S.user.getIdToken().then(t => fetch(`${API_BASE}/api/notify`, {
+    method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatId, messageId, event })
+  })).catch(() => {});
+}
+async function sendMessage(chat, data, preview) {
+  const ref = await addDoc(collection(db, 'chats', chat.id, 'messages'), { ...data, senderId: S.user.uid, createdAt: serverTimestamp() });
+  await updateDoc(doc(db, 'chats', chat.id), {
+    lastMessage: preview, lastSenderId: S.user.uid, updatedAt: serverTimestamp(), [`readAt.${S.user.uid}`]: serverTimestamp()
+  });
+  notify(chat.id, ref.id);
+  return ref;
+}
+
+function offerSheet(chat, prev) {
+  const base = prev ? prev.offer.price : chat.listingPrice;
+  openSheet(`
+    <div class="stack">
+      <div class="row"><h2 class="grow" style="font-size:19px">${prev ? 'عرض مقابل' : 'أرسل عرض سعر'}</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
+      <p class="muted" style="margin:-6px 0 0;font-size:14px">${prev ? `العرض الحالي: ${money(prev.offer.price)}` : `السعر المعلن: ${money(chat.listingPrice)} للرأس`}</p>
+      <form id="of" class="stack" novalidate>
+        <label class="field"><span>سعرك للرأس (ج.س)</span><input class="input" name="price" inputmode="numeric" value="${base}" style="font-size:20px;font-weight:700"></label>
+        <div class="field"><span>الكمية</span><div class="stepper"><button type="button" id="oi" aria-label="زيادة">${ic('plus', 'style="width:18px;height:18px"')}</button><b id="oq">${prev ? prev.offer.qty : 1}</b><button type="button" id="od" aria-label="إنقاص">${ic('minus', 'style="width:18px;height:18px"')}</button></div></div>
+        <div class="note note-ok">${ic('clock', 'style="width:20px;height:20px"')}<span>العرض صالح 24 ساعة. إذا قبله الطرف الآخر يصبح السعر متفقاً عليه.</span></div>
+        <button class="btn btn-primary" type="submit">${ic('tag')}إرسال العرض</button>
+      </form>
+    </div>`, (sh) => {
+    let qty = prev ? prev.offer.qty : 1;
+    $('#oi', sh).onclick = () => { qty = Math.min(999, qty + 1); $('#oq', sh).textContent = qty; };
+    $('#od', sh).onclick = () => { qty = Math.max(1, qty - 1); $('#oq', sh).textContent = qty; };
+    $('#of', sh).onsubmit = (e) => {
+      e.preventDefault();
+      const price = parseInt(String(e.currentTarget.price.value).replace(/\D/g, ''), 10);
+      if (!(price > 0)) return toast('اكتب السعر', 'error');
+      busy(e.currentTarget.querySelector('[type=submit]'), async () => {
+        try {
+          if (prev) await updateDoc(doc(db, 'chats', chat.id, 'messages', prev.id), { 'offer.status': 'countered' });
+          await sendMessage(chat, { kind: 'offer', offer: { price, qty, status: 'pending', expiresAt: Date.now() + OFFER_TTL } }, `عرض سعر: ${money(price)}`);
+          closeSheet(); haptic();
+        } catch (err) { toast(errMsg(err), 'error'); }
+      });
+    };
+  });
+}
+
+function messageHTML(m, mine) {
+  const t = m.createdAt ? clock(m.createdAt) : '';
+  if (m.kind === 'image') return `<div class="bubble img ${mine ? 'me' : 'them'}"><img src="${esc(ik(m.imageUrl, 500))}" alt="صورة" data-full="${esc(m.imageUrl)}" loading="lazy"><time>${t}</time></div>`;
+  if (m.kind === 'offer') {
+    const o = m.offer, expired = o.status === 'pending' && Date.now() > o.expiresAt;
+    const st = expired ? 'expired' : o.status;
+    const hrs = Math.max(1, Math.ceil((o.expiresAt - Date.now()) / 3600000));
+    const stateText = { accepted: `${ic('check', 'style="width:18px;height:18px"')}تم الاتفاق على السعر`, rejected: 'رُفض العرض', countered: 'تم الرد بعرض مقابل', expired: 'انتهت صلاحية العرض' }[st];
+    return `<div class="offer ${mine ? 'me' : 'them'}">
+      <span class="row" style="justify-content:space-between"><span class="lbl">${ic(mine ? 'tag' : 'swap', 'style="width:16px;height:16px"')}${mine ? 'عرضك' : 'عرض جديد'}</span>
+        ${st === 'pending' ? `<span class="muted row" style="gap:3px;font-size:11px">${ic('clock', 'style="width:12px;height:12px"')}ينتهي خلال ${hrs} س</span>` : ''}</span>
+      <span class="amt">${money(o.price)}</span>
+      <span class="sub">الكمية: ${o.qty} · الإجمالي ${money(o.price * o.qty)}</span>
+      ${st === 'pending' && !mine ? `<div class="acts"><button class="ok" data-acc="${m.id}">قبول</button><button data-cnt="${m.id}">عرض آخر</button><button class="no" data-rej="${m.id}" aria-label="رفض العرض">${ic('close', 'style="width:18px;height:18px"')}</button></div>` : ''}
+      ${st === 'pending' && mine ? '<span class="sub">بانتظار رد الطرف الآخر</span>' : ''}
+      ${stateText ? `<span class="ostate ${st}">${stateText}</span>` : ''}
+      ${st === 'accepted' ? `<span class="sub">الدفع والطلب داخل التطبيق قادمان قريباً. اتفقا الآن على موعد ومكان التسليم.</span>` : ''}
+    </div>`;
+  }
+  return `<div class="bubble ${mine ? 'me' : 'them'}">${esc(m.text)}<time>${t}</time></div>`;
+}
+
+async function renderChat({ id }) {
+  renderLoading();
+  let chat = S.chats.find(c => c.id === id);
+  try { if (!chat) { const s = await getDoc(doc(db, 'chats', id)); if (!s.exists()) throw { code: 'not-found' }; chat = { id, ...s.data() }; } }
+  catch (e) { return renderError(e); }
+  const other = otherId(chat), name = otherName(chat);
+  const iBlocked = S.blocked.has(other);
+  app.innerHTML = `
+  <div class="chat">
+    <div class="chat-head">
+      <div class="row" style="gap:8px">
+        <button class="ghost-btn" id="back" aria-label="رجوع">${ic('back')}</button>
+        <div class="avatar sm" style="width:42px;height:42px;font-size:16px">${esc(initial(name))}</div>
+        <button class="grow" id="who" style="border:0;background:none;text-align:right;padding:0;display:flex;flex-direction:column">
+          <b class="ellipsis">${esc(name)}</b><span class="muted" style="font-size:12px">${chat.sellerId === S.user.uid ? 'مشترٍ مهتم' : 'البائع'}</span></button>
+        <button class="ghost-btn" id="more" aria-label="خيارات">${ic('dots')}</button>
+      </div>
+      <button class="mini" id="mini">${chat.listingImage ? `<img src="${esc(ik(chat.listingImage, 120))}" alt="">` : ''}
+        <span class="grow" style="display:flex;flex-direction:column"><b style="font-size:13px" class="ellipsis">${esc(chat.listingTitle)}</b><span class="muted" style="font-size:12px">السعر المعلن: ${money(chat.listingPrice)}</span></span>${ic('chev', 'style="width:18px;height:18px;color:var(--muted)"')}</button>
+    </div>
+    <div class="msgs" id="msgs" aria-live="polite"><div class="center"><div class="spinner"></div></div></div>
+    ${iBlocked ? `<div class="blocked">لقد حظرت هذا المستخدم. <button class="btn-link" id="unblock">إلغاء الحظر</button></div>` : `
+    <div class="composer">
+      <button class="offerbtn" id="offer">${ic('tag', 'style="width:18px;height:18px"')}عرض</button>
+      <div class="box">
+        <textarea id="txt" rows="1" placeholder="اكتب رسالة..." aria-label="رسالة"></textarea>
+        <label class="ib" aria-label="إرسال صورة">${ic('image')}<input type="file" id="img" accept="image/*" hidden></label>
+      </div>
+      <button class="ib send" id="send" aria-label="إرسال">${ic('send', 'style="transform:scaleX(-1)"')}</button>
+    </div>`}
+  </div>`;
+
+  const box = $('#msgs');
+  const warn = `<div class="note note-warn" style="align-self:center;max-width:320px;font-size:12px">${ic('shield', 'style="width:18px;height:18px"')}<span>لا ترسل أي مبلغ قبل معاينة الحيوان. لا تشارك رموز التحقق أو كلمات المرور.</span></div>`;
+  let msgs = [];
+  const draw = () => {
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    let lastDay = '';
+    box.innerHTML = warn + msgs.map(m => {
+      const day = m.createdAt ? new Date(millis(m.createdAt)).toDateString() : '';
+      const sep = day && day !== lastDay ? `<span class="day">${new Date(millis(m.createdAt)).toDateString() === new Date().toDateString() ? 'اليوم' : new Date(millis(m.createdAt)).toLocaleDateString('ar', { weekday: 'long', day: 'numeric', month: 'short' })}</span>` : '';
+      lastDay = day || lastDay;
+      return sep + messageHTML(m, m.senderId === S.user.uid);
+    }).join('');
+    if (atBottom || box.dataset.first !== '1') { box.scrollTop = box.scrollHeight; box.dataset.first = '1'; }
+    const reply = (mid, status) => async (e) => {
+      const m = msgs.find(x => x.id === mid);
+      if (Date.now() > m.offer.expiresAt) return toast('انتهت صلاحية العرض');
+      e.currentTarget.disabled = true;
+      try {
+        await updateDoc(doc(db, 'chats', chat.id, 'messages', mid), { 'offer.status': status });
+        await updateDoc(doc(db, 'chats', chat.id), { lastMessage: status === 'accepted' ? `قبلت عرض ${money(m.offer.price)}` : 'رفضت العرض', lastSenderId: S.user.uid, updatedAt: serverTimestamp() });
+        notify(chat.id, mid, 'offer-reply'); haptic();
+      } catch (err) { toast(errMsg(err), 'error'); e.currentTarget.disabled = false; }
+    };
+    $$('[data-acc]', box).forEach(b => b.onclick = reply(b.dataset.acc, 'accepted'));
+    $$('[data-rej]', box).forEach(b => b.onclick = reply(b.dataset.rej, 'rejected'));
+    $$('[data-cnt]', box).forEach(b => b.onclick = () => offerSheet(chat, msgs.find(x => x.id === b.dataset.cnt)));
+    $$('[data-full]', box).forEach(im => im.onclick = () => window.open(im.dataset.full, '_blank'));
+  };
+  const markRead = () => updateDoc(doc(db, 'chats', chat.id), { [`readAt.${S.user.uid}`]: serverTimestamp() }).catch(() => {});
+  screenUnsub = onSnapshot(query(collection(db, 'chats', chat.id, 'messages'), orderBy('createdAt', 'asc'), limit(300)), (snap) => {
+    msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    draw();
+    if (msgs.length && msgs[msgs.length - 1].senderId !== S.user.uid) markRead();
+  }, (e) => { box.innerHTML = viewEmpty('help', 'تعذّر تحميل المحادثة', errMsg(e)); });
+  markRead();
+  // تحديث مؤقتات العروض كل دقيقة
+  const tick = setInterval(() => { if (!document.body.contains(box)) return clearInterval(tick); if (msgs.some(m => m.kind === 'offer' && m.offer.status === 'pending')) draw(); }, 60000);
+
+  $('#back').onclick = pop;
+  $('#mini').onclick = () => push('details', { id: chat.listingId });
+  $('#who').onclick = () => { if (chat.buyerId === S.user.uid) push('seller', { uid: chat.sellerId }); };
+  $('#more').onclick = () => openSheet(`
+    <div class="stack" style="gap:6px">
+      <button class="row menu-row" id="mBlock" style="border:0;background:none;min-height:52px;font-size:15px;color:var(--danger)">${ic('block')}${iBlocked ? 'إلغاء حظر' : 'حظر'} ${esc(name)}</button>
+      <button class="row menu-row" id="mReport" style="border:0;background:none;min-height:52px;font-size:15px">${ic('flag')}الإبلاغ عن المحادثة</button>
+      <button class="btn btn-ghost" data-close>إلغاء</button>
+    </div>`, (sh) => {
+    $('#mReport', sh).onclick = () => { closeSheet(); toast('نظام البلاغات يُطلق قريباً'); };
+    $('#mBlock', sh).onclick = () => iBlocked ? unblock() : confirmSheet(`حظر ${name}؟`, 'لن يستطيع مراسلتك، ولن تظهر لك إعلاناته.', 'حظر', async () => {
+      await setDoc(doc(db, 'users', S.user.uid, 'blocks', other), { createdAt: serverTimestamp() });
+      S.blocked.add(other); toast('تم الحظر'); render();
+    });
+  });
+  const unblock = async () => { await deleteDoc(doc(db, 'users', S.user.uid, 'blocks', other)); S.blocked.delete(other); toast('أُلغي الحظر'); render(); };
+  const ub = $('#unblock'); if (ub) ub.onclick = unblock;
+  if (iBlocked) return;
+
+  const txt = $('#txt');
+  txt.oninput = () => { txt.style.height = 'auto'; txt.style.height = Math.min(120, txt.scrollHeight) + 'px'; };
+  $('#send').onclick = async () => {
+    const text = txt.value.trim(); if (!text) return;
+    txt.value = ''; txt.oninput();
+    try { await sendMessage(chat, { kind: 'text', text: text.slice(0, 1000) }, text.slice(0, 80)); }
+    catch (e) { txt.value = text; toast(errMsg(e), 'error'); }
+  };
+  $('#offer').onclick = () => offerSheet(chat);
+  $('#img').onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    toast('جارٍ رفع الصورة...');
+    try { const { url } = await uploadImage(await compress(f, 1280, 0.78), 'chat'); await sendMessage(chat, { kind: 'image', imageUrl: url }, 'صورة'); }
+    catch (err) { toast(errMsg(err), 'error'); }
+    e.target.value = '';
+  };
+}
+
+/* ========== الإشعارات (FCM) ========== */
+async function setupPush() {
+  const PN = P.PushNotifications;
+  if (!isNative || !PN) return;
+  try {
+    await PN.createChannel({ id: 'messages', name: 'الرسائل والعروض', importance: 5, visibility: 1, vibration: true });
+    const perm = await PN.requestPermissions();
+    if (perm.receive !== 'granted') return;
+    PN.addListener('registration', ({ value }) => {
+      if (value && S.profile && S.profile.fcmToken !== value) {
+        updateDoc(doc(db, 'users', S.user.uid), { fcmToken: value }).then(() => { S.profile.fcmToken = value; }).catch(() => {});
+      }
+    });
+    PN.addListener('pushNotificationReceived', (n) => {
+      const open = S.stack[S.stack.length - 1];
+      if (open && open.name === 'chat' && n.data && open.params.id === n.data.chatId) return; // المحادثة مفتوحة
+      toast(`${n.title}: ${n.body}`);
+    });
+    PN.addListener('pushNotificationActionPerformed', ({ notification }) => {
+      const id = notification.data && notification.data.chatId;
+      if (id && S.profile) { S.stack = [{ name: 'chat', params: { id } }]; render(); }
+    });
+    await PN.register();
+  } catch (e) {}
+}
+
 /* ---------- الحساب ---------- */
 function viewAccount() {
   const p = S.profile, u = S.user;
@@ -1239,7 +1571,8 @@ if (isNative && P.App) {
 /* ========== التشغيل ========== */
 renderLoading();
 onAuthStateChanged(auth, async (user) => {
-  S.user = user; S.stack = []; S.listings = null; S.favs = new Set();
+  S.user = user; S.stack = []; S.listings = null; S.favs = new Set(); S.chats = []; S.blocked = new Set();
+  if (chatsUnsub) { chatsUnsub(); chatsUnsub = null; }
   if (!user) { S.profile = null; return renderLogin(); }
   renderLoading();
   try {
@@ -1248,7 +1581,10 @@ onAuthStateChanged(auth, async (user) => {
     if (!S.profile) return renderOnboarding();
     S.sellers[user.uid] = S.profile;
     loadFavs(user.uid).catch(() => {});
+    loadBlocks(user.uid).catch(() => {});
+    startChatsListener(user.uid);
     renderShell();
+    setupPush();
   } catch (err) {
     app.innerHTML = `<div class="screen">${viewEmpty('help', 'تعذّر الاتصال', errMsg(err))}<div class="pad"><button class="btn btn-primary" onclick="location.reload()">إعادة المحاولة</button></div></div>`;
   }
