@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "613815409706",
+    "project_id": "ghanamaya-4e639",
+    "storage_bucket": "ghanamaya-4e639.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:613815409706:android:2034ff134c11d3de16f753",
+        "android_client_info": {
+          "package_name": "com.ghanamaya.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "613815409706-tjoild8rk7qfenhl880crcuhl6aais1b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ghanamaya.app",
+            "certificate_hash": "e5a5bf8521c95dc2e06e1ca6f70a2a03d304a6e0"
+          }
+        },
+        {
+          "client_id": "613815409706-2u9aet8tfmmlv4p9r5s8hoqno39s43bl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhBNOiV2Iaa0kl4STAd_ZPa8cI_aHb96I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "613815409706-2u9aet8tfmmlv4p9r5s8hoqno39s43bl.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
