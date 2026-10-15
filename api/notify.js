@@ -15,10 +15,37 @@ export default async function handler(req, res) {
   const uid = await verifyUser(req);
   if (!uid) return res.status(401).json({ error: 'سجّل الدخول أولاً' });
 
-  const { chatId, messageId, event } = req.body || {};
-  if (typeof chatId !== 'string' || typeof messageId !== 'string') return res.status(400).json({ error: 'بيانات ناقصة' });
-
+  const { chatId, messageId, event, orderId } = req.body || {};
   const db = adminDb();
+
+  // ===== إشعار طلب: الطرف الآخر يُبلّغ بالحالة الحالية للطلب =====
+  if (typeof orderId === 'string') {
+    const o = await db.doc(`orders/${orderId}`).get();
+    if (!o.exists || !o.get('participants').includes(uid)) return res.status(403).json({ error: 'forbidden' });
+    const order = o.data();
+    const to = order.participants.find(p => p !== uid);
+    const texts = {
+      pending: ['طلب شراء جديد', `${order.buyerName} يريد ${order.title} × ${order.qty}`],
+      accepted: ['قُبل طلبك', `${order.sellerName} قبل طلب ${order.title}. اتفقا على التسليم.`],
+      rejected: ['رُفض طلبك', `${order.sellerName} اعتذر عن طلب ${order.title}`],
+      paid: ['تأكد استلام المبلغ', `${order.sellerName} أكد وصول تحويل بنكك`],
+      completed: ['اكتمل الطلب', `${order.buyerName} أكد استلام ${order.title}`],
+      cancelled: ['أُلغي الطلب', `طلب ${order.title} أُلغي`]
+    };
+    let [title, body] = texts[order.status] || ['تحديث على طلبك', order.title];
+    if (event === 'receipt') [title, body] = ['إشعار تحويل جديد', `${order.buyerName} أرفق إشعار تحويل بنكك. تحقق منه في تطبيق البنك.`];
+    const token = (await db.doc(`users/${to}`).get()).get('fcmToken');
+    if (!token) return res.status(200).json({ ok: true, sent: false });
+    try {
+      await getMessaging().send({
+        token, notification: { title, body }, data: { orderId },
+        android: { priority: 'high', notification: { channelId: 'messages', tag: orderId } }
+      });
+    } catch (e) {}
+    return res.status(200).json({ ok: true });
+  }
+
+  if (typeof chatId !== 'string' || typeof messageId !== 'string') return res.status(400).json({ error: 'بيانات ناقصة' });
   const chatSnap = await db.doc(`chats/${chatId}`).get();
   if (!chatSnap.exists) return res.status(404).json({ error: 'not found' });
   const chat = chatSnap.data();

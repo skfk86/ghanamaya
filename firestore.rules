@@ -172,6 +172,77 @@ service cloud.firestore {
       }
     }
 
+    // ===== الطلبات =====
+    // الحالات: pending → accepted → (paid لبنكك) → completed ، أو rejected / cancelled
+    function listingDoc(id) { return get(/databases/$(database)/documents/listings/$(id)).data; }
+    function orderFields() {
+      return ['listingId', 'buyerId', 'sellerId', 'participants', 'buyerName', 'sellerName', 'title', 'image',
+              'unitPrice', 'qty', 'total', 'paymentMethod', 'delivery', 'note', 'offerRef', 'status',
+              'bankak', 'receiptUrl', 'cancelReason', 'createdAt', 'updatedAt'];
+    }
+    // السعر: إما السعر المعلن، أو عرض مقبول في محادثة المشتري لهذا الإعلان
+    function priceOk(d) {
+      return d.unitPrice == listingDoc(d.listingId).price
+        || ('offerRef' in d
+            && d.offerRef.chatId == d.listingId + '_' + request.auth.uid
+            && get(/databases/$(database)/documents/chats/$(d.offerRef.chatId)/messages/$(d.offerRef.msgId)).data.offer.status == 'accepted'
+            && get(/databases/$(database)/documents/chats/$(d.offerRef.chatId)/messages/$(d.offerRef.msgId)).data.offer.price == d.unitPrice);
+    }
+    function transitionOk() {
+      let me = request.auth.uid;
+      let o = resource.data;
+      let from = o.status;
+      let to = request.resource.data.status;
+      let keys = request.resource.data.diff(o).affectedKeys();
+      return (me == o.sellerId && from == 'pending' && to in ['accepted', 'rejected'])
+        || (me == o.sellerId && from == 'accepted' && to == 'paid' && o.paymentMethod == 'bankak')
+        || (me == o.sellerId && from == 'accepted' && to == 'cancelled')
+        || (me == o.buyerId && from in ['pending', 'accepted'] && to == 'cancelled')
+        || (me == o.buyerId && from == 'accepted' && to == 'accepted' && keys.hasOnly(['receiptUrl', 'updatedAt'])
+            && request.resource.data.receiptUrl.matches('^https://ik\\.imagekit\\.io/7uwbsw4wl/.*'))
+        || (me == o.buyerId && from in ['accepted', 'paid'] && to == 'completed');
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid in resource.data.participants);
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(orderFields())
+        && request.resource.data.buyerId == request.auth.uid
+        && request.resource.data.sellerId == listingDoc(request.resource.data.listingId).sellerId
+        && request.resource.data.sellerId != request.auth.uid
+        && request.resource.data.participants == [request.auth.uid, request.resource.data.sellerId]
+        && listingDoc(request.resource.data.listingId).status == 'active'
+        && !blockedBy(request.resource.data.sellerId, request.auth.uid)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.unitPrice is int && request.resource.data.unitPrice > 0
+        && request.resource.data.qty is int && request.resource.data.qty >= 1
+        && request.resource.data.qty <= listingDoc(request.resource.data.listingId).qty
+        && request.resource.data.total == request.resource.data.unitPrice * request.resource.data.qty
+        && request.resource.data.paymentMethod in ['bankak', 'cash']
+        && request.resource.data.delivery in ['pickup', 'seller']
+        && priceOk(request.resource.data);
+
+      allow update: if isAdmin() || (signedIn()
+        && request.auth.uid in resource.data.participants
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'updatedAt', 'bankak', 'receiptUrl', 'cancelReason'])
+        && transitionOk());
+    }
+
+    // ===== التقييمات: مشترٍ واحد لكل طلب مكتمل =====
+    match /reviews/{orderId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && get(/databases/$(database)/documents/orders/$(orderId)).data.buyerId == request.auth.uid
+        && get(/databases/$(database)/documents/orders/$(orderId)).data.status == 'completed'
+        && request.resource.data.sellerId == get(/databases/$(database)/documents/orders/$(orderId)).data.sellerId
+        && request.resource.data.buyerId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['sellerId', 'buyerId', 'buyerName', 'stars', 'comment', 'title', 'createdAt'])
+        && request.resource.data.stars is int && request.resource.data.stars >= 1 && request.resource.data.stars <= 5
+        && request.resource.data.comment is string && request.resource.data.comment.size() <= 500;
+    }
+
     // ===== الإعدادات العامة (العمولة، السلالات...) =====
     match /settings/{id} {
       allow read: if signedIn();
@@ -179,7 +250,7 @@ service cloud.firestore {
     }
 
     // ===== مجموعات المراحل القادمة: مغلقة حتى تُكتب قواعدها =====
-    // orders, wallets, transactions, withdrawals, reviews, reports, blocks
+    // wallets, transactions, withdrawals, reviews, reports, blocks
     match /{document=**} {
       allow read: if isAdmin();
       allow write: if false;
