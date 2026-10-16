@@ -888,7 +888,7 @@ async function renderDetails({ id }) {
     const text = `${titleOf(l)} — ${money(l.price)} في ${l.city}\nعلى تطبيق غنماية`;
     try { if (P.Share) await P.Share.share({ title: 'غنماية', text }); else if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(text); toast('نُسخ النص'); } } catch (e) {}
   };
-  const rep = $('#report'); if (rep) rep.onclick = () => toast('نظام البلاغات يُطلق قريباً');
+  const rep = $('#report'); if (rep) rep.onclick = () => openReport('listing', l.id, l.sellerId);
   if (mine) {
     $('#editL').onclick = () => push('edit', { id: l.id });
     const s = $('#soldL'); if (s) s.onclick = (e) => markSold(l, e.currentTarget);
@@ -928,7 +928,7 @@ async function renderSeller({ uid }) {
   const name = seller.storeName || seller.name;
   app.innerHTML = `
   <div class="screen" style="padding-bottom:110px">
-    <div class="sellerhead"><button class="icon-btn" id="back" aria-label="رجوع">${ic('back')}</button></div>
+    <div class="sellerhead"><button class="icon-btn" id="back" aria-label="رجوع">${ic('back')}</button>${uid !== S.user.uid ? `<button class="icon-btn" id="sMore" aria-label="خيارات">${ic('dots')}</button>` : ''}</div>
     <div class="card stack" style="margin:-48px 16px 0;padding:18px;border-radius:22px">
       <div class="row" style="gap:14px">
         <div class="avatar">${seller.photo ? `<img src="${esc(seller.photo)}" alt="">` : esc(initial(name))}</div>
@@ -948,6 +948,7 @@ async function renderSeller({ uid }) {
   </div>`;
   $('#back').onclick = pop;
   bindCards();
+  const sm = $('#sMore'); if (sm) sm.onclick = () => openReport('user', uid, uid);
   getRating(uid).then(r => {
     if (!r.count) return;
     $('#rateVal').innerHTML = `${ic('star', 'style="width:15px;height:15px;fill:var(--accent);stroke:var(--accent)"')} ${r.avg.toFixed(1)}`;
@@ -1142,7 +1143,7 @@ async function renderMine({ tab = 'active' } = {}) {
             <span class="muted" style="font-size:12px">${ago(l.createdAt)}</span>
           </div>
         </div>
-        ${l.status === 'hidden' ? `<div class="note note-warn">أوقفته الإدارة بعد مراجعة بلاغ. عدّل الإعلان بصور ومعلومات صحيحة ثم تواصل مع الدعم.</div>` : ''}
+        ${l.status === 'hidden' ? `<div class="note note-warn">${l.hiddenReason === 'auto' ? 'أُخفي مؤقتاً بعد عدة بلاغات، وهو قيد مراجعة الإدارة.' : 'أوقفته الإدارة بعد مراجعة بلاغ.'}${l.adminNote ? ` السبب: ${esc(l.adminNote)}` : ''} عدّل الإعلان بصور ومعلومات صحيحة ثم تواصل مع الدعم.</div>` : ''}
         <div class="actions">
           <button data-edit="${l.id}">${'تعديل'}</button>
           ${l.status === 'active' ? `<button data-sold="${l.id}" style="background:var(--brand-soft);color:var(--brand)">تم البيع</button>` : ''}
@@ -1406,7 +1407,7 @@ async function renderChat({ id }) {
       <button class="row menu-row" id="mReport" style="border:0;background:none;min-height:52px;font-size:15px">${ic('flag')}الإبلاغ عن المحادثة</button>
       <button class="btn btn-ghost" data-close>إلغاء</button>
     </div>`, (sh) => {
-    $('#mReport', sh).onclick = () => { closeSheet(); toast('نظام البلاغات يُطلق قريباً'); };
+    $('#mReport', sh).onclick = () => openReport('chat', chat.id, other);
     $('#mBlock', sh).onclick = () => iBlocked ? unblock() : confirmSheet(`حظر ${name}؟`, 'لن يستطيع مراسلتك، ولن تظهر لك إعلاناته.', 'حظر', async () => {
       await setDoc(doc(db, 'users', S.user.uid, 'blocks', other), { createdAt: serverTimestamp() });
       S.blocked.add(other); toast('تم الحظر'); render();
@@ -1722,6 +1723,97 @@ async function renderReviews({ uid, name }) {
   $('#back').onclick = pop;
 }
 
+/* ========== البلاغات ========== */
+const REPORT_REASONS = [
+  ['fraud', 'احتيال أو طلب تحويل قبل المعاينة', true], ['stolen', 'حيوان مسروق أو مشبوه', true],
+  ['fake_photos', 'صور غير حقيقية'], ['wrong_specs', 'حيوان مريض أو مواصفات خاطئة'],
+  ['abuse', 'إساءة أو تحرش'], ['duplicate', 'إعلان مكرر أو سعر وهمي'], ['other', 'سبب آخر']
+];
+function openReport(targetType, targetId, subjectUid) {
+  const reasons = REPORT_REASONS.filter(([k]) => targetType === 'listing' || !['fake_photos', 'wrong_specs', 'duplicate'].includes(k));
+  const what = { listing: 'هذا الإعلان', user: 'هذا المستخدم', chat: 'هذه المحادثة' }[targetType];
+  const st = { reason: '', block: false, evidence: null };
+  openSheet(`
+    <div class="stack">
+      <div class="row"><h2 class="grow" style="font-size:19px">الإبلاغ عن ${what}</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
+      <span class="muted" style="margin-top:-8px">لن يعرف الطرف الآخر من أبلغ عنه.</span>
+      <div class="stack" style="gap:6px" role="radiogroup" aria-label="سبب البلاغ">${reasons.map(([k, label, urgent]) => `
+        <button class="opt" data-reason="${k}" role="radio" aria-checked="false" style="min-height:48px;padding:8px 12px;border-width:1.5px;border-color:var(--line)">
+          <span class="grow" style="font-size:14px">${label}</span>${urgent ? '<span class="status s-hidden">عاجل</span>' : ''}<span class="radio"></span></button>`).join('')}</div>
+      <label class="field"><span>تفاصيل إضافية (اختياري)</span><textarea class="input" id="rNote" maxlength="500" style="height:72px;padding:10px 12px" placeholder="اشرح ما حدث..."></textarea></label>
+      <div class="row">
+        <label class="btn btn-ghost" style="flex:1;height:44px;font-size:13px;cursor:pointer" id="evLbl">${ic('image', 'style="width:18px;height:18px"')}صورة إثبات<input type="file" id="ev" accept="image/*" hidden></label>
+        ${subjectUid !== S.user.uid ? `<button class="btn btn-ghost" id="rBlock" role="checkbox" aria-checked="false" style="flex:1;height:44px;font-size:13px"><span class="radio" style="border-radius:6px"></span>حظره أيضاً</button>` : ''}
+      </div>
+      <button class="btn" id="rSend" style="background:var(--danger);color:#fff" disabled>إرسال البلاغ</button>
+    </div>`, (sh) => {
+    $$('[data-reason]', sh).forEach(b => b.onclick = () => {
+      st.reason = b.dataset.reason;
+      $$('[data-reason]', sh).forEach(x => { const on = x === b; x.style.borderColor = on ? 'var(--brand)' : 'var(--line)'; x.setAttribute('aria-checked', on); $('.radio', x).classList.toggle('on', on); });
+      $('#rSend', sh).disabled = false;
+    });
+    const rb = $('#rBlock', sh);
+    if (rb) rb.onclick = () => { st.block = !st.block; rb.setAttribute('aria-checked', st.block); $('.radio', rb).classList.toggle('on', st.block); };
+    $('#ev', sh).onchange = async (e) => { const f = e.target.files[0]; if (!f) return; st.evidence = await compress(f, 1280, 0.8).catch(() => null); if (st.evidence) $('#evLbl', sh).firstChild.nextSibling.textContent = 'أُرفقت الصورة'; };
+    $('#rSend', sh).onclick = (e) => busy(e.currentTarget, async () => {
+      try {
+        const evidenceUrl = st.evidence ? (await uploadImage(st.evidence, 'chat')).url : '';
+        const t = await S.user.getIdToken();
+        const r = await fetch(`${API_BASE}/api/report`, {
+          method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ targetType, targetId, reason: st.reason, note: $('#rNote', sh).value.trim(), evidenceUrl })
+        });
+        const out = await r.json().catch(() => ({}));
+        if (!r.ok) throw { userMsg: out.error || 'تعذّر إرسال البلاغ' };
+        if (st.block && subjectUid) {
+          await setDoc(doc(db, 'users', S.user.uid, 'blocks', subjectUid), { createdAt: serverTimestamp() });
+          S.blocked.add(subjectUid);
+        }
+        closeSheet(); haptic();
+        openSheet(`<div class="stack" style="align-items:center;text-align:center;padding:10px 0 4px">
+          <div class="empty" style="padding:0"><div class="circle">${ic('shield')}</div></div>
+          <h2>شكراً، وصلنا بلاغك</h2><p class="muted" style="margin:0;font-size:14px">سيراجعه فريقنا قريباً${st.block ? '، وتم حظر المستخدم' : ''}.</p>
+          <button class="btn btn-primary" data-close>حسناً</button></div>`);
+        if (st.block) { S.listings = null; }
+      } catch (err) { toast(errMsg(err), 'error'); }
+    });
+  });
+}
+
+/* ========== التوثيق ========== */
+async function bindVerify() {
+  const btn = $('#verifyBtn'); if (!btn) return;
+  let req = null;
+  try { const r = await getDoc(doc(db, 'verifyRequests', S.user.uid)); req = r.exists() ? r.data() : null; } catch (e) {}
+  if (req && req.status === 'pending') { $('#verifyTxt').innerHTML = 'طلب التوثيق <strong>قيد المراجعة</strong>. سنُعلمك بالنتيجة.'; $('#verifyCta').remove(); btn.onclick = null; return; }
+  if (req && req.status === 'rejected') $('#verifyTxt').innerHTML = `لم يُقبل طلبك السابق${req.decisionNote ? `: ${esc(req.decisionNote)}` : ''}. يمكنك التقديم مجدداً.`;
+  btn.onclick = () => openSheet(`
+    <div class="stack">
+      <div class="row"><h2 class="grow" style="font-size:19px">طلب شارة التوثيق</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
+      <p class="muted" style="margin:-6px 0 0;font-size:14px">سيتواصل معك فريق غنماية عبر واتساب للتحقق من هويتك ومكان مزرعتك أو زريبتك.</p>
+      <div class="card stack" style="gap:6px;background:var(--bg);box-shadow:none"><b>${esc(S.profile.storeName)}</b><span class="muted ltr" style="text-align:right">${esc(S.profile.whatsapp)}</span><span class="muted">${esc(S.profile.city)}، ${esc(S.profile.state)}</span></div>
+      <label class="field"><span>عرّفنا بنشاطك (اختياري)</span><textarea class="input" id="vNote" maxlength="500" style="height:90px;padding:10px 12px" placeholder="مثال: أربّي الضأن الحمري منذ 10 سنوات، ومزرعتي في الحلفايا."></textarea></label>
+      <button class="btn btn-primary" id="vSend">${ic('badge')}إرسال الطلب</button>
+    </div>`, (sh) => {
+    $('#vSend', sh).onclick = (e) => busy(e.currentTarget, async () => {
+      const p = S.profile, note = $('#vNote', sh).value.trim().slice(0, 500);
+      try {
+        const ref = doc(db, 'verifyRequests', S.user.uid);
+        if (req) await updateDoc(ref, { note, status: 'pending', createdAt: serverTimestamp() });
+        else await setDoc(ref, { name: p.name, storeName: p.storeName, whatsapp: p.whatsapp, state: p.state, city: p.city, note, status: 'pending', createdAt: serverTimestamp() });
+        closeSheet(); toast('أُرسل طلب التوثيق', 'success'); renderShell();
+      } catch (err) { toast(errMsg(err), 'error'); }
+    });
+  });
+}
+
+/* ========== الحساب الموقوف ========== */
+function renderBanned() {
+  app.innerHTML = `<div class="screen pad">${viewEmpty('block', 'حسابك موقوف', `أوقفت إدارة غنماية هذا الحساب${S.profile.banReason ? ` بسبب: ${esc(S.profile.banReason)}` : ''}. للاستفسار تواصل مع الدعم.`)}
+    <button class="btn btn-ghost" id="out">تسجيل الخروج</button></div>`;
+  $('#out').onclick = () => signOut(auth);
+}
+
 /* ========== الإشعارات (FCM) ========== */
 async function setupPush() {
   const PN = P.PushNotifications;
@@ -1775,7 +1867,8 @@ function viewAccount() {
     <div class="card stack">
       <div class="row"><h2 class="grow">حساب البائع</h2><span class="badge">مفعّل</span></div>
       <div class="muted" style="font-size:14px">${esc(p.storeName || '')} · <span class="ltr" style="display:inline-block">${esc(p.whatsapp || '')}</span></div>
-      ${p.verified ? '' : `<div class="note note-ok">${ic('badge', 'style="width:20px;height:20px"')}<span class="grow">احصل على شارة <strong>تاجر موثّق</strong> لثقة أكبر. طلب التوثيق يُفتح قريباً.</span></div>`}
+      ${p.verified ? `<div class="note note-ok">${ic('badge', 'style="width:20px;height:20px"')}<span class="grow">أنت <strong>تاجر موثّق</strong>. تظهر الشارة بجانب اسمك في كل إعلاناتك.</span></div>`
+        : `<button class="note note-ok" id="verifyBtn" style="border:0;width:100%;text-align:right;align-items:center">${ic('badge', 'style="width:20px;height:20px"')}<span class="grow" id="verifyTxt">احصل على شارة <strong>تاجر موثّق</strong> لثقة أكبر.</span><span class="btn-link" style="padding:0" id="verifyCta">اطلب</span></button>`}
     </div>` : `
     <div class="card seller-cta stack">
       <div class="row" style="gap:12px"><div class="tile">${ic('store')}</div>
@@ -1797,6 +1890,7 @@ function bindAccount() {
   $('#logout').onclick = () => confirmSheet('تسجيل الخروج؟', '', 'خروج', () => signOut(auth));
   $('#editProfile').onclick = openProfileSheet;
   $('#walletCard').onclick = () => toast('المحفظة الرقمية تُطلق في مرحلة لاحقة');
+  bindVerify();
   $$('[data-go]').forEach(b => b.onclick = () => b.dataset.go === 'soon' ? toast('هذا القسم قيد التجهيز') : push(b.dataset.go));
 }
 
@@ -1912,6 +2006,7 @@ onAuthStateChanged(auth, async (user) => {
     S.profile = await loadProfile(user.uid);
     S.tab = 'home';
     if (!S.profile) return renderOnboarding();
+    if (S.profile.banned) return renderBanned();
     S.sellers[user.uid] = S.profile;
     loadFavs(user.uid).catch(() => {});
     loadBlocks(user.uid).catch(() => {});

@@ -5,3 +5,4 @@ service-account*.json
 .vercel
 # ملاحظة: signing/ghanamaya.keystore و google-services.json مرفوعان عمداً
 # لذلك يجب أن يبقى هذا المستودع خاصاً (Private)
+public/

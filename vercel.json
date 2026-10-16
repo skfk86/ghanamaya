@@ -1,5 +1,9 @@
 {
   "framework": null,
-  "buildCommand": "",
-  "outputDirectory": "www"
+  "installCommand": "npm install --omit=dev --ignore-scripts",
+  "buildCommand": "rm -rf public && mkdir -p public/admin && cp -r www/. public/ && cp admin/index.html public/admin/index.html",
+  "outputDirectory": "public",
+  "headers": [
+    { "source": "/admin/(.*)", "headers": [{ "key": "X-Robots-Tag", "value": "noindex" }, { "key": "X-Frame-Options", "value": "DENY" }] }
+  ]
 }

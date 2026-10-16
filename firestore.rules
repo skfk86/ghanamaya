@@ -8,6 +8,10 @@ service cloud.firestore {
     function isMe(uid) { return signedIn() && request.auth.uid == uid; }
     function isAdmin() { return signedIn() && request.auth.token.admin == true; }
     function str(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+    // حساب موقوف من الإدارة: يقرأ فقط ولا ينشئ شيئاً
+    function notBanned() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('banned', false) != true;
+    }
 
     // الحقول التي يحق للمستخدم كتابتها في ملفه
     function userFields() {
@@ -40,6 +44,9 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(userFields())
         && validUser(request.resource.data)
         && request.resource.data.get('isSeller', false) == false;
+      // الأدمن: التوثيق، الإيقاف، التحذيرات
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verified', 'banned', 'banReason', 'warnings', 'reportsDismissed', 'updatedAt']);
       allow update: if isMe(uid)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userFields())
         && validUser(request.resource.data)
@@ -89,14 +96,14 @@ service cloud.firestore {
       // القراءة لأي مستخدم مسجّل؛ التطبيق يعرض النشط فقط في السوق
       allow read: if signedIn();
 
-      allow create: if signedIn() && amSeller()
+      allow create: if signedIn() && amSeller() && notBanned()
         && request.resource.data.sellerId == request.auth.uid
         && request.resource.data.keys().hasOnly(listingFields())
         && request.resource.data.status == 'active'
         && validListing(request.resource.data);
 
       // صاحب الإعلان يعدّله أو يعلّمه "مباع"؛ لا يستطيع فك إيقاف الأدمن ولا تغيير المالك أو التمييز
-      allow update: if isAdmin() || (signedIn()
+      allow update: if isAdmin() || (signedIn() && notBanned()
         && resource.data.sellerId == request.auth.uid
         && request.resource.data.sellerId == resource.data.sellerId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(listingFields())
@@ -124,9 +131,9 @@ service cloud.firestore {
     function otherOf(c) { return c.participants[0] == request.auth.uid ? c.participants[1] : c.participants[0]; }
 
     match /chats/{chatId} {
-      allow read: if signedIn() && (resource == null || request.auth.uid in resource.data.participants);
+      allow read: if isAdmin() || (signedIn() && (resource == null || request.auth.uid in resource.data.participants));
 
-      allow create: if signedIn()
+      allow create: if signedIn() && notBanned()
         && request.resource.data.buyerId == request.auth.uid
         && chatId == request.resource.data.listingId + '_' + request.auth.uid
         && request.resource.data.sellerId == get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.sellerId
@@ -142,9 +149,9 @@ service cloud.firestore {
             || request.resource.data.lastSenderId == resource.data.get('lastSenderId', ''));
 
       match /messages/{msgId} {
-        allow read: if inChat(chatId);
+        allow read: if isAdmin() || inChat(chatId);
 
-        allow create: if inChat(chatId)
+        allow create: if inChat(chatId) && notBanned()
           && request.resource.data.senderId == request.auth.uid
           && !blockedBy(otherOf(chatDoc(chatId)), request.auth.uid)
           && request.resource.data.keys().hasOnly(['senderId', 'kind', 'text', 'imageUrl', 'offer', 'createdAt'])
@@ -206,7 +213,7 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow read: if isAdmin() || (signedIn() && request.auth.uid in resource.data.participants);
 
-      allow create: if signedIn()
+      allow create: if signedIn() && notBanned()
         && request.resource.data.keys().hasOnly(orderFields())
         && request.resource.data.buyerId == request.auth.uid
         && request.resource.data.sellerId == listingDoc(request.resource.data.listingId).sellerId
@@ -241,6 +248,26 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['sellerId', 'buyerId', 'buyerName', 'stars', 'comment', 'title', 'createdAt'])
         && request.resource.data.stars is int && request.resource.data.stars >= 1 && request.resource.data.stars <= 5
         && request.resource.data.comment is string && request.resource.data.comment.size() <= 500;
+    }
+
+    // ===== البلاغات: تُنشأ من السيرفر فقط (/api/report)، والأدمن يقرأ ويقرر =====
+    match /reports/{id} {
+      allow read: if isAdmin();
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decision', 'decisionNote', 'decidedBy', 'decidedAt']);
+    }
+
+    // ===== طلبات التوثيق: طلب واحد لكل بائع =====
+    match /verifyRequests/{uid} {
+      allow read: if isMe(uid) || isAdmin();
+      allow create: if isMe(uid) && amSeller()
+        && request.resource.data.keys().hasOnly(['name', 'storeName', 'whatsapp', 'state', 'city', 'note', 'status', 'createdAt'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.note is string && request.resource.data.note.size() <= 500;
+      // إعادة التقديم بعد الرفض
+      allow update: if (isMe(uid) && resource.data.status == 'rejected' && request.resource.data.status == 'pending'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['note', 'status', 'createdAt']))
+        || (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionNote', 'decidedAt']));
     }
 
     // ===== الإعدادات العامة (العمولة، السلالات...) =====

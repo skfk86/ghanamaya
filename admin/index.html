@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>غنماية — لوحة الإدارة</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--brand:#3F5A2E;--brand-soft:#EEF2E6;--brand-tint:#D9E3C8;--side:#1F2A17;--accent:#C8601E;--accent-soft:#FFF4E8;--accent-ink:#7A3D12;--danger:#9A2E1C;--danger-soft:#F8E9E5;--bg:#F7F3EC;--surface:#fff;--line:#ECE6DB;--ink:#1F1D1A;--ink-2:#45413B;--muted:#6B655C;--blue:#2B4C7E;--blue-soft:#E6EEF8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;font-size:14px;line-height:1.6}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.icon{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.layout{display:flex;flex-wrap:wrap;min-height:100vh}
+aside{flex:1 1 230px;max-width:100%;background:var(--side);color:#E8EDE0;padding:22px 14px;display:flex;flex-direction:column;gap:20px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px}
+.brand .logo{width:38px;height:38px;border-radius:12px;background:var(--brand);display:flex;align-items:center;justify-content:center}
+nav{display:flex;flex-direction:column;gap:3px}
+nav button{border:0;background:none;color:#C9D3BC;min-height:42px;padding:0 12px;border-radius:11px;display:flex;align-items:center;gap:10px;text-align:right;width:100%}
+nav button.on{background:var(--brand);color:#fff;font-weight:700}
+nav .n{margin-inline-start:auto;background:var(--accent);color:#fff;font-size:11px;font-weight:700;min-width:22px;height:22px;padding:0 6px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center}
+.me{margin-top:auto;font-size:12px;color:#A9B98F;padding:0 8px;display:flex;flex-direction:column;gap:6px}
+.me button{background:none;border:1px solid #3A4A2C;color:#C9D3BC;border-radius:10px;padding:6px 10px}
+main{flex:999 1 560px;min-width:0;padding:26px clamp(14px,3vw,38px);display:flex;flex-direction:column;gap:20px;max-width:1240px}
+h1{margin:0;font-size:23px}
+h2{margin:0;font-size:16px}
+.head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.muted{color:var(--muted);font-size:13px}
+.card{background:var(--surface);border-radius:16px;padding:18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi b{display:block;font-size:26px;margin-top:4px}
+.two{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.two>.list{flex:1 1 320px;min-width:0}
+.two>.detail{flex:999 1 460px;min-width:0}
+.list{display:flex;flex-direction:column;gap:4px;background:var(--surface);border-radius:16px;padding:8px}
+.item{display:flex;gap:10px;align-items:center;padding:10px;border-radius:12px;border:0;background:none;text-align:right;width:100%}
+.item.on{background:var(--brand-soft)}
+.item img,.thumb{width:48px;height:48px;border-radius:10px;object-fit:cover;background:var(--line);flex-shrink:0}
+.grow{flex:1;min-width:0}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:7px;white-space:nowrap}
+.t-red{background:var(--danger-soft);color:var(--danger)}.t-orange{background:var(--accent-soft);color:var(--accent-ink)}.t-green{background:var(--brand-soft);color:var(--brand)}.t-gray{background:var(--line);color:var(--ink-2)}.t-blue{background:var(--blue-soft);color:var(--blue)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:0;background:var(--surface);height:36px;padding:0 14px;border-radius:10px}
+.chip.on{background:var(--ink);color:#fff;font-weight:700}
+.btn{border:0;height:40px;padding:0 14px;border-radius:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px;background:var(--bg)}
+.btn.primary{background:var(--brand);color:#fff}.btn.danger{background:var(--danger);color:#fff}.btn.warn{background:var(--accent-soft);color:var(--accent-ink)}.btn.orange{background:var(--accent);color:#fff}
+.btn[disabled]{opacity:.5;pointer-events:none}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.input{height:42px;border-radius:11px;border:1.5px solid var(--line);background:var(--surface);padding:0 12px;width:100%;outline:none}
+.input:focus{border-color:var(--brand)}
+textarea.input{height:auto;min-height:70px;padding:10px 12px}
+.note{background:#FBF8F3;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px}
+.gallery{display:flex;gap:8px;overflow-x:auto}
+.gallery img{width:140px;height:140px;border-radius:12px;object-fit:cover;flex-shrink:0;cursor:zoom-in}
+.msgs{display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto;background:var(--bg);border-radius:12px;padding:10px}
+.msg{max-width:80%;padding:6px 10px;border-radius:12px;background:var(--surface);font-size:13px;white-space:pre-wrap}
+.msg.s{align-self:flex-end;background:var(--brand-soft)}
+.msg small{display:block;color:var(--muted);font-size:10px}
+table{width:100%;border-collapse:collapse;min-width:620px}
+th{font-weight:500;color:var(--muted);font-size:12px;text-align:right;padding:8px;border-bottom:1px solid var(--line)}
+td{padding:10px 8px;border-bottom:1px solid #F1ECE3;vertical-align:middle}
+.scroll{overflow-x:auto}
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+.center{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.login{width:100%;max-width:380px;display:flex;flex-direction:column;gap:12px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:12px;z-index:9;opacity:0;transition:opacity .2s}
+.toast.show{opacity:1}
+.spinner{width:26px;height:26px;border-radius:50%;border:3px solid var(--brand-tint);border-top-color:var(--brand);animation:spin .8s linear infinite;margin:30px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-badge" viewBox="0 0 24 24"><path d="M12 2l2.4 1.8 3-.1.9 2.9 2.4 1.8-1 2.8 1 2.8-2.4 1.8-.9 2.9-3-.1L12 22l-2.4-1.8-3 .1-.9-2.9-2.4-1.8 1-2.8-1-2.8 2.4-1.8.9-2.9 3 .1z"/><path d="M8.5 12l2.3 2.3 4.7-4.6"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 10l1.5-5h13L20 10M4 10v10h16V10M4 10h16"/><path d="M10 20v-5h4v5"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 7h14l-1.2 12.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8z"/><path d="M9 7a3 3 0 0 1 6 0"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l9 4v5c0 5-4 8.5-9 9-5-.5-9-4-9-9V7z"/></symbol>
+</svg>
+<div id="app"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+import { getFirestore, collection, query, where, orderBy, limit, getDocs, getDoc, doc, updateDoc, deleteDoc, writeBatch, increment, serverTimestamp, getCountFromServer } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+
+const fb = initializeApp({
+  apiKey: "AIzaSyDT2eTXJ5gkXh31W5MoOmHfHmOrveKTkU8", authDomain: "ghanamaya-4e639.firebaseapp.com", projectId: "ghanamaya-4e639",
+  storageBucket: "ghanamaya-4e639.firebasestorage.app", messagingSenderId: "613815409706", appId: "1:613815409706:web:521b1514afd1bc2e16f753"
+});
+const auth = getAuth(fb), db = getFirestore(fb);
+
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const app = $('#app');
+const ic = (n) => `<svg class="icon"><use href="#i-${n}"/></svg>`;
+const esc = (s = '') => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ms = (t) => t && t.toMillis ? t.toMillis() : 0;
+const ago = (t) => { const s = (Date.now() - ms(t)) / 1000; return s < 3600 ? `منذ ${Math.max(1, Math.round(s / 60))} د` : s < 86400 ? `منذ ${Math.round(s / 3600)} س` : `منذ ${Math.round(s / 86400)} يوم`; };
+const money = (n) => Number(n || 0).toLocaleString('en-US') + ' ج.س';
+const ik = (u, w = 200) => u ? `${u}?tr=w-${w},q-70` : '';
+const TYPES = { goat: 'ماعز', sheep: 'ضأن', cattle: 'عجل', camel: 'جمل' };
+const ltitle = (l) => `${TYPES[l.type] || ''} ${l.breed || ''}`.trim();
+function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.append(t); requestAnimationFrame(() => t.classList.add('show')); setTimeout(() => t.remove(), 2800); }
+async function run(btn, fn, ok) { btn.disabled = true; try { await fn(); if (ok) toast(ok); } catch (e) { toast(e.code === 'permission-denied' ? 'لا صلاحية' : 'حدث خطأ'); console.error(e); } finally { btn.disabled = false; } }
+
+const S = { me: null, sec: 'home', counts: {}, sel: null, filter: 'open' };
+const SECTIONS = [['home', 'نظرة عامة', 'home'], ['reports', 'البلاغات', 'flag'], ['verify', 'التوثيق', 'badge'], ['listings', 'الإعلانات', 'store'], ['users', 'المستخدمون', 'user'], ['orders', 'الطلبات', 'bag']];
+
+/* ---------- الدخول ---------- */
+function renderLogin(msg = '') {
+  app.innerHTML = `<div class="center"><div class="card login">
+    <div class="brand" style="padding:0"><span class="logo">${ic('shield').replace('class="icon"', 'class="icon" style="color:#fff"')}</span><div><b style="font-size:17px">غنماية</b><div class="muted">لوحة الإدارة</div></div></div>
+    ${msg ? `<div class="note" style="color:var(--danger)">${msg}</div>` : ''}
+    <button class="btn primary" id="g" style="justify-content:center;height:46px">الدخول بحساب Google</button>
+    <div class="muted" style="text-align:center">أو</div>
+    <input class="input" id="em" type="email" placeholder="البريد" dir="ltr"><input class="input" id="pw" type="password" placeholder="كلمة المرور" dir="ltr">
+    <button class="btn" id="e" style="justify-content:center;height:44px">دخول</button></div></div>`;
+  $('#g').onclick = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => renderLogin(e.code === 'auth/unauthorized-domain' ? 'أضف نطاق اللوحة إلى Authorized domains في Firebase' : 'تعذّر الدخول'));
+  $('#e').onclick = () => signInWithEmailAndPassword(auth, $('#em').value, $('#pw').value).catch(() => renderLogin('البريد أو كلمة المرور غير صحيحة'));
+}
+
+/* ---------- الهيكل ---------- */
+function shell(body) {
+  app.innerHTML = `<div class="layout"><aside>
+    <div class="brand"><span class="logo">${ic('shield').replace('class="icon"', 'class="icon" style="color:#fff"')}</span><div><b style="font-size:16px">غنماية</b><div style="font-size:12px;color:#A9B98F">لوحة الإدارة</div></div></div>
+    <nav>${SECTIONS.map(([k, l, i]) => `<button data-sec="${k}" class="${S.sec === k ? 'on' : ''}">${ic(i)}${l}${S.counts[k] ? `<span class="n">${S.counts[k]}</span>` : ''}</button>`).join('')}</nav>
+    <div class="me"><span>${esc(S.me.email)}</span><button id="out">تسجيل الخروج</button></div>
+  </aside><main id="main">${body}</main></div>`;
+  $$('[data-sec]').forEach(b => b.onclick = () => { S.sec = b.dataset.sec; S.sel = null; go(); });
+  $('#out').onclick = () => signOut(auth);
+}
+const loading = () => '<div class="spinner"></div>';
+async function refreshCounts() {
+  const [r, v] = await Promise.all([
+    getCountFromServer(query(collection(db, 'reports'), where('status', '==', 'open'))),
+    getCountFromServer(query(collection(db, 'verifyRequests'), where('status', '==', 'pending')))
+  ]);
+  S.counts.reports = r.data().count; S.counts.verify = v.data().count;
+}
+async function go() {
+  shell(loading());
+  try { await refreshCounts(); } catch (e) {}
+  shell(loading());
+  try { await ({ home, reports, verify, listings, users, orders })[S.sec](); }
+  catch (e) { console.error(e); $('#main').innerHTML = `<div class="empty">تعذّر التحميل: ${esc(e.code || e.message)}</div>`; }
+}
+
+/* ---------- نظرة عامة ---------- */
+async function home() {
+  const c = async (q) => (await getCountFromServer(q)).data().count;
+  const [users, sellers, active, ordersAll, done] = await Promise.all([
+    c(collection(db, 'users')), c(query(collection(db, 'users'), where('isSeller', '==', true))),
+    c(query(collection(db, 'listings'), where('status', '==', 'active'))), c(collection(db, 'orders')),
+    c(query(collection(db, 'orders'), where('status', '==', 'completed')))
+  ]);
+  $('#main').innerHTML = `<div class="head"><h1>نظرة عامة</h1><span class="muted">${new Date().toLocaleString('ar')}</span></div>
+    <div class="kpis">
+      <div class="card kpi"><span class="muted">المستخدمون</span><b>${users}</b><span class="muted">${sellers} بائع</span></div>
+      <div class="card kpi"><span class="muted">الإعلانات النشطة</span><b>${active}</b></div>
+      <div class="card kpi"><span class="muted">الطلبات</span><b>${ordersAll}</b><span class="muted">${done} مكتمل</span></div>
+      <div class="card kpi"><span class="muted">بلاغات مفتوحة</span><b style="color:${S.counts.reports ? 'var(--danger)' : 'inherit'}">${S.counts.reports || 0}</b></div>
+      <div class="card kpi"><span class="muted">طلبات توثيق</span><b>${S.counts.verify || 0}</b></div>
+    </div>
+    <div class="card"><h2>المحفظة الرقمية والسحوبات</h2><p class="muted" style="margin:6px 0 0">تُضاف في المرحلة السادسة مع OxaPay.</p></div>`;
+}
+
+/* ---------- البلاغات ---------- */
+const PRI = { 1: ['عاجل', 't-red'], 2: ['عادي', 't-orange'], 3: ['منخفض', 't-gray'], 4: ['منخفض', 't-gray'] };
+const TT = { listing: 'إعلان', user: 'مستخدم', chat: 'محادثة' };
+async function reports() {
+  const snap = await getDocs(S.filter === 'open' ? query(collection(db, 'reports'), where('status', '==', 'open')) : query(collection(db, 'reports'), orderBy('createdAt', 'desc'), limit(150)));
+  const all = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => S.filter === 'open' ? true : r.status !== 'open');
+  // تجميع حسب الهدف: قرار واحد يغلق كل بلاغات الهدف
+  const groups = {};
+  all.forEach(r => { const k = `${r.targetType}:${r.targetId}`; (groups[k] = groups[k] || { key: k, items: [] }).items.push(r); });
+  const list = Object.values(groups).map(g => ({ ...g, top: g.items.reduce((a, b) => a.priority <= b.priority ? a : b) }))
+    .sort((a, b) => (a.top.priority - b.top.priority) || (b.items.length - a.items.length) || (ms(b.top.createdAt) - ms(a.top.createdAt)));
+  if (!S.sel || !groups[S.sel]) S.sel = list[0] ? list[0].key : null;
+  $('#main').innerHTML = `<div class="head"><h1>البلاغات</h1><div class="chips"><button class="chip ${S.filter === 'open' ? 'on' : ''}" data-f="open">مفتوحة</button><button class="chip ${S.filter === 'done' ? 'on' : ''}" data-f="done">تم البت</button></div></div>
+    ${list.length ? `<div class="two"><div class="list">${list.map(g => `
+      <button class="item ${S.sel === g.key ? 'on' : ''}" data-g="${g.key}">
+        ${g.top.image ? `<img src="${esc(ik(g.top.image, 120))}" alt="">` : `<span class="thumb" style="display:flex;align-items:center;justify-content:center">${ic(g.top.targetType === 'user' ? 'user' : 'flag')}</span>`}
+        <span class="grow"><b class="ell">${TT[g.top.targetType]}: ${esc(g.top.title || g.top.targetId)}</b><span class="muted ell">${esc(g.top.reasonLabel)}</span>
+          <span style="display:flex;gap:6px;margin-top:2px"><span class="tag ${PRI[g.top.priority][1]}">${PRI[g.top.priority][0]}</span><span class="muted" style="font-size:11px">${g.items.length} بلاغ · ${ago(g.top.createdAt)}</span></span></span>
+      </button>`).join('')}</div><div class="detail card" id="det">${loading()}</div></div>` : `<div class="card empty">لا توجد بلاغات ${S.filter === 'open' ? 'مفتوحة' : ''}.</div>`}`;
+  $$('[data-f]').forEach(b => b.onclick = () => { S.filter = b.dataset.f; S.sel = null; go(); });
+  $$('[data-g]').forEach(b => b.onclick = () => { S.sel = b.dataset.g; $$('[data-g]').forEach(x => x.classList.toggle('on', x === b)); reportDetail(groups[S.sel]); });
+  if (S.sel) reportDetail(groups[S.sel]);
+}
+async function reportDetail(g) {
+  const det = $('#det'); det.innerHTML = loading();
+  const r0 = g.items[0], open = r0.status === 'open';
+  let preview = '', listing = null;
+  const subj = await getDoc(doc(db, 'users', r0.subjectUid)).catch(() => null);
+  const su = subj && subj.exists() ? subj.data() : {};
+  if (r0.targetType === 'listing') {
+    const l = await getDoc(doc(db, 'listings', r0.targetId)).catch(() => null);
+    if (l && l.exists()) {
+      listing = { id: l.id, ...l.data() };
+      preview = `<div class="gallery">${(listing.images || []).map(im => `<img src="${esc(ik(im.url, 300))}" data-full="${esc(im.url)}" alt="">`).join('')}</div>
+        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px"><b style="font-size:16px">${esc(ltitle(listing))} — ${money(listing.price)}</b>
+        <span class="tag ${listing.status === 'active' ? 't-green' : listing.status === 'hidden' ? 't-red' : 't-gray'}">${{ active: 'نشط', hidden: listing.hiddenReason === 'auto' ? 'مخفي تلقائياً' : 'موقوف', sold: 'مباع' }[listing.status]}</span></div>
+        <span class="muted">${esc(listing.city)}، ${esc(listing.state)} · ${listing.ageMonths} شهر · ${listing.weightKg} كجم</span>
+        ${listing.description ? `<div class="note">${esc(listing.description)}</div>` : ''}`;
+    } else preview = '<div class="note">الإعلان محذوف.</div>';
+  } else if (r0.targetType === 'chat') {
+    const m = await getDocs(query(collection(db, 'chats', r0.targetId, 'messages'), orderBy('createdAt', 'desc'), limit(40))).catch(() => null);
+    const msgs = m ? m.docs.map(d => d.data()).reverse() : [];
+    preview = `<b>آخر الرسائل (${esc(r0.title)})</b><div class="msgs">${msgs.map(x => `<div class="msg ${x.senderId === r0.subjectUid ? 's' : ''}">${x.kind === 'image' ? `<img src="${esc(ik(x.imageUrl, 200))}" style="max-width:160px;border-radius:8px">` : x.kind === 'offer' ? `عرض: ${money(x.offer.price)} (${x.offer.status})` : esc(x.text)}<small>${x.senderId === r0.subjectUid ? 'المُبلَّغ عنه' : 'المبلّغ'} · ${ago(x.createdAt)}</small></div>`).join('') || '<span class="muted">لا رسائل</span>'}</div>`;
+  }
+  const prev = await getCountFromServer(query(collection(db, 'reports'), where('subjectUid', '==', r0.subjectUid))).then(x => x.data().count).catch(() => '؟');
+  det.innerHTML = `<div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span class="grow"><h2>${TT[r0.targetType]}: ${esc(r0.title || r0.targetId)}</h2>
+      <span class="muted">صاحبه: ${esc(su.storeName || su.name || r0.subjectUid)} ${su.verified ? '<span class="tag t-green">موثّق</span>' : ''} ${su.banned ? '<span class="tag t-red">موقوف</span>' : ''} · كل البلاغات عليه: ${prev} · تحذيرات: ${su.warnings || 0}</span></span>
+      ${su.whatsapp ? `<a class="btn" href="https://wa.me/${esc(String(su.whatsapp).replace(/\D/g, ''))}" target="_blank">واتساب</a>` : ''}</div>
+    ${preview}
+    <div><h2 style="margin-bottom:8px">ما قاله المبلّغون (${g.items.length})</h2><div style="display:flex;flex-direction:column;gap:8px">${g.items.map(r => `<div class="note">
+      <span style="display:flex;justify-content:space-between;gap:6px"><b style="font-size:13px">${esc(r.reasonLabel)}</b><span class="muted" style="font-size:11px">${esc(r.reporterName)} · ${ago(r.createdAt)}</span></span>
+      ${r.note ? `<span>${esc(r.note)}</span>` : ''}${r.evidenceUrl ? `<img src="${esc(ik(r.evidenceUrl, 300))}" data-full="${esc(r.evidenceUrl)}" style="max-width:200px;border-radius:10px;cursor:zoom-in">` : ''}
+      ${r.status !== 'open' ? `<span class="tag t-gray" style="align-self:flex-start">${esc(r.decision)}${r.decisionNote ? ` — ${esc(r.decisionNote)}` : ''}</span>` : ''}</div>`).join('')}</div></div>
+    ${open ? `<div style="display:flex;flex-direction:column;gap:8px"><h2>القرار</h2>
+      <input class="input" id="why" placeholder="سبب القرار (يظهر للبائع عند الإيقاف)">
+      <div class="actions">
+        <button class="btn" data-d="dismiss">رفض البلاغ${listing && listing.status === 'hidden' && listing.hiddenReason === 'auto' ? ' وإعادة النشر' : ''}</button>
+        <button class="btn warn" data-d="warn">تحذير</button>
+        ${listing ? `<button class="btn" style="background:var(--line)" data-d="hide">إيقاف الإعلان</button><button class="btn orange" data-d="delete">حذف الإعلان</button>` : ''}
+        <button class="btn danger" data-d="ban">إيقاف الحساب</button>
+      </div></div>` : ''}
+  </div>`;
+  $$('[data-full]', det).forEach(i => i.onclick = () => window.open(i.dataset.full, '_blank'));
+  $$('[data-d]', det).forEach(b => b.onclick = () => {
+    const d = b.dataset.d, why = $('#why').value.trim();
+    const label = { dismiss: 'رُفض البلاغ', warn: 'تحذير', hide: 'إيقاف الإعلان', delete: 'حذف الإعلان', ban: 'إيقاف الحساب' }[d];
+    if (['delete', 'ban'].includes(d) && !confirm(`${label}؟ لا يمكن التراجع بسهولة.`)) return;
+    run(b, async () => {
+      const batch = writeBatch(db);
+      g.items.filter(r => r.status === 'open').forEach(r => {
+        batch.update(doc(db, 'reports', r.id), { status: 'closed', decision: label, decisionNote: why, decidedBy: S.me.uid, decidedAt: serverTimestamp() });
+        if (d === 'dismiss') batch.update(doc(db, 'users', r.reporterId), { reportsDismissed: increment(1) });
+      });
+      if (d === 'dismiss' && listing && listing.status === 'hidden' && listing.hiddenReason === 'auto') batch.update(doc(db, 'listings', listing.id), { status: 'active', hiddenReason: '', updatedAt: serverTimestamp() });
+      if (d === 'warn') batch.update(doc(db, 'users', r0.subjectUid), { warnings: increment(1), updatedAt: serverTimestamp() });
+      if (d === 'hide') batch.update(doc(db, 'listings', listing.id), { status: 'hidden', hiddenReason: 'admin', adminNote: why, updatedAt: serverTimestamp() });
+      if (d === 'delete') batch.delete(doc(db, 'listings', listing.id));
+      if (d === 'ban') batch.update(doc(db, 'users', r0.subjectUid), { banned: true, banReason: why, updatedAt: serverTimestamp() });
+      await batch.commit();
+      S.sel = null; await go();
+    }, `تم: ${label}`);
+  });
+}
+
+/* ---------- التوثيق ---------- */
+async function verify() {
+  const snap = await getDocs(query(collection(db, 'verifyRequests'), where('status', '==', 'pending')));
+  const list = snap.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => ms(a.createdAt) - ms(b.createdAt));
+  $('#main').innerHTML = `<div class="head"><h1>طلبات التوثيق</h1><span class="muted">${list.length} بانتظار المراجعة</span></div>
+    ${list.length ? `<div class="card scroll"><table><thead><tr><th>التاجر</th><th>الموقع</th><th>واتساب</th><th>نبذة</th><th>منذ</th><th></th></tr></thead><tbody>${list.map(v => `
+      <tr><td><b>${esc(v.storeName)}</b><div class="muted">${esc(v.name)}</div></td><td>${esc(v.city)}، ${esc(v.state)}</td>
+      <td><a href="https://wa.me/${esc(String(v.whatsapp).replace(/\D/g, ''))}" target="_blank" dir="ltr">${esc(v.whatsapp)}</a></td>
+      <td style="max-width:260px">${esc(v.note) || '<span class="muted">—</span>'}</td><td class="muted">${ago(v.createdAt)}</td>
+      <td><div class="actions"><button class="btn primary" data-ok="${v.uid}">توثيق</button><button class="btn" data-no="${v.uid}">رفض</button></div></td></tr>`).join('')}</tbody></table>
+      <p class="muted">تواصل مع التاجر عبر واتساب وتحقق من هويته ومكان مواشيه قبل التوثيق.</p></div>` : '<div class="card empty">لا توجد طلبات توثيق.</div>'}`;
+  $$('[data-ok]').forEach(b => b.onclick = () => run(b, async () => {
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'users', b.dataset.ok), { verified: true, updatedAt: serverTimestamp() });
+    batch.update(doc(db, 'verifyRequests', b.dataset.ok), { status: 'approved', decidedAt: serverTimestamp() });
+    await batch.commit(); await go();
+  }, 'تم التوثيق'));
+  $$('[data-no]').forEach(b => b.onclick = () => {
+    const note = prompt('سبب الرفض (يظهر للتاجر):', 'لم نتمكن من التحقق من المعلومات'); if (note === null) return;
+    run(b, async () => { await updateDoc(doc(db, 'verifyRequests', b.dataset.no), { status: 'rejected', decisionNote: note, decidedAt: serverTimestamp() }); await go(); }, 'تم الرفض');
+  });
+}
+
+/* ---------- الإعلانات ---------- */
+async function listings() {
+  const snap = await getDocs(query(collection(db, 'listings'), orderBy('createdAt', 'desc'), limit(200)));
+  const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const draw = (q = '', st = 'all') => {
+    const list = all.filter(l => (st === 'all' || l.status === st) && (!q || `${ltitle(l)} ${l.sellerName} ${l.city} ${l.state}`.includes(q)));
+    $('#rows').innerHTML = list.map(l => `<tr>
+      <td><div style="display:flex;gap:10px;align-items:center"><img class="thumb" src="${esc(ik((l.images || [])[0]?.url, 120))}" alt=""><div><b>${esc(ltitle(l))}</b><div class="muted">${esc(l.sellerName)}</div></div></div></td>
+      <td>${money(l.price)}</td><td>${esc(l.city)}</td>
+      <td><span class="tag ${l.status === 'active' ? 't-green' : l.status === 'hidden' ? 't-red' : 't-gray'}">${{ active: 'نشط', hidden: 'موقوف', sold: 'مباع' }[l.status]}</span></td>
+      <td class="muted">${ago(l.createdAt)}</td>
+      <td><div class="actions">${l.status === 'hidden' ? `<button class="btn" data-un="${l.id}">إعادة نشر</button>` : `<button class="btn" data-hide="${l.id}">إيقاف</button>`}<button class="btn orange" data-del="${l.id}">حذف</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="empty">لا نتائج</td></tr>';
+    $$('[data-hide]').forEach(b => b.onclick = () => { const why = prompt('سبب الإيقاف (يظهر للبائع):', ''); if (why === null) return; run(b, async () => { await updateDoc(doc(db, 'listings', b.dataset.hide), { status: 'hidden', hiddenReason: 'admin', adminNote: why, updatedAt: serverTimestamp() }); all.find(x => x.id === b.dataset.hide).status = 'hidden'; draw($('#q').value, $('#st').value); }, 'أُوقف'); });
+    $$('[data-un]').forEach(b => b.onclick = () => run(b, async () => { await updateDoc(doc(db, 'listings', b.dataset.un), { status: 'active', hiddenReason: '', adminNote: '', updatedAt: serverTimestamp() }); all.find(x => x.id === b.dataset.un).status = 'active'; draw($('#q').value, $('#st').value); }, 'أُعيد نشره'));
+    $$('[data-del]').forEach(b => b.onclick = () => { if (!confirm('حذف الإعلان نهائياً؟')) return; run(b, async () => { await deleteDoc(doc(db, 'listings', b.dataset.del)); all.splice(all.findIndex(x => x.id === b.dataset.del), 1); draw($('#q').value, $('#st').value); }, 'حُذف'); });
+  };
+  $('#main').innerHTML = `<div class="head"><h1>الإعلانات</h1><div class="actions"><input class="input" id="q" placeholder="بحث: سلالة، بائع، مدينة" style="width:240px">
+    <select class="input" id="st" style="width:140px"><option value="all">الكل</option><option value="active">نشطة</option><option value="hidden">موقوفة</option><option value="sold">مباعة</option></select></div></div>
+    <div class="card scroll"><table><thead><tr><th>الإعلان</th><th>السعر</th><th>المدينة</th><th>الحالة</th><th>نُشر</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>`;
+  $('#q').oninput = () => draw($('#q').value, $('#st').value); $('#st').onchange = () => draw($('#q').value, $('#st').value);
+  draw();
+}
+
+/* ---------- المستخدمون ---------- */
+async function users() {
+  const snap = await getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(300)));
+  const all = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+  const draw = (q = '') => {
+    const list = all.filter(u => !q || `${u.name} ${u.storeName || ''} ${u.city} ${u.whatsapp || ''}`.includes(q));
+    $('#rows').innerHTML = list.map(u => `<tr>
+      <td><b>${esc(u.storeName || u.name)}</b>${u.storeName ? `<div class="muted">${esc(u.name)}</div>` : ''}</td>
+      <td>${esc(u.city)}، ${esc(u.state)}</td><td dir="ltr" style="text-align:right">${esc(u.whatsapp || '')}</td>
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap">${u.isSeller ? '<span class="tag t-blue">بائع</span>' : '<span class="tag t-gray">مشترٍ</span>'}${u.verified ? '<span class="tag t-green">موثّق</span>' : ''}${u.banned ? '<span class="tag t-red">موقوف</span>' : ''}${u.warnings ? `<span class="tag t-orange">${u.warnings} تحذير</span>` : ''}</div></td>
+      <td class="muted">${ago(u.createdAt)}</td>
+      <td><div class="actions">${u.isSeller ? `<button class="btn" data-v="${u.uid}">${u.verified ? 'إلغاء التوثيق' : 'توثيق'}</button>` : ''}<button class="btn ${u.banned ? '' : 'danger'}" data-b="${u.uid}">${u.banned ? 'رفع الإيقاف' : 'إيقاف'}</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="empty">لا نتائج</td></tr>';
+    $$('[data-v]').forEach(b => b.onclick = () => run(b, async () => { const u = all.find(x => x.uid === b.dataset.v); await updateDoc(doc(db, 'users', u.uid), { verified: !u.verified, updatedAt: serverTimestamp() }); u.verified = !u.verified; draw($('#q').value); }, 'تم'));
+    $$('[data-b]').forEach(b => b.onclick = () => {
+      const u = all.find(x => x.uid === b.dataset.b);
+      const why = u.banned ? '' : prompt('سبب الإيقاف (يظهر للمستخدم):', ''); if (why === null) return;
+      run(b, async () => { await updateDoc(doc(db, 'users', u.uid), { banned: !u.banned, banReason: why, updatedAt: serverTimestamp() }); u.banned = !u.banned; draw($('#q').value); }, 'تم');
+    });
+  };
+  $('#main').innerHTML = `<div class="head"><h1>المستخدمون</h1><input class="input" id="q" placeholder="بحث: اسم، متجر، مدينة، رقم" style="width:260px"></div>
+    <div class="card scroll"><table><thead><tr><th>الاسم</th><th>الموقع</th><th>واتساب</th><th>الحالة</th><th>انضم</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>`;
+  $('#q').oninput = () => draw($('#q').value);
+  draw();
+}
+
+/* ---------- الطلبات ---------- */
+async function orders() {
+  const snap = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(200)));
+  const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const ST = { pending: ['بانتظار البائع', 't-orange'], accepted: ['مقبول', 't-blue'], paid: ['تم الدفع', 't-blue'], completed: ['مكتمل', 't-green'], rejected: ['مرفوض', 't-gray'], cancelled: ['ملغي', 't-gray'] };
+  const sum = list.filter(o => o.status === 'completed').reduce((a, o) => a + o.total, 0);
+  $('#main').innerHTML = `<div class="head"><h1>الطلبات</h1><span class="muted">قيمة المكتمل: ${money(sum)}</span></div>
+    ${list.length ? `<div class="card scroll"><table><thead><tr><th>الطلب</th><th>المشتري</th><th>البائع</th><th>الإجمالي</th><th>الدفع</th><th>الحالة</th><th>آخر تحديث</th></tr></thead><tbody>${list.map(o => `
+      <tr><td><b>${esc(o.title)}</b> × ${o.qty}</td><td>${esc(o.buyerName)}</td><td>${esc(o.sellerName)}</td><td>${money(o.total)}</td>
+      <td>${o.paymentMethod === 'bankak' ? 'بنكك' : 'نقداً'}${o.receiptUrl ? ` <a href="${esc(o.receiptUrl)}" target="_blank">الإشعار</a>` : ''}</td>
+      <td><span class="tag ${ST[o.status][1]}">${ST[o.status][0]}</span>${o.cancelReason ? `<div class="muted" style="font-size:11px">${esc(o.cancelReason)}</div>` : ''}</td><td class="muted">${ago(o.updatedAt)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="card empty">لا توجد طلبات بعد.</div>'}`;
+}
+
+/* ---------- التشغيل ---------- */
+app.innerHTML = '<div class="center"><div class="spinner"></div></div>';
+onAuthStateChanged(auth, async (u) => {
+  if (!u) return renderLogin();
+  const tok = await u.getIdTokenResult(true);
+  if (!tok.claims.admin) { await signOut(auth); return renderLogin('هذا الحساب ليست له صلاحية الإدارة.'); }
+  S.me = u; go();
+});
+</script>
+</body>
+</html>
