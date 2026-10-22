@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      KS_FILE: ${{ runner.temp }}/ghanamaya.keystore
+      KS_FILE: ${{ github.workspace }}/../ghanamaya.keystore
       KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
       KS_ALIAS: ghanamaya
       KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
