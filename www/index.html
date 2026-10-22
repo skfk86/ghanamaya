@@ -310,6 +310,7 @@ html,body{overflow-x:hidden;max-width:100%}
 .stars .on .icon{fill:currentColor}
 .copy{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:var(--r-sm);padding:10px 12px;font-size:18px;font-weight:700;letter-spacing:.5px}
 .blocked{padding:14px 16px calc(14px + var(--safe-b));background:var(--surface);border-top:1px solid var(--line);text-align:center;color:var(--muted);font-size:14px}
+.pin-in{font-size:24px;letter-spacing:10px;text-align:center;font-weight:700}
 /* احتفال أحداث المال */
 .celeb-bg{position:fixed;inset:0;z-index:90;background:rgba(20,24,16,.55);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:24px;animation:cfade .25s ease}
 .celeb{position:relative;width:100%;max-width:360px;background:var(--surface);border-radius:28px;padding:34px 22px 22px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.35);animation:cpop .5s cubic-bezier(.2,1.4,.4,1);overflow:hidden}
@@ -1901,25 +1902,89 @@ function depositSheet() {
     });
   });
 }
-function withdrawSheet() {
-  const bal = (S.wallet && S.wallet.balance) || 0;
+const pinInput = (id, label) => `<label class="field"><span>${label}</span><input class="input ltr pin-in" id="${id}" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••••"></label>`;
+// تعيين رمز المحفظة أول مرة، أو تغييره، أو استعادته (بعد تسجيل دخول حديث)
+function pinSheet(mode, after) {
+  const title = { set: 'عيّن رمز المحفظة', change: 'تغيير رمز المحفظة', reset: 'استعادة رمز المحفظة' }[mode];
   openSheet(`
     <div class="stack">
-      <div class="row"><h2 class="grow" style="font-size:19px">سحب إلى محفظتك</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
-      <label class="field"><span>المبلغ (USDT) · المتاح ${usdt(bal)}</span><div class="row"><input class="input" id="wAmt" inputmode="decimal" placeholder="0.00" style="font-size:18px;font-weight:700"><button class="btn btn-ghost" id="wMax" style="width:auto;height:50px;padding:0 14px">الكل</button></div></label>
-      <label class="field"><span>عنوان محفظتك (شبكة TRC20 فقط)</span><input class="input ltr" id="wAddr" placeholder="T..." autocapitalize="off" autocomplete="off" spellcheck="false"></label>
-      <div class="note note-warn">${ic('shield', 'style="width:20px;height:20px"')}<span>تأكد أن العنوان على شبكة <strong>TRC20</strong>. الإرسال لعنوان خاطئ لا يمكن استرداده. السحب يُراجع ويُرسل عادة خلال 24 ساعة.</span></div>
-      <button class="btn btn-primary" id="wGo">طلب السحب</button>
+      <div class="row"><h2 class="grow" style="font-size:19px">${title}</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
+      <span class="muted" style="margin-top:-8px">${mode === 'set' ? 'رمز من 6 أرقام يُطلب عند كل سحب، فلا يستطيع أحد سحب رصيدك حتى لو دخل حسابك.' : 'بعد التغيير يتوقف السحب 24 ساعة لحمايتك.'}</span>
+      ${mode === 'change' ? pinInput('pOld', 'الرمز الحالي') : ''}
+      ${pinInput('pNew', 'الرمز الجديد (6 أرقام)')}${pinInput('pNew2', 'أعد كتابة الرمز')}
+      <div class="note note-ok">${ic('shield', 'style="width:20px;height:20px"')}<span>لا تستخدم تاريخ ميلادك أو أرقاماً متسلسلة، ولا تشارك الرمز مع أحد، حتى مع "الدعم".</span></div>
+      <button class="btn btn-primary" id="pGo">حفظ الرمز</button>
     </div>`, (sh) => {
-    $('#wMax', sh).onclick = () => { $('#wAmt', sh).value = usdt(bal); };
-    $('#wGo', sh).onclick = (e) => busy(e.currentTarget, async () => {
-      const amount = parseFloat($('#wAmt', sh).value), address = $('#wAddr', sh).value.trim();
-      if (!(amount > 0)) return toast('اكتب المبلغ', 'error');
-      if (!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address)) return toast('عنوان TRC20 غير صحيح', 'error');
-      try { const r = await walletApi('withdraw', { amount, address }); closeSheet(); toast(r && r.status === 'frozen' ? 'طلب السحب قيد التحقق الأمني' : r && r.delayH ? `سيُرسل تلقائياً بعد ${r.delayH} ساعة (فترة أمان)` : 'جارٍ تحويل سحبك تلقائياً', 'success'); render(); }
-      catch (err) { toast(errMsg(err), 'error'); }
+    $('#pGo', sh).onclick = (e) => busy(e.currentTarget, async () => {
+      const pin = $('#pNew', sh).value, pin2 = $('#pNew2', sh).value;
+      if (!/^\d{6}$/.test(pin)) return toast('الرمز 6 أرقام', 'error');
+      if (pin !== pin2) return toast('الرمزان غير متطابقين', 'error');
+      try {
+        const r = await walletApi('pinSet', { pin, oldPin: mode === 'change' ? $('#pOld', sh).value : undefined, reset: mode === 'reset' });
+        closeSheet(); toast(r.withdrawLockedHours ? `حُفظ الرمز. السحب متاح بعد ${r.withdrawLockedHours} ساعة` : 'حُفظ رمز المحفظة', 'success');
+        after && after();
+      } catch (err) { toast(errMsg(err), 'error'); }
     });
   });
+}
+const addrBlocks = (a) => { const hi = (x) => `<b style="color:var(--brand)">${esc(x)}</b>`; return [hi(a.slice(0, 4)), ...a.slice(4, -4).match(/.{1,4}/g).map(esc), hi(a.slice(-4))].map(x => `<span style="display:inline-block">${x}</span>`).join(' '); };
+
+async function withdrawSheet() {
+  let st;
+  try { st = await walletApi('pinStatus'); } catch (e) { return toast(errMsg(e), 'error'); }
+  if (!st.hasPin) return pinSheet('set', withdrawSheet);
+  if (st.withdrawLockUntil) return toast(`السحب متوقف للحماية بعد تغيير الرمز، يُفتح بعد ${Math.ceil((st.withdrawLockUntil - Date.now()) / 3600e3)} ساعة`, 'error');
+  const bal = (S.wallet && S.wallet.balance) || 0;
+  const form = { amount: '', address: '' };
+  const step1 = () => openSheet(`
+    <div class="stack">
+      <div class="row"><h2 class="grow" style="font-size:19px">سحب إلى محفظتك</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
+      <label class="field"><span>المبلغ (USDT) · المتاح ${usdt(bal)}</span><div class="row"><input class="input" id="wAmt" inputmode="decimal" placeholder="0.00" value="${esc(form.amount)}" style="font-size:18px;font-weight:700"><button class="btn btn-ghost" id="wMax" style="width:auto;height:50px;padding:0 14px">الكل</button></div></label>
+      <label class="field"><span>عنوان محفظتك (شبكة TRC20 فقط)</span><input class="input ltr" id="wAddr" placeholder="T..." value="${esc(form.address)}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
+      <div class="note note-warn">${ic('shield', 'style="width:20px;height:20px"')}<span>انسخ العنوان من محفظتك ولا تكتبه يدوياً. الإرسال لعنوان خاطئ أو شبكة غير <strong>TRC20</strong> لا يمكن استرداده.</span></div>
+      <button class="btn btn-primary" id="wNext">متابعة</button>
+      <div class="row" style="justify-content:center;gap:18px"><button class="btn-link" id="pCh" style="padding:0">تغيير الرمز</button><button class="btn-link" id="pRs" style="padding:0">نسيت الرمز؟</button></div>
+    </div>`, (sh) => {
+    $('#wMax', sh).onclick = () => { $('#wAmt', sh).value = usdt(bal); };
+    $('#pCh', sh).onclick = () => pinSheet('change');
+    $('#pRs', sh).onclick = () => confirmSheet('استعادة رمز المحفظة', 'للتحقق أنك صاحب الحساب: سجّل خروجاً ثم دخولاً، ثم افتح المحفظة واضغط "نسيت الرمز؟" خلال 5 دقائق. بعد الاستعادة يتوقف السحب 24 ساعة.', 'جرّب الآن', () => pinSheet('reset'));
+    $('#wNext', sh).onclick = () => {
+      const amount = parseFloat($('#wAmt', sh).value), address = $('#wAddr', sh).value.trim().replace(/\s/g, '');
+      form.amount = $('#wAmt', sh).value; form.address = address;
+      if (!(amount > 0)) return toast('اكتب المبلغ', 'error');
+      if (Math.round(amount * 100) > bal) return toast('المبلغ أكبر من رصيدك', 'error');
+      if (!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address)) return toast('عنوان TRC20 غير صحيح (34 حرفاً يبدأ بـ T)', 'error');
+      step2(amount, address);
+    };
+  });
+  // شاشة التأكيد: العنوان كاملاً مقسّماً + إقرار + الرمز
+  const step2 = (amount, address) => openSheet(`
+    <div class="stack">
+      <div class="row"><button class="icon-btn" id="wBack" aria-label="رجوع" style="box-shadow:none;background:var(--bg)">${ic('back')}</button><h2 class="grow" style="font-size:19px">تأكيد السحب</h2></div>
+      <div class="card stack" style="gap:12px;background:var(--bg);box-shadow:none">
+        <div class="sum"><span class="muted">المبلغ</span><b style="font-size:22px;direction:ltr">${usdt(Math.round(amount * 100))} USDT</b></div>
+        <div class="sum"><span class="muted">الشبكة</span><b>TRON (TRC20)</b></div>
+        <div class="stack" style="gap:6px"><span class="muted">إلى العنوان</span>
+          <div class="ltr" style="font-family:monospace;font-size:17px;line-height:1.9;letter-spacing:.5px;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left">${addrBlocks(address)}</div>
+          <span class="muted" style="font-size:12px">قارن أول 4 وآخر 4 أحرف (الملوّنة) مع عنوان محفظتك.</span></div>
+      </div>
+      <label class="row" style="gap:10px;align-items:flex-start;font-size:14px;cursor:pointer"><input type="checkbox" id="wOk" style="width:22px;height:22px;flex-shrink:0;margin-top:2px;accent-color:var(--brand)"><span>تأكدت أن هذا عنوان محفظتي على شبكة TRC20، وأعلم أن الإرسال لعنوان خاطئ لا يُسترد.</span></label>
+      ${pinInput('wPin', 'رمز المحفظة')}
+      <button class="btn btn-primary" id="wGo" disabled>تأكيد السحب</button>
+    </div>`, (sh) => {
+    const go = $('#wGo', sh), sync = () => { go.disabled = !($('#wOk', sh).checked && /^\d{6}$/.test($('#wPin', sh).value)); };
+    $('#wOk', sh).onchange = sync; $('#wPin', sh).oninput = sync;
+    $('#wBack', sh).onclick = step1;
+    go.onclick = (e) => busy(e.currentTarget, async () => {
+      try {
+        const r = await walletApi('withdraw', { amount, address, pin: $('#wPin', sh).value });
+        closeSheet();
+        toast(r && r.status === 'frozen' ? 'طلب السحب قيد التحقق الأمني' : r && r.delayH ? `سيُرسل تلقائياً بعد ${r.delayH} ساعة (فترة أمان)` : 'جارٍ تحويل سحبك تلقائياً', 'success');
+        render();
+      } catch (err) { $('#wPin', sh).value = ''; sync(); toast(errMsg(err), 'error'); }
+    });
+  });
+  step1();
 }
 
 /* ========== البلاغات ========== */

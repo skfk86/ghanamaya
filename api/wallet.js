@@ -3,6 +3,7 @@
 // متغيرات البيئة: OXAPAY_MERCHANT_KEY ، OXAPAY_SANDBOX=true (للتجربة)
 import { FieldValue } from 'firebase-admin/firestore';
 import { cors, verifyToken, adminDb } from './_firebase.js';
+import { pinStatus, pinSet, withdrawGuard } from './_pin.js';
 import { scheduleWithdrawal, processDue, processWithdrawal, cancelWithdrawal, OPEN } from './_payout.js';
 import { pushTo, pushRelease, pushRefund, usd } from './_push.js';
 import { PLATFORM, fmt, walletSettings, readWallet, writeWallet, logTx, releaseEscrow, refundEscrow } from './_ledger.js';
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
     const fn = ACTIONS[body.action];
     if (!fn) throw new UserError('عملية غير معروفة');
     if (fn.admin && !isAdmin) throw new UserError('غير مصرّح', 403);
-    const out = await fn({ db, uid, body, me });
+    const out = await fn({ db, uid, body, me, tok });
     return res.status(200).json({ ok: true, ...out });
   } catch (e) {
     if (e instanceof UserError) return res.status(e.code).json({ error: e.message });
@@ -152,6 +153,7 @@ const ACTIONS = {
     const address = String(body.address || '').trim();
     if (!(cents >= set.minWithdraw)) throw new UserError(`أقل مبلغ للسحب ${fmt(set.minWithdraw)} USDT`);
     if (!TRC20.test(address)) throw new UserError('عنوان TRC20 غير صحيح (يبدأ بحرف T)');
+    try { await withdrawGuard(db, uid, String(body.pin || '')); } catch (e) { if (e.user) throw new UserError(e.message, e.code); throw e; }
     const mine = await db.collection('withdrawals').where('uid', '==', uid).get();
     if (mine.docs.some(d => OPEN.includes(d.get('status')))) throw new UserError('لديك طلب سحب جارٍ، انتظر اكتماله أو ألغه', 409);
     if (mine.docs.filter(d => d.get('createdAt') && d.get('createdAt').toMillis() > Date.now() - 86400000).length >= 3) throw new UserError('وصلت للحد: 3 طلبات سحب في اليوم', 429);
@@ -167,6 +169,12 @@ const ACTIONS = {
     });
     const r = await scheduleWithdrawal(db, set, { id, uid, me, cents, address });
     return { withdrawalId: id, ...r };
+  },
+
+  /* ===== رمز المحفظة ===== */
+  async pinStatus({ db, uid }) { return pinStatus(db, uid); },
+  async pinSet({ db, uid, tok, body }) {
+    try { return await pinSet(db, uid, tok, body); } catch (e) { if (e.user) throw new UserError(e.message, e.code); throw e; }
   },
 
   /* ===== إلغاء سحب أثناء فترة الأمان ===== */
