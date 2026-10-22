@@ -87,6 +87,8 @@ const ACTIONS = {
     return db.runTransaction(async (t) => {
       const { ref, o } = await loadOrder(t, db, body.orderId, uid, 'buyer', ['pending']);
       if (o.escrow) throw new UserError('المبلغ محجوز مسبقاً', 409);
+      const sel = await t.get(db.collection('users').doc(o.sellerId));
+      if (sel.exists && sel.data().walletOff) throw new UserError('البائع لا يقبل الدفع بالمحفظة', 409);
       const amount = Math.ceil(o.total / set.sdgPerUsdt * 100);
       const w = await readWallet(t, db, uid);
       if (w.balance < amount) throw new UserError(`رصيدك غير كافٍ. المطلوب ${fmt(amount)} USDT`, 402);
