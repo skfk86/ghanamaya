@@ -310,6 +310,22 @@ html,body{overflow-x:hidden;max-width:100%}
 .stars .on .icon{fill:currentColor}
 .copy{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:var(--r-sm);padding:10px 12px;font-size:18px;font-weight:700;letter-spacing:.5px}
 .blocked{padding:14px 16px calc(14px + var(--safe-b));background:var(--surface);border-top:1px solid var(--line);text-align:center;color:var(--muted);font-size:14px}
+/* احتفال أحداث المال */
+.celeb-bg{position:fixed;inset:0;z-index:90;background:rgba(20,24,16,.55);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:24px;animation:cfade .25s ease}
+.celeb{position:relative;width:100%;max-width:360px;background:var(--surface);border-radius:28px;padding:34px 22px 22px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.35);animation:cpop .5s cubic-bezier(.2,1.4,.4,1);overflow:hidden}
+.celeb .ring{width:92px;height:92px;margin:0 auto 16px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--brand);color:#fff;box-shadow:0 0 0 10px var(--brand-tint);animation:cring 1.6s ease-out infinite}
+.celeb.warn .ring{background:var(--accent);box-shadow:0 0 0 10px var(--accent-soft)}
+.celeb .ring .icon{width:46px;height:46px;stroke-width:2.4}
+.celeb h2{margin:0 0 6px;font-size:21px}
+.celeb .amt{font-size:34px;font-weight:800;color:var(--brand);direction:ltr;margin:6px 0 4px;letter-spacing:-.5px}
+.celeb.warn .amt{color:var(--accent)}
+.celeb p{margin:0 0 20px;color:var(--muted);font-size:14px;line-height:1.7}
+.celeb .conf{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;opacity:.9;animation:cfall 2.2s ease-in forwards}
+@keyframes cfade{from{opacity:0}}
+@keyframes cpop{from{transform:scale(.6) translateY(30px);opacity:0}}
+@keyframes cring{0%{box-shadow:0 0 0 0 rgba(63,90,46,.45)}70%{box-shadow:0 0 0 22px rgba(63,90,46,0)}100%{box-shadow:0 0 0 0 rgba(63,90,46,0)}}
+@keyframes cfall{to{transform:translateY(520px) rotate(540deg);opacity:0}}
+@media (prefers-reduced-motion:reduce){.celeb,.celeb .ring,.celeb .conf,.celeb-bg{animation:none}}
 </style>
 </head>
 <body>
@@ -494,7 +510,9 @@ async function walletApi(action, data = {}) {
 function startWallet(uid) {
   if (walletUnsub) walletUnsub();
   walletUnsub = onSnapshot(doc(db, 'wallets', uid), (s) => {
+    const prev = S.wallet;
     S.wallet = s.exists() ? s.data() : { balance: 0, held: 0 };
+    if (prev && S.depositWatch && S.wallet.balance > prev.balance) { S.depositWatch = false; celebrate('deposit', S.wallet.balance - prev.balance); }
     const b = $('#walletBal'); if (b) b.textContent = `${usdt(S.wallet.balance)} USDT`;
     const top = S.stack[S.stack.length - 1]; if (top && top.name === 'wallet') drawWalletTop();
   }, () => {});
@@ -575,6 +593,11 @@ function activeFilterCount() {
 }
 
 /* ========== المصادقة ========== */
+// الخروج من Firebase ومن حساب قوقل على الجهاز، حتى تظهر قائمة الحسابات في الدخول التالي
+async function logout() {
+  try { if (isNative && P.FirebaseAuthentication) await P.FirebaseAuthentication.signOut(); } catch (e) {}
+  await signOut(auth);
+}
 async function googleSignIn() {
   if (isNative && P.FirebaseAuthentication) {
     const res = await P.FirebaseAuthentication.signInWithGoogle({ skipNativeAuth: true });
@@ -1700,7 +1723,7 @@ function drawOrder(o) {
     if (a === 'accept') b.onclick = (e) => busy(e.currentTarget, () => callApi({}, 'قبلت الطلب').catch(err => toast(errMsg(err), 'error')));
     if (a === 'reject') b.onclick = () => reasonSheet('الاعتذار عن الطلب', 'اعتذار وإعادة المبلغ', (r) => callApi({ reason: r }, 'أُعيد المبلغ للمشتري'));
     if (a === 'cancel') b.onclick = () => reasonSheet('إلغاء الطلب', 'إلغاء واسترداد', (r) => callApi({ reason: r }, 'أُلغي الطلب وأُعيد المبلغ'));
-    if (a === 'complete') b.onclick = () => confirmSheet('هل استلمت الحيوان؟', `سيُحوّل ${usdt(esc0.amount)} USDT للبائع ولا يمكن التراجع.`, 'نعم، استلمت', () => callApi({}, 'اكتمل الطلب'));
+    if (a === 'complete') b.onclick = () => confirmSheet('هل استلمت الحيوان؟', `سيُحوّل ${usdt(esc0.amount)} USDT للبائع ولا يمكن التراجع.`, 'نعم، استلمت', () => walletApi('complete', { orderId: o.id }).then(() => { notifyOrder(o.id); celebrate('purchase', esc0.amount, `${o.title || 'الحيوان'} صار لك. شكراً لثقتك بغنماية`); }));
     if (a === 'dispute') b.onclick = () => openSheet(`<div class="stack"><h2 style="font-size:19px">فتح نزاع</h2>
       <p class="muted" style="margin:0">سيتجمّد المبلغ وتتواصل الإدارة معكما. استخدمه فقط إذا لم يصلك الحيوان أو كان مختلفاً عن الإعلان.</p>
       <textarea class="input" id="dr" maxlength="500" style="height:100px;padding:10px 12px" placeholder="اشرح ما حدث..."></textarea>
@@ -1863,7 +1886,7 @@ function depositSheet() {
       try {
         const out = await walletApi('deposit', { amount: parseFloat($('#dAmt', sh).value) });
         closeSheet();
-        window.open(out.paymentUrl, '_blank');
+        S.depositWatch = true; window.open(out.paymentUrl, '_blank');
         toast(out.sandbox ? 'فاتورة تجريبية: لن يُخصم مال حقيقي' : 'أكمل الدفع في الصفحة المفتوحة', 'success');
         setTimeout(render, 800);
       } catch (err) { toast(errMsg(err), 'error'); }
@@ -1979,10 +2002,34 @@ async function bindVerify() {
 function renderBanned() {
   app.innerHTML = `<div class="screen pad">${viewEmpty('block', 'حسابك موقوف', `أوقفت إدارة غنماية هذا الحساب${S.profile.banReason ? ` بسبب: ${esc(S.profile.banReason)}` : ''}. للاستفسار تواصل مع الدعم.`)}
     <button class="btn btn-ghost" id="out">تسجيل الخروج</button></div>`;
-  $('#out').onclick = () => signOut(auth);
+  $('#out').onclick = () => logout();
 }
 
 /* ========== الإشعارات (FCM) ========== */
+const CELEB = {
+  deposit: { t: 'تم شحن محفظتك', s: 'أُضيف المبلغ لرصيدك، وأنت جاهز للشراء الآن.', ic: 'wallet', sign: '+' },
+  sale: { t: 'مبروك! وصلتك أموال البيع', s: 'أُضيف المبلغ لرصيدك بعد خصم العمولة.', ic: 'cash', sign: '+' },
+  purchase: { t: 'اكتملت عملية الشراء', s: 'مبروك! شكراً لثقتك بغنماية.', ic: 'check', sign: '' },
+  refund: { t: 'أُعيد المبلغ لمحفظتك', s: 'المبلغ عاد كاملاً لرصيدك المتاح.', ic: 'refresh', sign: '+', warn: true },
+  withdraw_sent: { t: 'تم تحويل سحبك', s: 'المبلغ في طريقه لمحفظتك على شبكة TRC20، ويصل خلال دقائق.', ic: 'send', sign: '' },
+  withdraw_rejected: { t: 'أُعيد مبلغ السحب', s: 'لم يُنفّذ السحب، وعاد المبلغ لرصيدك.', ic: 'refresh', sign: '+', warn: true }
+};
+let lastCeleb = 0;
+function celebrate(kind, cents, extra) {
+  const c = CELEB[kind]; if (!c) return;
+  if (Date.now() - lastCeleb < 6000) return; lastCeleb = Date.now();
+  chime(); try { navigator.vibrate && navigator.vibrate([30, 60, 30]); } catch (e) {} haptic();
+  const colors = ['#3F5A2E', '#C8601E', '#E8B04B', '#8DB06F', '#F3B98F'];
+  const conf = c.warn ? '' : Array.from({ length: 22 }, (_, i) => `<i class="conf" style="left:${Math.random() * 100}%;background:${colors[i % 5]};animation-delay:${(Math.random() * .6).toFixed(2)}s"></i>`).join('');
+  const bg = document.createElement('div'); bg.className = 'celeb-bg';
+  bg.innerHTML = `<div class="celeb ${c.warn ? 'warn' : ''}" role="alertdialog" aria-label="${esc(c.t)}">${conf}
+    <div class="ring">${ic(c.ic)}</div><h2>${esc(c.t)}</h2>
+    ${cents ? `<div class="amt">${c.sign}${usdt(Number(cents))} USDT</div>` : ''}
+    <p>${esc(extra || c.s)}</p><button class="btn btn-primary" style="width:100%">رائع</button></div>`;
+  document.body.append(bg);
+  const close = () => bg.remove();
+  bg.querySelector('button').onclick = close; bg.onclick = (e) => { if (e.target === bg) close(); };
+}
 // نغمة قصيرة للطلبات عندما يكون التطبيق مفتوحاً (الإشعار لا يظهر في الشريط حينها)
 function chime() {
   try {
@@ -2001,6 +2048,7 @@ async function setupPush() {
   if (!isNative || !PN) return;
   try {
     await PN.createChannel({ id: 'messages', name: 'الرسائل والعروض', importance: 5, visibility: 1, vibration: true, sound: 'default' });
+    await PN.createChannel({ id: 'wallet', name: 'المحفظة والمدفوعات', description: 'الإيداع والسحب والبيع والشراء', importance: 5, visibility: 1, vibration: true, lights: true, sound: 'default' });
     await PN.createChannel({ id: 'orders', name: 'الطلبات', description: 'طلبات الشراء وتحديثاتها', importance: 5, visibility: 1, vibration: true, lights: true, sound: 'default' });
     const perm = await PN.requestPermissions();
     if (perm.receive !== 'granted') return;
@@ -2012,12 +2060,14 @@ async function setupPush() {
     PN.addListener('pushNotificationReceived', (n) => {
       const open = S.stack[S.stack.length - 1];
       if (open && open.name === 'chat' && n.data && open.params.id === n.data.chatId) return; // المحادثة مفتوحة
+      if (n.data && CELEB[n.data.kind]) return celebrate(n.data.kind, n.data.amount);
       if (n.data && n.data.orderId) { chime(); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) {} }
       toast(`${n.title}: ${n.body}`);
     });
     PN.addListener('pushNotificationActionPerformed', ({ notification }) => {
       const d = notification.data || {};
       if (!S.profile) return;
+      if (CELEB[d.kind]) { S.stack = [{ name: 'wallet' }]; render(); setTimeout(() => celebrate(d.kind, d.amount), 300); return; }
       if (d.chatId) { S.stack = [{ name: 'chat', params: { id: d.chatId } }]; render(); }
       else if (d.orderId) { S.stack = [{ name: 'order', params: { id: d.orderId } }]; render(); }
     });
@@ -2071,7 +2121,7 @@ function viewAccount() {
 }
 function bindAccount() {
   const bs = $('#becomeSeller'); if (bs) bs.onclick = () => openSellerSheet();
-  $('#logout').onclick = () => confirmSheet('تسجيل الخروج؟', '', 'خروج', () => signOut(auth));
+  $('#logout').onclick = () => confirmSheet('تسجيل الخروج؟', '', 'خروج', () => logout());
   $('#editProfile').onclick = openProfileSheet;
   $('#walletCard').onclick = () => push('wallet');
   const wt = $('#walletToggle'); if (wt) wt.onclick = async () => {

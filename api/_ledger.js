@@ -53,6 +53,7 @@ export function releaseEscrow(t, db, { orderRef, order, buyerW, sellerW, platW, 
     status: 'completed', 'escrow.status': 'released', 'escrow.fee': fee, releasedBy: by,
     updatedAt: FieldValue.serverTimestamp()
   });
+  return fee;
 }
 
 export function refundEscrow(t, db, { orderRef, order, buyerW, status, reason, by }) {

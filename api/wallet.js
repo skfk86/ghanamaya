@@ -3,6 +3,7 @@
 // متغيرات البيئة: OXAPAY_MERCHANT_KEY ، OXAPAY_SANDBOX=true (للتجربة)
 import { FieldValue } from 'firebase-admin/firestore';
 import { cors, verifyToken, adminDb } from './_firebase.js';
+import { pushTo, pushRelease, pushRefund, usd } from './_push.js';
 import { PLATFORM, fmt, walletSettings, readWallet, writeWallet, logTx, releaseEscrow, refundEscrow } from './_ledger.js';
 
 const BASE = 'https://ghanamaya.vercel.app';
@@ -121,12 +122,15 @@ const ACTIONS = {
   /* ===== المشتري يؤكد الاستلام ⇒ تحرير المبلغ للبائع ===== */
   async complete({ db, uid, body }) {
     const set = await walletSettings(db);
-    return db.runTransaction(async (t) => {
+    let done = null;
+    await db.runTransaction(async (t) => {
       const { ref, o } = await loadOrder(t, db, body.orderId, uid, 'buyer', ['accepted']);
       const buyerW = await readWallet(t, db, o.buyerId), sellerW = await readWallet(t, db, o.sellerId), platW = await readWallet(t, db, PLATFORM);
-      releaseEscrow(t, db, { orderRef: ref, order: o, buyerW, sellerW, platW, rate: set.commissionRate, by: 'buyer' });
-      return {};
+      const fee = releaseEscrow(t, db, { orderRef: ref, order: o, buyerW, sellerW, platW, rate: set.commissionRate, by: 'buyer' });
+      done = { o: { ...o, id: ref.id }, fee };
     });
+    if (done) await pushRelease(db, done.o, done.fee);
+    return { amount: done ? done.o.escrow.amount : 0 };
   },
 
   /* ===== المشتري يفتح نزاعاً ⇒ يتجمّد المبلغ حتى قرار الأدمن ===== */
@@ -164,26 +168,30 @@ const ACTIONS = {
   /* ===== الأدمن: حسم نزاع ===== */
   resolve: Object.assign(async ({ db, body }) => {
     const set = await walletSettings(db);
-    return db.runTransaction(async (t) => {
+    let done = null;
+    await db.runTransaction(async (t) => {
       const { ref, o } = await loadOrder(t, db, body.orderId, null, 'admin', ['disputed', 'accepted', 'pending']);
       const buyerW = await readWallet(t, db, o.buyerId);
       if (body.to === 'seller') {
         const sellerW = await readWallet(t, db, o.sellerId), platW = await readWallet(t, db, PLATFORM);
-        releaseEscrow(t, db, { orderRef: ref, order: o, buyerW, sellerW, platW, rate: set.commissionRate, by: 'admin' });
+        done = { o: { ...o, id: ref.id }, fee: releaseEscrow(t, db, { orderRef: ref, order: o, buyerW, sellerW, platW, rate: set.commissionRate, by: 'admin' }) };
       } else if (body.to === 'buyer') {
         refundEscrow(t, db, { orderRef: ref, order: o, buyerW, status: 'cancelled', reason: String(body.note || 'حُسم النزاع لصالح المشتري'), by: 'admin' });
+        done = { o: { ...o, id: ref.id }, refund: true };
       } else throw new UserError('حدد الطرف');
-      return {};
     });
+    if (done) await (done.refund ? pushRefund(db, done.o) : pushRelease(db, done.o, done.fee));
+    return {};
   }, { admin: true }),
 
   /* ===== الأدمن: قرار طلب سحب ===== */
   withdrawDecide: Object.assign(async ({ db, uid, body }) => {
-    return db.runTransaction(async (t) => {
+    let w = null;
+    await db.runTransaction(async (t) => {
       const ref = db.doc(`withdrawals/${body.id}`);
       const s = await t.get(ref);
       if (!s.exists || s.get('status') !== 'pending') throw new UserError('الطلب غير موجود أو تم البت فيه', 409);
-      const w = s.data();
+      w = s.data();
       if (body.decision === 'sent') {
         const txHash = String(body.txHash || '').trim();
         if (txHash.length < 10) throw new UserError('أدخل رقم المعاملة (TX hash)');
@@ -195,13 +203,17 @@ const ACTIONS = {
         logTx(t, db, w.uid, 'withdraw_refund', w.amount, { withdrawalId: ref.id, note: String(body.note || '') });
         t.update(ref, { status: 'rejected', note: String(body.note || ''), decidedBy: uid, decidedAt: FieldValue.serverTimestamp() });
       } else throw new UserError('قرار غير صالح');
-      return {};
     });
+    if (w) await pushTo(db, w.uid, body.decision === 'sent'
+      ? { title: '✅ تم تحويل سحبك بنجاح', body: `${usd(w.amount)} USDT في طريقها لمحفظتك (TRC20). تصل خلال دقائق`, data: { kind: 'withdraw_sent', amount: w.amount }, tag: `wd-${body.id}` }
+      : { title: 'أُعيد مبلغ السحب لرصيدك', body: `+${usd(w.amount)} USDT عادت لمحفظتك.${body.note ? ' السبب: ' + String(body.note).slice(0, 80) : ''}`, data: { kind: 'withdraw_rejected', amount: w.amount }, tag: `wd-${body.id}` });
+    return {};
   }, { admin: true })
 };
 
 async function refundBy(db, uid, body, role, allowed, status) {
-  return db.runTransaction(async (t) => {
+  let done = null;
+  await db.runTransaction(async (t) => {
     const { ref, o } = await loadOrder(t, db, body.orderId, uid, role, allowed);
     if (!o.escrow || o.escrow.status !== 'held') {
       // لم يُحجز شيء (فشل الحجز): إلغاء بدون حركة مال
@@ -210,6 +222,8 @@ async function refundBy(db, uid, body, role, allowed, status) {
     }
     const buyerW = await readWallet(t, db, o.buyerId);
     refundEscrow(t, db, { orderRef: ref, order: o, buyerW, status, reason: String(body.reason || ''), by: role });
-    return {};
+    done = { ...o, id: ref.id };
   });
+  if (done) await pushRefund(db, done);
+  return {};
 }

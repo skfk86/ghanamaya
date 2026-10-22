@@ -5,6 +5,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from './_firebase.js';
 import { readWallet, writeWallet, logTx } from './_ledger.js';
+import { pushTo, usd } from './_push.js';
 
 // نحتاج النص الخام كما هو للتحقق من التوقيع
 export const config = { api: { bodyParser: false } };
@@ -36,6 +37,7 @@ export default async function handler(req, res) {
   const db = adminDb();
   const ref = db.doc(`deposits/${depositId}`);
 
+  let credited = null;
   try {
     await db.runTransaction(async (t) => {
       const s = await t.get(ref);
@@ -48,6 +50,7 @@ export default async function handler(req, res) {
         w.balance += d.amount;
         writeWallet(t, w, {});
         logTx(t, db, d.uid, 'deposit', d.amount, { depositId, trackId: String(p.track_id), sandbox: !!d.sandbox });
+        credited = { uid: d.uid, amount: d.amount };
         t.update(ref, { status: 'paid', paidAt: FieldValue.serverTimestamp(), txs: (p.txs || []).slice(0, 5) });
       } else if (status === 'Paying') {
         t.update(ref, { status: 'paying' });
@@ -59,5 +62,6 @@ export default async function handler(req, res) {
     console.error('oxapay webhook', e);
     return res.status(500).send('retry');   // OxaPay يعيد المحاولة
   }
+  if (credited) await pushTo(db, credited.uid, { title: '💰 تم شحن محفظتك بنجاح', body: `+${usd(credited.amount)} USDT أُضيفت لرصيدك. جاهز للشراء الآن`, data: { kind: 'deposit', amount: credited.amount }, tag: `dep-${depositId}` });
   return res.status(200).send('ok');
 }

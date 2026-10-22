@@ -3,6 +3,7 @@
 // الحماية: Vercel يرسل  Authorization: Bearer <CRON_SECRET>
 import { adminDb } from './_firebase.js';
 import { PLATFORM, walletSettings, readWallet, releaseEscrow } from './_ledger.js';
+import { pushRelease } from './_push.js';
 
 export default async function handler(req, res) {
   if (!process.env.CRON_SECRET || req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) return res.status(401).end();
@@ -14,15 +15,18 @@ export default async function handler(req, res) {
   for (const d of snap.docs) {
     const at = d.get('acceptedAt');
     if (!at || at.toMillis() > cutoff) continue;
+    let fee = null, o0 = null;
     try {
       await db.runTransaction(async (t) => {
         const s = await t.get(d.ref);
         const o = s.data();
         if (o.status !== 'accepted' || !o.escrow || o.escrow.status !== 'held') return;
         const buyerW = await readWallet(t, db, o.buyerId), sellerW = await readWallet(t, db, o.sellerId), platW = await readWallet(t, db, PLATFORM);
-        releaseEscrow(t, db, { orderRef: d.ref, order: o, buyerW, sellerW, platW, rate: set.commissionRate, by: 'auto' });
+        fee = releaseEscrow(t, db, { orderRef: d.ref, order: o, buyerW, sellerW, platW, rate: set.commissionRate, by: 'auto' });
+        o0 = { ...o, id: d.id };
       });
       released++;
+      if (o0) await pushRelease(db, o0, fee);
     } catch (e) { console.error('release', d.id, e); }
   }
   return res.status(200).json({ ok: true, released });

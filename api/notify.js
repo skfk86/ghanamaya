@@ -32,6 +32,8 @@ export default async function handler(req, res) {
       completed: ['اكتمل الطلب', `${order.buyerName} أكد استلام ${order.title}`],
       cancelled: ['أُلغي الطلب', `طلب ${order.title} أُلغي`]
     };
+    // صفقات المحفظة المكتملة أو المستردة لها إشعار مالي خاص من السيرفر
+    if (order.paymentMethod === 'wallet' && order.escrow && ['released', 'refunded'].includes(order.escrow.status) && event !== 'receipt') return res.status(200).json({ ok: true, sent: false });
     let [title, body] = texts[order.status] || ['تحديث على طلبك', order.title];
     if (event === 'receipt') [title, body] = ['إشعار تحويل جديد', `${order.buyerName} أرفق إشعار تحويل بنكك. تحقق منه في تطبيق البنك.`];
     const token = (await db.doc(`users/${to}`).get()).get('fcmToken');
