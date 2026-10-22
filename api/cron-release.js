@@ -4,6 +4,7 @@
 import { adminDb } from './_firebase.js';
 import { PLATFORM, walletSettings, readWallet, releaseEscrow } from './_ledger.js';
 import { pushRelease } from './_push.js';
+import { processDue } from './_payout.js';
 
 export default async function handler(req, res) {
   if (!process.env.CRON_SECRET || req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) return res.status(401).end();
@@ -29,5 +30,6 @@ export default async function handler(req, res) {
       if (o0) await pushRelease(db, o0, fee);
     } catch (e) { console.error('release', d.id, e); }
   }
-  return res.status(200).json({ ok: true, released });
+  const paid = await processDue(db, set, 25).catch((e) => { console.error('processDue', e); return 0; });
+  return res.status(200).json({ ok: true, released, paid });
 }

@@ -3,7 +3,7 @@
 // متغيرات البيئة: OXAPAY_MERCHANT_KEY ، OXAPAY_SANDBOX=true (للتجربة)
 import { FieldValue } from 'firebase-admin/firestore';
 import { cors, verifyToken, adminDb } from './_firebase.js';
-import { tryAutoPayout } from './_payout.js';
+import { scheduleWithdrawal, processDue, processWithdrawal, cancelWithdrawal, OPEN } from './_payout.js';
 import { pushTo, pushRelease, pushRefund, usd } from './_push.js';
 import { PLATFORM, fmt, walletSettings, readWallet, writeWallet, logTx, releaseEscrow, refundEscrow } from './_ledger.js';
 
@@ -152,8 +152,9 @@ const ACTIONS = {
     const address = String(body.address || '').trim();
     if (!(cents >= set.minWithdraw)) throw new UserError(`أقل مبلغ للسحب ${fmt(set.minWithdraw)} USDT`);
     if (!TRC20.test(address)) throw new UserError('عنوان TRC20 غير صحيح (يبدأ بحرف T)');
-    const pending = await db.collection('withdrawals').where('uid', '==', uid).where('status', '==', 'pending').get();
-    if (!pending.empty) throw new UserError('لديك طلب سحب قيد المراجعة', 409);
+    const mine = await db.collection('withdrawals').where('uid', '==', uid).get();
+    if (mine.docs.some(d => OPEN.includes(d.get('status')))) throw new UserError('لديك طلب سحب جارٍ، انتظر اكتماله أو ألغه', 409);
+    if (mine.docs.filter(d => d.get('createdAt') && d.get('createdAt').toMillis() > Date.now() - 86400000).length >= 3) throw new UserError('وصلت للحد: 3 طلبات سحب في اليوم', 429);
     const id = await db.runTransaction(async (t) => {
       const w = await readWallet(t, db, uid);
       if (w.balance < cents) throw new UserError('رصيدك غير كافٍ', 402);
@@ -164,8 +165,20 @@ const ACTIONS = {
       logTx(t, db, uid, 'withdraw', -cents, { withdrawalId: wref.id, note: address });
       return wref.id;
     });
-    const r = await tryAutoPayout(db, set, { id, uid, me, cents, address, callbackUrl: `${BASE}/api/oxapay-webhook` });
-    return { withdrawalId: id, auto: r.auto };
+    const r = await scheduleWithdrawal(db, set, { id, uid, me, cents, address });
+    return { withdrawalId: id, ...r };
+  },
+
+  /* ===== إلغاء سحب أثناء فترة الأمان ===== */
+  async withdrawCancel({ db, uid, body }) {
+    try { return await cancelWithdrawal(db, uid, String(body.id || '')); }
+    catch (e) { if (e.user) throw new UserError(e.message, e.code); throw e; }
+  },
+
+  /* ===== تنفيذ السحوبات المستحقة (يُستدعى عند فتح المحفظة) ===== */
+  async tick({ db }) {
+    const set = await walletSettings(db);
+    return { processed: await processDue(db, set, 3) };
   },
 
   /* ===== الأدمن: حسم نزاع ===== */
@@ -193,7 +206,12 @@ const ACTIONS = {
     await db.runTransaction(async (t) => {
       const ref = db.doc(`withdrawals/${body.id}`);
       const s = await t.get(ref);
-      if (!s.exists || s.get('status') !== 'pending') throw new UserError('الطلب غير موجود أو تم البت فيه', 409);
+      if (!s.exists || !['pending', 'frozen', 'scheduled'].includes(s.get('status'))) throw new UserError('الطلب غير موجود أو تم البت فيه', 409);
+      if (body.decision === 'now' || body.decision === 'freeze') {
+        if (body.decision === 'now') t.update(ref, { status: 'scheduled', releaseAt: FieldValue.serverTimestamp(), reviewReason: 'وافق الأدمن على الإرسال الآن' });
+        else t.update(ref, { status: 'frozen', reviewReason: String(body.note || 'جمّده الأدمن') });
+        return;
+      }
       w = s.data();
       if (body.decision === 'sent') {
         const txHash = String(body.txHash || '').trim();
@@ -207,6 +225,8 @@ const ACTIONS = {
         t.update(ref, { status: 'rejected', note: String(body.note || ''), decidedBy: uid, decidedAt: FieldValue.serverTimestamp() });
       } else throw new UserError('قرار غير صالح');
     });
+    if (body.decision === 'now') { const set = await walletSettings(db); if (!set.autoWithdraw) throw new UserError('السحب التلقائي متوقف: فعّله أولاً أو أرسل يدوياً'); await processWithdrawal(db, set, db.doc(`withdrawals/${body.id}`)); return {}; }
+    if (body.decision === 'freeze') return {};
     if (w) await pushTo(db, w.uid, body.decision === 'sent'
       ? { title: '✅ تم تحويل سحبك بنجاح', body: `${usd(w.amount)} USDT في طريقها لمحفظتك (TRC20). تصل خلال دقائق`, data: { kind: 'withdraw_sent', amount: w.amount }, tag: `wd-${body.id}` }
       : { title: 'أُعيد مبلغ السحب لرصيدك', body: `+${usd(w.amount)} USDT عادت لمحفظتك.${body.note ? ' السبب: ' + String(body.note).slice(0, 80) : ''}`, data: { kind: 'withdraw_rejected', amount: w.amount }, tag: `wd-${body.id}` });

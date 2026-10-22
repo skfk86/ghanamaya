@@ -40,7 +40,7 @@ async function payoutHook(req, res, p) {
         notify = w;
       } else if (['Failed', 'Rejected', 'Canceled'].includes(status)) {
         // لا نعيد المال تلقائياً: الأدمن يقرر (إرسال يدوي أو رفض وإرجاع)
-        t.update(ref, { status: 'pending', payoutStatus: status, reviewReason: `فشل السحب التلقائي في OxaPay (${status})` });
+        t.update(ref, { status: 'frozen', payoutStatus: status, reviewReason: `فشل السحب في OxaPay (${status})` });
       } else {
         t.update(ref, { payoutStatus: status, ...(p.tx_hash ? { txHash: String(p.tx_hash) } : {}) });
       }

@@ -19,7 +19,7 @@ export async function walletSettings(db = adminDb()) {
     maxDeposit: d.maxDeposit || 50000,        // 500 USDT لكل إيداع
     releaseDays: d.releaseDays || 3,
     // السحب التلقائي (الهجين)
-    autoWithdraw: d.autoWithdraw === true,
+    autoWithdraw: d.autoWithdraw !== false,   // مفعّل افتراضياً، والأدمن أو قاطع الدائرة يوقفه
     autoMax: d.autoMax || 5000,               // 50 USDT
     autoMinAgeDays: d.autoMinAgeDays || 7,
     autoUserDaily: d.autoUserDaily || 10000,  // 100 USDT لكل مستخدم يومياً
