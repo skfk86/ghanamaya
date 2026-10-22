@@ -480,7 +480,7 @@ const S = {
   chats: [],                 // محادثاتي (مباشرة)
   blocked: new Set()         // من حظرتهم
 };
-let screenUnsub = null, chatsUnsub = null, walletUnsub = null;
+let screenUnsub = null, chatsUnsub = null, walletUnsub = null, setUnsub = null;
 /* ---------- المحفظة: الرصيد مباشرة من wallets/{uid} (سنتات USDT) ---------- */
 const usdt = (c) => ((c || 0) / 100).toFixed(2);
 async function walletApi(action, data = {}) {
@@ -497,7 +497,8 @@ function startWallet(uid) {
     const b = $('#walletBal'); if (b) b.textContent = `${usdt(S.wallet.balance)} USDT`;
     const top = S.stack[S.stack.length - 1]; if (top && top.name === 'wallet') drawWalletTop();
   }, () => {});
-  getDoc(doc(db, 'settings', 'wallet')).then(s => { S.walletSet = s.exists() ? s.data() : {}; }).catch(() => { S.walletSet = {}; });
+  if (setUnsub) setUnsub();
+  setUnsub = onSnapshot(doc(db, 'settings', 'wallet'), (s) => { S.walletSet = s.exists() ? s.data() : {}; }, () => { S.walletSet = {}; });
 }
 const push = (name, params = {}) => { S.stack.push({ name, params }); render(); window.scrollTo(0, 0); };
 const pop = () => { S.stack.pop(); render(); };
@@ -2164,6 +2165,7 @@ onAuthStateChanged(auth, async (user) => {
   S.user = user; S.stack = []; S.listings = null; S.favs = new Set(); S.chats = []; S.blocked = new Set();
   if (chatsUnsub) { chatsUnsub(); chatsUnsub = null; }
   if (walletUnsub) { walletUnsub(); walletUnsub = null; }
+  if (setUnsub) { setUnsub(); setUnsub = null; }
   S.wallet = null;
   if (!user) { S.profile = null; return renderLogin(); }
   renderLoading();
