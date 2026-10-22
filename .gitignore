@@ -6,3 +6,5 @@ service-account*.json
 # ملاحظة: signing/ghanamaya.keystore و google-services.json مرفوعان عمداً
 # لذلك يجب أن يبقى هذا المستودع خاصاً (Private)
 public/
+signing/
+*.keystore

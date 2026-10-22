@@ -19,7 +19,7 @@
 3. **Project settings ← Add app ← Android:** الحزمة `com.ghanamaya.app`، ونزّل `google-services.json`.
 
 ### 2. التوقيع (تلقائي)
-المفتاح موجود في `signing/ghanamaya.keystore` ويوقّع كل بناء تلقائياً، وكلمة سره في سر GitHub باسم `KEYSTORE_PASSWORD`.
+المفتاح محفوظ في سر GitHub `KEYSTORE_BASE64` (base64) وكلمة سره في `KEYSTORE_PASSWORD`، ولا يوجد في المستودع.
 أضف هاتين البصمتين في Firebase ← إعدادات تطبيق Android ← Add fingerprint، ثم نزّل `google-services.json` وضعه في جذر المستودع:
 ```
 SHA1:   E5:A5:BF:85:21:C9:5D:C2:E0:6E:1C:A6:F7:0A:2A:03:D3:04:A6:E0
