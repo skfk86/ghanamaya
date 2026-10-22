@@ -3,6 +3,7 @@
 // متغيرات البيئة: OXAPAY_MERCHANT_KEY ، OXAPAY_SANDBOX=true (للتجربة)
 import { FieldValue } from 'firebase-admin/firestore';
 import { cors, verifyToken, adminDb } from './_firebase.js';
+import { tryAutoPayout } from './_payout.js';
 import { pushTo, pushRelease, pushRefund, usd } from './_push.js';
 import { PLATFORM, fmt, walletSettings, readWallet, writeWallet, logTx, releaseEscrow, refundEscrow } from './_ledger.js';
 
@@ -145,7 +146,7 @@ const ACTIONS = {
   },
 
   /* ===== طلب سحب ⇒ يُخصم فوراً ويُراجع يدوياً ===== */
-  async withdraw({ db, uid, body }) {
+  async withdraw({ db, uid, body, me }) {
     const set = await walletSettings(db);
     const cents = Math.round(Number(body.amount) * 100);
     const address = String(body.address || '').trim();
@@ -153,7 +154,7 @@ const ACTIONS = {
     if (!TRC20.test(address)) throw new UserError('عنوان TRC20 غير صحيح (يبدأ بحرف T)');
     const pending = await db.collection('withdrawals').where('uid', '==', uid).where('status', '==', 'pending').get();
     if (!pending.empty) throw new UserError('لديك طلب سحب قيد المراجعة', 409);
-    return db.runTransaction(async (t) => {
+    const id = await db.runTransaction(async (t) => {
       const w = await readWallet(t, db, uid);
       if (w.balance < cents) throw new UserError('رصيدك غير كافٍ', 402);
       w.balance -= cents;
@@ -161,8 +162,10 @@ const ACTIONS = {
       const wref = db.collection('withdrawals').doc();
       t.set(wref, { uid, amount: cents, address, network: 'TRC20', status: 'pending', createdAt: FieldValue.serverTimestamp() });
       logTx(t, db, uid, 'withdraw', -cents, { withdrawalId: wref.id, note: address });
-      return { withdrawalId: wref.id };
+      return wref.id;
     });
+    const r = await tryAutoPayout(db, set, { id, uid, me, cents, address, callbackUrl: `${BASE}/api/oxapay-webhook` });
+    return { withdrawalId: id, auto: r.auto };
   },
 
   /* ===== الأدمن: حسم نزاع ===== */

@@ -356,7 +356,7 @@ async function api(action, data) {
 async function finance() {
   const [wSnap, wdSnap, dsSnap, setSnap] = await Promise.all([
     getDocs(collection(db, 'wallets')),
-    getDocs(query(collection(db, 'withdrawals'), where('status', '==', 'pending'))),
+    getDocs(query(collection(db, 'withdrawals'), where('status', 'in', ['pending', 'processing']))),
     getDocs(query(collection(db, 'orders'), where('status', '==', 'disputed'))),
     getDoc(doc(db, 'settings', 'wallet'))
   ]);
@@ -379,10 +379,11 @@ async function finance() {
       <span>يجب أن يكون رصيد OxaPay ≥ <b>${usd(bal + held + pendingWd + plat)} USDT</b> (أرصدة + محجوز + سحوبات معلّقة + عمولات).</span>
       <span class="muted">قارنه برصيدك في لوحة OxaPay. أي نقص يعني خللاً: أوقف السحوبات حتى تراجعه.</span></div>
     <div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>طلبات السحب (${wds.length})</h2>
-      ${wds.length ? `<div class="scroll"><table><thead><tr><th>المستخدم</th><th>المبلغ</th><th>العنوان (TRC20)</th><th>منذ</th><th></th></tr></thead><tbody>${wds.map(w => `<tr>
+      ${wds.length ? `<div class="scroll"><table><thead><tr><th>المستخدم</th><th>المبلغ</th><th>العنوان (TRC20)</th><th>منذ</th><th>الحالة</th><th></th></tr></thead><tbody>${wds.map(w => `<tr>
         <td><b>${esc((users[w.uid] || {}).storeName || (users[w.uid] || {}).name || w.uid)}</b>${(users[w.uid] || {}).verified ? ' <span class="tag t-green">موثّق</span>' : ''}</td>
         <td><b>${usd(w.amount)}</b></td><td dir="ltr" style="font-family:monospace;font-size:12px">${esc(w.address)}</td><td class="muted">${ago(w.createdAt)}</td>
-        <td><div class="actions"><button class="btn primary" data-sent="${w.id}">أُرسل</button><button class="btn" data-rej="${w.id}">رفض وإرجاع</button></div></td></tr>`).join('')}</tbody></table></div>
+        <td>${w.status === 'processing' ? `<span class="tag t-green">تلقائي: ${esc(w.payoutStatus || 'Processing')}</span>` : `<span class="muted" style="font-size:12px">${esc(w.reviewReason || 'مراجعة يدوية')}</span>`}</td>
+        <td>${w.status === 'processing' ? '<span class="muted">جارٍ عبر OxaPay</span>' : `<div class="actions"><button class="btn primary" data-sent="${w.id}">أُرسل</button><button class="btn" data-rej="${w.id}">رفض وإرجاع</button></div>`}</td></tr>`).join('')}</tbody></table></div>
         <p class="muted" style="margin:0">أرسل المبلغ من لوحة OxaPay (Payout) إلى العنوان، ثم اضغط "أُرسل" وألصق رقم المعاملة.</p>` : '<span class="muted">لا توجد طلبات سحب.</span>'}</div>
     <div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>النزاعات (${disputes.length})</h2>
       ${disputes.length ? disputes.map(o => `<div class="note">
@@ -398,6 +399,15 @@ async function finance() {
         <label><span class="muted">التحرير التلقائي بعد (أيام)</span><input class="input" id="sDays" inputmode="numeric" value="${set.releaseDays || 3}"></label>
         <label><span class="muted">أقل سحب (USDT)</span><input class="input" id="sMin" inputmode="decimal" value="${usd(set.minWithdraw || 500)}"></label>
       </div>
+      <h2 style="margin-top:6px">السحب التلقائي</h2>
+      <label style="display:flex;align-items:center;gap:10px;font-weight:700"><input type="checkbox" id="aOn" ${set.autoWithdraw ? 'checked' : ''} style="width:20px;height:20px"> تفعيل السحب التلقائي ${set.autoWithdraw ? '<span class="tag t-green">يعمل</span>' : '<span class="tag">متوقف</span>'}</label>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+        <label><span class="muted">أقصى مبلغ تلقائي (USDT)</span><input class="input" id="aMax" inputmode="decimal" value="${usd(set.autoMax || 5000)}"></label>
+        <label><span class="muted">أقل عمر للحساب (أيام)</span><input class="input" id="aAge" inputmode="numeric" value="${set.autoMinAgeDays || 7}"></label>
+        <label><span class="muted">حد المستخدم اليومي (USDT)</span><input class="input" id="aUser" inputmode="decimal" value="${usd(set.autoUserDaily || 10000)}"></label>
+        <label><span class="muted">حد المنصة اليومي (USDT)</span><input class="input" id="aAll" inputmode="decimal" value="${usd(set.autoGlobalDaily || 30000)}"></label>
+      </div>
+      <span class="muted">يُحوَّل للمراجعة اليدوية: ما فوق الحد، والحساب الجديد، ومن أودع خلال 24 ساعة، والعنوان المستخدم من حساب آخر، وغير الموثّق فوق نصف الحد، وأي فشل من OxaPay. لا يعمل في وضع التجربة.</span>
       <button class="btn primary" id="sSave" style="align-self:flex-start">حفظ الإعدادات</button>
       <span class="muted">حدّث سعر الصرف دورياً. الطلبات تحفظ السعر وقت إنشائها.</span></div>`;
   $$('[data-sent]').forEach(b => b.onclick = () => { const h = prompt('رقم المعاملة (TX hash):'); if (!h) return; run(b, async () => { await api('withdrawDecide', { id: b.dataset.sent, decision: 'sent', txHash: h }); await go(); }, 'سُجّل الإرسال'); });
@@ -409,7 +419,12 @@ async function finance() {
   $('#sSave').onclick = (e) => run(e.currentTarget, async () => {
     const rate = parseFloat($('#sRate').value), com = parseFloat($('#sCom').value), days = parseInt($('#sDays').value, 10), min = parseFloat($('#sMin').value);
     if (!(rate > 0) || !(com >= 0 && com <= 20) || !(days >= 1 && days <= 14) || !(min >= 1)) throw new Error('قيم غير صالحة');
-    await setDoc(doc(db, 'settings', 'wallet'), { sdgPerUsdt: rate, commissionRate: com / 100, releaseDays: days, minWithdraw: Math.round(min * 100), updatedAt: serverTimestamp() }, { merge: true });
+    const aMax = parseFloat($('#aMax').value), aAge = parseInt($('#aAge').value, 10), aUser = parseFloat($('#aUser').value), aAll = parseFloat($('#aAll').value);
+    if (!(aMax >= 1) || !(aAge >= 0) || !(aUser >= aMax) || !(aAll >= aUser)) throw new Error('حدود السحب التلقائي غير منطقية');
+    if ($('#aOn').checked && !set.autoWithdraw && !confirm('تفعيل السحب التلقائي؟ تأكد من ضبط OXAPAY_PAYOUT_KEY في Vercel وأن رصيد OxaPay كافٍ.')) return;
+    await setDoc(doc(db, 'settings', 'wallet'), { sdgPerUsdt: rate, commissionRate: com / 100, releaseDays: days, minWithdraw: Math.round(min * 100),
+      autoWithdraw: $('#aOn').checked, autoMax: Math.round(aMax * 100), autoMinAgeDays: aAge, autoUserDaily: Math.round(aUser * 100), autoGlobalDaily: Math.round(aAll * 100),
+      updatedAt: serverTimestamp() }, { merge: true });
   }, 'حُفظت الإعدادات');
 }
 

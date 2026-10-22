@@ -17,7 +17,13 @@ export async function walletSettings(db = adminDb()) {
     sdgPerUsdt: typeof d.sdgPerUsdt === 'number' && d.sdgPerUsdt > 0 ? d.sdgPerUsdt : 0, // 0 = الدفع بالمحفظة معطّل
     minWithdraw: d.minWithdraw || 500,        // 5 USDT
     maxDeposit: d.maxDeposit || 50000,        // 500 USDT لكل إيداع
-    releaseDays: d.releaseDays || 3
+    releaseDays: d.releaseDays || 3,
+    // السحب التلقائي (الهجين)
+    autoWithdraw: d.autoWithdraw === true,
+    autoMax: d.autoMax || 5000,               // 50 USDT
+    autoMinAgeDays: d.autoMinAgeDays || 7,
+    autoUserDaily: d.autoUserDaily || 10000,  // 100 USDT لكل مستخدم يومياً
+    autoGlobalDaily: d.autoGlobalDaily || 30000 // 300 USDT للمنصة يومياً
   };
 }
 

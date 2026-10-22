@@ -1855,10 +1855,10 @@ async function renderWallet() {
     ]);
     const txs = txSnap.docs.map(d => d.data()).sort((a, b) => millis(b.createdAt) - millis(a.createdAt)).slice(0, 60);
     const pendDep = depSnap.docs.map(d => d.data()).filter(d => ['pending', 'paying'].includes(d.status) && Date.now() - millis(d.createdAt) < 3600e3);
-    const pendWd = wdSnap.docs.map(d => d.data()).filter(d => d.status === 'pending');
+    const pendWd = wdSnap.docs.map(d => d.data()).filter(d => d.status === 'pending' || d.status === 'processing');
     $('#wPending').innerHTML = [
       ...pendDep.map(d => `<div class="note note-warn" style="margin-bottom:8px">${ic('clock', 'style="width:20px;height:20px"')}<span class="grow">إيداع ${usdt(d.amount)} USDT ${d.status === 'paying' ? 'قيد التأكيد على الشبكة' : 'بانتظار الدفع'}${d.sandbox ? ' (تجريبي)' : ''}</span>${d.status === 'pending' ? `<a class="btn-link" href="${esc(d.paymentUrl)}" target="_blank" style="padding:0">ادفع</a>` : ''}</div>`),
-      ...pendWd.map(d => `<div class="note note-ok" style="margin-bottom:8px">${ic('clock', 'style="width:20px;height:20px"')}<span>طلب سحب ${usdt(d.amount)} USDT قيد المراجعة، يُرسل عادة خلال 24 ساعة.</span></div>`)
+      ...pendWd.map(d => `<div class="note note-ok" style="margin-bottom:8px">${ic('clock', 'style="width:20px;height:20px"')}<span>${d.status === 'processing' ? `سحب ${usdt(d.amount)} USDT قيد التحويل تلقائياً، يصل خلال دقائق.` : `طلب سحب ${usdt(d.amount)} USDT قيد المراجعة، يُرسل عادة خلال 24 ساعة.`}</span></div>`)
     ].join('');
     $('#txs').innerHTML = txs.length ? txs.map(x => {
       const [label, kind] = TX[x.type] || [x.type, 'out'];
@@ -1908,7 +1908,7 @@ function withdrawSheet() {
       const amount = parseFloat($('#wAmt', sh).value), address = $('#wAddr', sh).value.trim();
       if (!(amount > 0)) return toast('اكتب المبلغ', 'error');
       if (!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address)) return toast('عنوان TRC20 غير صحيح', 'error');
-      try { await walletApi('withdraw', { amount, address }); closeSheet(); toast('أُرسل طلب السحب', 'success'); render(); }
+      try { const r = await walletApi('withdraw', { amount, address }); closeSheet(); toast(r && r.auto ? 'جارٍ تحويل سحبك تلقائياً، يصل خلال دقائق' : 'أُرسل طلب السحب للمراجعة', 'success'); render(); }
       catch (err) { toast(errMsg(err), 'error'); }
     });
   });

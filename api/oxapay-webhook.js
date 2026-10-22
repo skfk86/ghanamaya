@@ -23,14 +23,44 @@ function validSig(raw, sig, key) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+async function payoutHook(req, res, p) {
+  const db = adminDb();
+  const status = String(p.status || '');
+  const q = await db.collection('withdrawals').where('payoutTrackId', '==', String(p.track_id)).limit(1).get();
+  if (q.empty) return res.status(200).send('ok');
+  const ref = q.docs[0].ref;
+  let notify = null;
+  try {
+    await db.runTransaction(async (t) => {
+      const s = await t.get(ref);
+      const w = s.data();
+      if (w.status !== 'processing') return;                       // حُسم مسبقاً
+      if (status === 'Confirmed') {
+        t.update(ref, { status: 'sent', txHash: String(p.tx_hash || ''), payoutStatus: status, decidedBy: 'auto', decidedAt: FieldValue.serverTimestamp() });
+        notify = w;
+      } else if (['Failed', 'Rejected', 'Canceled'].includes(status)) {
+        // لا نعيد المال تلقائياً: الأدمن يقرر (إرسال يدوي أو رفض وإرجاع)
+        t.update(ref, { status: 'pending', payoutStatus: status, reviewReason: `فشل السحب التلقائي في OxaPay (${status})` });
+      } else {
+        t.update(ref, { payoutStatus: status, ...(p.tx_hash ? { txHash: String(p.tx_hash) } : {}) });
+      }
+    });
+  } catch (e) { console.error('payout webhook', e); return res.status(500).send('retry'); }
+  if (notify) await pushTo(db, notify.uid, { title: '✅ تم تحويل سحبك بنجاح', body: `${usd(notify.amount)} USDT وصلت لمحفظتك على شبكة TRC20`, data: { kind: 'withdraw_sent', amount: notify.amount }, tag: `wd-${ref.id}` });
+  return res.status(200).send('ok');
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('POST only');
   const raw = await rawBody(req);
-  if (!validSig(raw, req.headers['hmac'], process.env.OXAPAY_MERCHANT_KEY)) {
-    console.warn('oxapay: bad signature');
+  let p; try { p = JSON.parse(raw); } catch { return res.status(400).send('bad json'); }
+  // إشعارات السحب موقّعة بمفتاح Payout، والإيداع بمفتاح Merchant
+  const isPayout = p && p.type === 'payout';
+  if (!validSig(raw, req.headers['hmac'], isPayout ? process.env.OXAPAY_PAYOUT_KEY : process.env.OXAPAY_MERCHANT_KEY)) {
+    console.warn('oxapay: bad signature', isPayout ? 'payout' : 'invoice');
     return res.status(400).send('invalid signature');
   }
-  let p; try { p = JSON.parse(raw); } catch { return res.status(400).send('bad json'); }
+  if (isPayout) return payoutHook(req, res, p);
 
   const depositId = p.order_id, status = String(p.status || '');
   if (!depositId) return res.status(200).send('ok');
