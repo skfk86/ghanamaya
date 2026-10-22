@@ -70,6 +70,27 @@ td{padding:10px 8px;border-bottom:1px solid #F1ECE3;vertical-align:middle}
 .toast.show{opacity:1}
 .spinner{width:26px;height:26px;border-radius:50%;border:3px solid var(--brand-tint);border-top-color:var(--brand);animation:spin .8s linear infinite;margin:30px auto}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* ===== تحسين بصري ===== */
+.card,.list{box-shadow:0 1px 2px rgba(31,29,26,.04),0 6px 18px rgba(31,29,26,.05);border-radius:18px}
+aside{background:linear-gradient(180deg,#24311B,#1A2413)}
+nav button{transition:background .15s}
+nav button:hover{background:rgba(255,255,255,.06)}
+nav button.on{box-shadow:0 6px 16px rgba(0,0,0,.25)}
+.kpi{position:relative;display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.kpi .ki{position:absolute;top:16px;left:16px;width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--brand-soft);color:var(--brand)}
+.kpi .ki.o{background:var(--accent-soft);color:var(--accent)}.kpi .ki.r{background:var(--danger-soft);color:var(--danger)}.kpi .ki.b{background:var(--blue-soft);color:var(--blue)}
+.kpi b{font-size:30px;letter-spacing:-.5px}
+.todo{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.todo button{display:flex;align-items:center;gap:12px;border:0;text-align:right;background:var(--surface);border-radius:16px;padding:14px;box-shadow:0 1px 2px rgba(31,29,26,.04),0 6px 18px rgba(31,29,26,.05);transition:transform .12s}
+.todo button:hover{transform:translateY(-1px)}
+.todo .c{font-size:22px;font-weight:700;min-width:34px;text-align:center}
+.todo .on .c{color:var(--danger)}
+.todo .zero{opacity:.55}
+.switch{appearance:none;width:46px;height:26px;border-radius:13px;background:var(--line);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.switch::after{content:"";position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:right .2s}
+.switch:checked{background:var(--brand)}.switch:checked::after{right:23px}
+tbody tr:hover td{background:#FBF8F3}
+h2{display:flex;align-items:center;gap:8px}
 </style>
 </head>
 <body>
@@ -164,15 +185,24 @@ async function home() {
     c(query(collection(db, 'listings'), where('status', '==', 'active'))), c(collection(db, 'orders')),
     c(query(collection(db, 'orders'), where('status', '==', 'completed')))
   ]);
-  $('#main').innerHTML = `<div class="head"><h1>نظرة عامة</h1><span class="muted">${new Date().toLocaleString('ar')}</span></div>
+  const [wal, recent] = await Promise.all([getDoc(doc(db, 'wallets', 'platform')).catch(() => null), getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(6))).catch(() => ({ docs: [] }))]);
+  const plat = wal && wal.exists() ? (wal.get('balance') || 0) : 0;
+  const todo = [['reports', 'flag', 'بلاغات مفتوحة', S.counts.reports || 0], ['verify', 'badge', 'طلبات توثيق', S.counts.verify || 0], ['finance', 'wallet', 'سحوبات مجمّدة ونزاعات', S.counts.finance || 0]];
+  const hr = new Date().getHours();
+  const ST = { pending: ['جديد', 't-orange'], accepted: ['مقبول', 't-blue'], paid: ['مدفوع', 't-blue'], completed: ['مكتمل', 't-green'], rejected: ['مرفوض', 't-gray'], cancelled: ['ملغى', 't-gray'], disputed: ['نزاع', 't-red'] };
+  const PM = { wallet: 'المحفظة', bankak: 'بنكك', cash: 'نقداً' };
+  $('#main').innerHTML = `<div class="head"><div><h1>${hr < 12 ? 'صباح الخير' : 'مساء الخير'} 👋</h1><span class="muted">${new Date().toLocaleDateString('ar', { weekday: 'long', day: 'numeric', month: 'long' })}</span></div></div>
+    <div class="todo">${todo.map(([k, i, l, n]) => `<button data-go="${k}" class="${n ? 'on' : 'zero'}"><span class="c">${n}</span><span class="grow"><b>${l}</b><br><span class="muted">${n ? 'تحتاج قرارك' : 'لا شيء الآن'}</span></span>${ic(i)}</button>`).join('')}</div>
     <div class="kpis">
-      <div class="card kpi"><span class="muted">المستخدمون</span><b>${users}</b><span class="muted">${sellers} بائع</span></div>
-      <div class="card kpi"><span class="muted">الإعلانات النشطة</span><b>${active}</b></div>
-      <div class="card kpi"><span class="muted">الطلبات</span><b>${ordersAll}</b><span class="muted">${done} مكتمل</span></div>
-      <div class="card kpi"><span class="muted">بلاغات مفتوحة</span><b style="color:${S.counts.reports ? 'var(--danger)' : 'inherit'}">${S.counts.reports || 0}</b></div>
-      <div class="card kpi"><span class="muted">طلبات توثيق</span><b>${S.counts.verify || 0}</b></div>
+      <div class="card kpi"><span class="ki">${ic('user')}</span><span class="muted">المستخدمون</span><b>${users}</b><span class="muted">${sellers} بائع</span></div>
+      <div class="card kpi"><span class="ki o">${ic('store')}</span><span class="muted">الإعلانات النشطة</span><b>${active}</b></div>
+      <div class="card kpi"><span class="ki b">${ic('bag')}</span><span class="muted">الطلبات</span><b>${ordersAll}</b><span class="muted">${done} مكتمل · ${ordersAll ? Math.round(done / ordersAll * 100) : 0}%</span></div>
+      <div class="card kpi"><span class="ki">${ic('wallet')}</span><span class="muted">عمولات المنصة</span><b style="color:var(--brand)" dir="ltr">${usd(plat)}</b><span class="muted">USDT</span></div>
     </div>
-    ${S.counts.finance ? `<div class="card"><h2>المالية</h2><p class="muted" style="margin:6px 0 0">${S.counts.finance} عنصر بانتظارك (سحوبات أو نزاعات) في قسم المالية.</p></div>` : ''}`;
+    <div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>${ic('bag')}أحدث الطلبات</h2>
+      ${recent.docs.length ? `<div class="scroll"><table><thead><tr><th>الطلب</th><th>المشتري ← البائع</th><th>المبلغ</th><th>الدفع</th><th>الحالة</th><th>منذ</th></tr></thead><tbody>${recent.docs.map(d => { const o = d.data(), st = ST[o.status] || [o.status, 't-gray']; return `<tr><td><b>${esc(o.title)}</b> × ${o.qty}</td><td>${esc(o.buyerName)} ← ${esc(o.sellerName)}</td><td><b>${Number(o.total || 0).toLocaleString('en-US')}</b> <span class="muted">ج.س</span></td><td>${PM[o.paymentMethod] || ''}</td><td><span class="tag ${st[1]}">${st[0]}</span></td><td class="muted">${ago(o.createdAt)}</td></tr>`; }).join('')}</tbody></table></div>` : '<span class="muted">لا توجد طلبات بعد.</span>'}
+    </div>`;
+  $$('[data-go]').forEach(b => b.onclick = () => { S.sec = b.dataset.go; S.sel = null; go(); });
 }
 
 /* ---------- البلاغات ---------- */
@@ -378,7 +408,7 @@ async function finance() {
     <div class="card" style="display:flex;flex-direction:column;gap:6px"><h2>المطابقة</h2>
       <span>يجب أن يكون رصيد OxaPay ≥ <b>${usd(bal + held + pendingWd + plat)} USDT</b> (أرصدة + محجوز + سحوبات معلّقة + عمولات).</span>
       <span class="muted">قارنه برصيدك في لوحة OxaPay. أي نقص يعني خللاً: أوقف السحوبات حتى تراجعه.</span></div>
-    <div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>طلبات السحب (${wds.length})</h2>
+    <div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>${ic('wallet')}طلبات السحب (${wds.length})</h2>
       ${wds.length ? `<div class="scroll"><table><thead><tr><th>المستخدم</th><th>المبلغ</th><th>العنوان (TRC20)</th><th>منذ</th><th>الحالة</th><th></th></tr></thead><tbody>${wds.map(w => `<tr>
         <td><b>${esc((users[w.uid] || {}).storeName || (users[w.uid] || {}).name || w.uid)}</b>${(users[w.uid] || {}).verified ? ' <span class="tag t-green">موثّق</span>' : ''}</td>
         <td><b>${usd(w.amount)}</b></td><td dir="ltr" style="font-family:monospace;font-size:12px">${esc(w.address)}</td><td class="muted">${ago(w.createdAt)}</td>
@@ -405,7 +435,7 @@ async function finance() {
       </div>
       <h2 style="margin-top:6px">السحب التلقائي</h2>
       ${set.autoWithdraw === false && set.autoPausedReason ? `<div class="note" style="border-color:var(--danger);color:var(--danger)"><b>⚠ ${esc(set.autoPausedReason)}</b><span>راجع السحوبات المجمّدة وسجل OxaPay، ثم أعد التفعيل.</span></div>` : ''}
-      <label style="display:flex;align-items:center;gap:10px;font-weight:700"><input type="checkbox" id="aOn" ${set.autoWithdraw !== false ? 'checked' : ''} style="width:20px;height:20px"> مفتاح الطوارئ: السحب التلقائي ${set.autoWithdraw !== false ? '<span class="tag t-green">يعمل</span>' : '<span class="tag t-red">متوقف</span>'}</label>
+      <label style="display:flex;align-items:center;gap:10px;font-weight:700"><input type="checkbox" class="switch" id="aOn" ${set.autoWithdraw !== false ? 'checked' : ''}> مفتاح الطوارئ: السحب التلقائي ${set.autoWithdraw !== false ? '<span class="tag t-green">يعمل</span>' : '<span class="tag t-red">متوقف</span>'}</label>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
         <label><span class="muted">مبلغ يستدعي فترة أمان (USDT)</span><input class="input" id="aMax" inputmode="decimal" value="${usd(set.autoMax || 5000)}"></label>
         <label><span class="muted">أقل عمر للحساب (أيام)</span><input class="input" id="aAge" inputmode="numeric" value="${set.autoMinAgeDays || 7}"></label>

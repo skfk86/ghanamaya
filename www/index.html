@@ -310,6 +310,87 @@ html,body{overflow-x:hidden;max-width:100%}
 .stars .on .icon{fill:currentColor}
 .copy{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:var(--r-sm);padding:10px 12px;font-size:18px;font-weight:700;letter-spacing:.5px}
 .blocked{padding:14px 16px calc(14px + var(--safe-b));background:var(--surface);border-top:1px solid var(--line);text-align:center;color:var(--muted);font-size:14px}
+/* ========== طبقة التحسين البصري ========== */
+:root{--shadow:0 1px 2px rgba(31,29,26,.05),0 4px 14px rgba(31,29,26,.06);--shadow-lg:0 10px 30px rgba(31,29,26,.12);--r-lg:20px}
+@media (prefers-color-scheme:dark){:root{--shadow:0 0 0 1px var(--line);--shadow-lg:0 0 0 1px var(--line)}}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+h1{letter-spacing:-.2px}
+.section-h{display:flex;align-items:baseline;justify-content:space-between;padding:0 16px 10px}
+.section-h h2{font-size:17px}
+.section-h .muted{display:flex;align-items:center;gap:6px}
+.link-ic{border:0;background:none;color:var(--brand);font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:4px;padding:6px 0}
+.link-ic .icon{width:16px;height:16px}
+/* الرأس */
+.home-head{padding:calc(16px + var(--safe-t)) 16px 0;display:flex;flex-direction:column;gap:14px}
+.hello{font-size:22px;font-weight:700;line-height:1.3}
+.loc{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:13px}
+.loc .icon{width:15px;height:15px;color:var(--brand)}
+.wchip{display:flex;align-items:center;gap:8px;height:44px;padding:0 6px 0 14px;border-radius:22px;border:0;background:var(--surface);box-shadow:var(--shadow);font-weight:700;font-size:14px;flex-shrink:0}
+.wchip .ico{width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center}
+.wchip .ico .icon{width:17px;height:17px}
+.search{height:50px;border-radius:16px}
+.filter-btn{width:50px;height:50px;border-radius:16px}
+.chip{height:38px;border-radius:19px;padding:0 18px;border-color:transparent;background:var(--surface);box-shadow:var(--shadow)}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+/* بطاقة الإعلان */
+.grid{gap:14px}
+.lcard{border-radius:20px;transition:transform .15s}
+.lcard:active{transform:scale(.98)}
+.lcard .img{aspect-ratio:4/5}
+.lcard .img::after{content:"";position:absolute;inset:auto 0 0 0;height:45%;background:linear-gradient(transparent,rgba(20,18,15,.55));pointer-events:none}
+.lcard .pricetag{position:absolute;bottom:10px;right:10px;z-index:1;color:#fff;font-weight:700;font-size:15px;text-shadow:0 1px 6px rgba(0,0,0,.35)}
+.lcard .pricetag small{font-size:11px;font-weight:500;opacity:.9}
+.lcard .body{padding:10px 12px 12px;gap:4px}
+.lcard .title{font-size:14.5px}
+.lcard .meta{display:flex;justify-content:space-between;gap:6px}
+.lcard .meta .city{display:flex;align-items:center;gap:2px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.tag{top:10px;right:10px;border-radius:10px;padding:4px 9px;box-shadow:0 2px 8px rgba(200,96,30,.35)}
+.fav{top:8px;left:8px;width:34px;height:34px;background:rgba(255,255,255,.88);backdrop-filter:blur(6px)}
+/* شريط التنقل العائم */
+.shell{padding-bottom:calc(112px + var(--safe-b))}
+.tabbar{left:12px;right:12px;bottom:calc(10px + var(--safe-b));height:68px;padding:8px 6px 0;border:0;border-radius:24px;background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);box-shadow:0 8px 30px rgba(31,29,26,.14),0 0 0 1px var(--line)}
+.tab{min-height:50px;font-size:11px}
+.tab.on{color:var(--brand)}
+.fab{margin-top:-26px;width:56px;height:56px;border-radius:20px;box-shadow:0 8px 20px rgba(200,96,30,.4),0 0 0 5px var(--bg)}
+.toast{bottom:calc(100px + var(--safe-b))}
+/* بطاقات عامة */
+.card{border-radius:20px}
+.topbar{background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.ocard{border-radius:20px;padding:12px 12px 12px 14px;gap:14px}
+.ocard img{width:72px;height:72px;border-radius:16px}
+.st{border-radius:20px;padding:4px 10px}
+.st::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;margin-left:5px;vertical-align:1px}
+.opt{border-radius:18px;box-shadow:var(--shadow)}
+.opt.on{box-shadow:0 0 0 1px var(--brand),var(--shadow)}
+.menu button{min-height:56px}
+.menu .tile{width:36px;height:36px;border-radius:12px}
+/* المحفظة */
+.wallet-hero{position:relative;overflow:hidden;color:#fff;border-radius:26px;padding:22px 20px 20px;display:flex;flex-direction:column;gap:18px;background:radial-gradient(120% 140% at 100% 0%,#5C7F43 0%,#3F5A2E 45%,#24361A 100%);box-shadow:0 16px 36px rgba(44,65,32,.35)}
+.wallet-hero::before{content:"";position:absolute;width:220px;height:220px;border-radius:50%;left:-70px;top:-90px;background:radial-gradient(circle,rgba(255,255,255,.14),transparent 70%)}
+.wallet-hero::after{content:"";position:absolute;width:160px;height:160px;border-radius:50%;right:-40px;bottom:-80px;border:24px solid rgba(255,255,255,.05)}
+.wallet-hero>*{position:relative}
+.wallet-hero .bal{display:flex;align-items:baseline;gap:8px;direction:ltr;justify-content:flex-end}
+.wallet-hero .bal b{font-size:40px;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.wallet-hero .bal span{color:#CFE0BC;font-weight:700}
+.wallet-hero .held{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.1);border-radius:14px;padding:10px 12px;font-size:12.5px}
+.wallet-hero .acts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.wallet-hero .acts .btn{height:50px;border-radius:16px}
+.txrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line-soft)}
+.txrow:last-child{border-bottom:0}
+.acct-head{display:flex;align-items:center;gap:14px;padding:18px;border-radius:24px;background:var(--surface);box-shadow:var(--shadow)}
+.wbanner{display:flex;align-items:center;gap:12px;width:100%;border:0;text-align:right;color:#fff;border-radius:20px;padding:16px;background:linear-gradient(135deg,#4E6E39,#3F5A2E 60%,#2C4120);box-shadow:0 10px 24px rgba(44,65,32,.25)}
+.wbanner .ico{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center}
+.clist{gap:10px;padding-top:4px}
+.citem{background:var(--surface);border:0;border-radius:20px;padding:12px;box-shadow:var(--shadow)}
+.citem.unread{box-shadow:0 0 0 1.5px var(--accent-soft),var(--shadow)}
+.citem .pic .who{border-color:var(--surface)}
+.chat-head{box-shadow:0 2px 12px rgba(31,29,26,.05);border-bottom:0}
+.composer{border-top:0;box-shadow:0 -2px 12px rgba(31,29,26,.05)}
+.bubble{border-radius:20px}
+.offer{border-radius:20px}
+.spec{border-radius:16px;box-shadow:var(--shadow)}
+.sheet-body{gap:20px}
+.bottombar{border-top:0;box-shadow:0 -4px 20px rgba(31,29,26,.08)}
 .pin-in{font-size:24px;letter-spacing:10px;text-align:center;font-weight:700}
 /* احتفال أحداث المال */
 .celeb-bg{position:fixed;inset:0;z-index:90;background:rgba(20,24,16,.55);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:24px;animation:cfade .25s ease}
@@ -501,6 +582,8 @@ const S = {
 let screenUnsub = null, chatsUnsub = null, walletUnsub = null, setUnsub = null;
 /* ---------- المحفظة: الرصيد مباشرة من wallets/{uid} (سنتات USDT) ---------- */
 const usdt = (c) => ((c || 0) / 100).toFixed(2);
+// مبلغ USDT معزول الاتجاه حتى لا ينقلب داخل النص العربي
+const U = (c, sign = '') => `<bdi class="num" dir="ltr">${sign}${usdt(c)} USDT</bdi>`;
 async function walletApi(action, data = {}) {
   const t = await S.user.getIdToken();
   const r = await fetch(`${API_BASE}/api/wallet`, { method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...data }) });
@@ -514,7 +597,8 @@ function startWallet(uid) {
     const prev = S.wallet;
     S.wallet = s.exists() ? s.data() : { balance: 0, held: 0 };
     if (prev && S.depositWatch && S.wallet.balance > prev.balance) { S.depositWatch = false; celebrate('deposit', S.wallet.balance - prev.balance); }
-    const b = $('#walletBal'); if (b) b.textContent = `${usdt(S.wallet.balance)} USDT`;
+    const b = $('#walletBal'); if (b) b.innerHTML = U(S.wallet.balance);
+    const hb = $('#homeBal'); if (hb) hb.innerHTML = U(S.wallet.balance);
     const top = S.stack[S.stack.length - 1]; if (top && top.name === 'wallet') drawWalletTop();
   }, () => {});
   if (setUnsub) setUnsub();
@@ -755,11 +839,12 @@ function cardHTML(l) {
       ${isFeatured(l) ? '<span class="tag">مميز</span>' : ''}
       ${l.status === 'sold' ? '<span class="tag dark">مباع</span>' : ''}
       <button class="fav ${fav ? 'on' : ''}" data-fav="${l.id}" aria-label="المفضلة" aria-pressed="${fav}">${ic('heart')}</button>
+      <span class="pricetag"><bdi>${Number(l.price || 0).toLocaleString('en-US')}</bdi> <small>ج.س</small></span>
     </div>
     <div class="body">
       <span class="title">${esc(titleOf(l))}</span>
-      <span class="meta">${ageText(l.ageMonths)} · ${l.weightKg} كجم${l.qty > 1 ? ` · ${l.qty} رأس` : ''}</span>
-      <div class="foot"><span class="price">${money(l.price)}</span><span class="city">${ic('pin', 'style="width:12px;height:12px"')}${esc(l.city)}</span></div>
+      <span class="meta"><span>${ageText(l.ageMonths)} · ${l.weightKg} كجم${l.qty > 1 ? ` · ${l.qty} رأس` : ''}</span></span>
+      <span class="meta"><span class="city">${ic('pin', 'style="width:12px;height:12px"')}${esc(l.city)}</span><span style="flex-shrink:0">${ago(l.createdAt)}</span></span>
     </div>
   </div>`;
 }
@@ -777,33 +862,34 @@ function viewHome() {
   const p = S.profile, n = activeFilterCount();
   const cats = [{ id: 'all', label: 'الكل' }, ...TYPES];
   return `
-  <div style="padding:calc(18px + var(--safe-t)) 16px 0" class="stack">
-    <div class="row">
+  <div class="home-head">
+    <div class="row" style="align-items:center">
       <div class="grow">
-        <span class="muted">موقعك</span>
-        <div class="row" style="gap:4px;font-weight:700;font-size:16px">${ic('pin', 'style="width:18px;height:18px;color:var(--brand)"')}<span class="ellipsis">${esc(p.city)}، ${esc(p.state)}</span></div>
+        <div class="hello ellipsis">أهلاً، ${esc((p.name || '').split(' ')[0])}</div>
+        <div class="loc">${ic('pin')}<span class="ellipsis">${esc(p.city)}، ${esc(p.state)}</span></div>
       </div>
-      <button class="icon-btn" id="refresh" aria-label="تحديث">${ic('refresh')}</button>
+      <button class="wchip" id="homeWallet" aria-label="المحفظة"><span id="homeBal">${S.wallet ? U(S.wallet.balance) : '—'}</span><span class="ico">${ic('wallet')}</span></button>
     </div>
     <div class="row">
       <label class="search">${ic('search', 'style="color:var(--muted);width:20px;height:20px"')}<input id="q" type="search" placeholder="ابحث: حمري، شامي، بحري..." value="${esc(S.q)}" aria-label="بحث"></label>
       <button class="filter-btn" id="openFilters" aria-label="الفلاتر">${ic('filter')}${n ? `<span class="dot">${n}</span>` : ''}</button>
     </div>
   </div>
-  <div class="chips" style="margin:14px 0">${cats.map(c => `<button class="chip ${S.cat === c.id ? 'on' : ''}" data-cat="${c.id}">${c.label}</button>`).join('')}</div>
+  <div class="chips" style="margin:16px 0 18px;padding-bottom:4px">${cats.map(c => `<button class="chip ${S.cat === c.id ? 'on' : ''}" data-cat="${c.id}">${c.label}</button>`).join('')}</div>
   <div id="feed">${S.listings ? feedHTML() : skeletons()}</div>`;
 }
 function feedHTML() {
   const list = filtered();
   if (!S.listings.length) return viewEmpty('store', 'لا توجد إعلانات بعد', 'كن أول من يعرض ماعزه أو ضأنه في غنماية.', `<button class="btn btn-accent" style="width:auto;padding:0 24px;height:48px" id="emptyAdd">أضف أول إعلان</button>`);
   if (!list.length) return viewEmpty('search', 'لا نتائج', 'جرّب تغيير البحث أو الفلاتر.', `<button class="btn btn-ghost" style="width:auto;padding:0 24px;height:48px" id="clearAll">مسح الفلاتر</button>`);
-  return `<div class="muted" style="padding:0 16px 10px">${list.length} إعلان</div><div class="grid">${list.map(cardHTML).join('')}</div>`;
+  return `<div class="section-h"><h2>${S.q || activeFilterCount() || S.cat !== 'all' ? 'النتائج' : 'أحدث الإعلانات'}</h2><span class="muted">${list.length} إعلان · <button class="link-ic" id="refresh" aria-label="تحديث">${ic('refresh')}تحديث</button></span></div><div class="grid">${list.map(cardHTML).join('')}</div>`;
 }
 function refreshFeed() {
   const feed = $('#feed'); if (!feed) return;
   feed.innerHTML = feedHTML(); bindCards(feed);
   const ea = $('#emptyAdd'); if (ea) ea.onclick = onAdd;
   const ca = $('#clearAll'); if (ca) ca.onclick = () => { resetFilters(); S.q = ''; S.cat = 'all'; renderShell(); };
+  const rf = $('#refresh'); if (rf) rf.onclick = (e) => { const i = e.currentTarget.querySelector('.icon'); if (i) { i.style.transition = 'transform .6s'; i.style.transform = 'rotate(360deg)'; } fetchFeed(true); };
 }
 function resetFilters() { S.f = { types: [], breeds: [], min: '', max: '', age: -1, sort: 0, verified: false, state: '' }; }
 async function fetchFeed(force) {
@@ -820,7 +906,7 @@ function bindHome() {
   $$('[data-cat]').forEach(b => b.onclick = () => { S.cat = b.dataset.cat; $$('[data-cat]').forEach(x => x.classList.toggle('on', x === b)); refreshFeed(); });
   let t; $('#q').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.q = e.target.value; refreshFeed(); }, 250); };
   $('#openFilters').onclick = openFilters;
-  $('#refresh').onclick = (e) => { e.currentTarget.style.transform = 'rotate(360deg)'; e.currentTarget.style.transition = 'transform .6s'; fetchFeed(true); };
+  $('#homeWallet').onclick = () => push('wallet');
   if (S.listings) refreshFeed(); else fetchFeed();
 }
 
@@ -1536,11 +1622,11 @@ async function renderCheckout({ id, price, qty: q0, offerRef }) {
         <section class="stack" style="gap:10px"><h2 style="font-size:15px">طريقة الدفع</h2>
           <button class="opt ${st.pay === 'cash' ? 'on' : ''}" data-pm="cash" role="radio" aria-checked="${st.pay === 'cash'}"><span class="tile">${ic('cash')}</span><span class="grow" style="display:flex;flex-direction:column"><b>الدفع عند الاستلام</b><span class="muted">نقداً للبائع عند التسليم</span></span><span class="radio ${st.pay === 'cash' ? 'on' : ''}"></span></button>
           <button class="opt ${st.pay === 'bankak' ? 'on' : ''}" data-pm="bankak" role="radio" aria-checked="${st.pay === 'bankak'}"><span class="tile">${ic('bank')}</span><span class="grow" style="display:flex;flex-direction:column"><b>تحويل بنكك</b><span class="muted">يظهر رقم حساب البائع بعد قبوله الطلب</span></span><span class="radio ${st.pay === 'bankak' ? 'on' : ''}"></span></button>
-          ${rate ? `<button class="opt ${st.pay === 'wallet' ? 'on' : ''}" data-pm="wallet" role="radio" aria-checked="${st.pay === 'wallet'}"><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>المحفظة الرقمية</b><span class="muted">دفع محمي: ${usdt(needed())} USDT · رصيدك ${usdt(bal)}</span></span><span class="radio ${st.pay === 'wallet' ? 'on' : ''}"></span></button>`
+          ${rate ? `<button class="opt ${st.pay === 'wallet' ? 'on' : ''}" data-pm="wallet" role="radio" aria-checked="${st.pay === 'wallet'}"><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>المحفظة الرقمية</b><span class="muted">دفع محمي: ${U(needed())} · رصيدك ${usdt(bal)}</span></span><span class="radio ${st.pay === 'wallet' ? 'on' : ''}"></span></button>`
             : `<button class="opt" disabled><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>المحفظة الرقمية</b><span class="muted">${seller.walletOff ? 'البائع لا يقبل الدفع بالمحفظة' : 'غير متاحة حالياً'}</span></span></button>`}
         </section>
         ${st.pay === 'wallet'
-          ? `<div class="note note-ok">${ic('shield', 'style="width:20px;height:20px"')}<span><strong>دفع محمي:</strong> يُحجز ${usdt(needed())} USDT ولا يصل للبائع إلا بعد تأكيدك الاستلام. إن لم يقبل البائع يعود المبلغ لك فوراً.${bal < needed() ? ` <strong>رصيدك لا يكفي</strong>، اشحن ${usdt(needed() - bal)} USDT أولاً.` : ''}</span></div>`
+          ? `<div class="note note-ok">${ic('shield', 'style="width:20px;height:20px"')}<span><strong>دفع محمي:</strong> يُحجز ${U(needed())} ولا يصل للبائع إلا بعد تأكيدك الاستلام. إن لم يقبل البائع يعود المبلغ لك فوراً.${bal < needed() ? ` <strong>رصيدك لا يكفي</strong>، اشحن ${U(needed() - bal)} أولاً.` : ''}</span></div>`
           : `<div class="note note-warn">${ic('shield', 'style="width:20px;height:20px"')}<span>${st.pay === 'bankak' ? 'لا تحوّل المبلغ قبل معاينة الحيوان. حوّل عند التسليم، ثم أرفق صورة الإشعار.' : 'عاين الحيوان جيداً قبل الدفع والاستلام.'}</span></div>`}
         <label class="field"><span>ملاحظة للبائع (اختياري)</span><input class="input" id="note" maxlength="200" placeholder="مثال: أفضّل الاستلام يوم الجمعة صباحاً"></label>
         <div class="card stack" style="gap:10px">
@@ -1548,7 +1634,7 @@ async function renderCheckout({ id, price, qty: q0, offerRef }) {
           <div class="sum"><span class="muted">التوصيل</span><span>${st.deliv === 'pickup' ? 'بدون' : 'يُتفق مع البائع'}</span></div>
           <div style="height:1px;background:var(--line)"></div>
           <div class="sum total"><span>الإجمالي</span><span class="price">${money(unit * st.qty)}</span></div>
-          ${st.pay === 'wallet' ? `<div class="sum"><span class="muted">يُخصم من المحفظة (سعر ${Number(rate).toLocaleString('en-US')} ج.س/USDT)</span><b>${usdt(needed())} USDT</b></div><div class="muted" style="font-size:12px">سعر الصرف: 1 USDT = ${Number(rate).toLocaleString('en-US')} جنيه${rateDate ? ` · آخر تحديث ${rateDate}` : ''}</div>` : ''}
+          ${st.pay === 'wallet' ? `<div class="sum"><span class="muted">يُخصم من المحفظة (سعر ${Number(rate).toLocaleString('en-US')} ج.س/USDT)</span><b>${U(needed())}</b></div><div class="muted" style="font-size:12px">سعر الصرف: 1 USDT = ${Number(rate).toLocaleString('en-US')} جنيه${rateDate ? ` · آخر تحديث ${rateDate}` : ''}</div>` : ''}
         </div>
       </div>
       <div class="bottombar"><button class="btn btn-accent" id="place">إرسال الطلب للبائع</button></div>
@@ -1658,7 +1744,7 @@ function drawOrder(o) {
     const relDays = (S.walletSet && S.walletSet.releaseDays) || 3;
     actions = '';
     if (o.status === 'pending') {
-      hint = !o.escrow ? 'جارٍ حجز المبلغ...' : isSeller ? `المشتري دفع ${usdt(esc0.amount)} USDT وهي محجوزة في التطبيق. ستستلم ${usdt(netOf(esc0.amount))} USDT (≈ ${money(Math.round(netOf(esc0.amount) / 100 * esc0.rate))}) بعد عمولة ${Math.round(comRate() * 1000) / 10}%. اقبل الطلب أو اعتذر عنه.` : 'المبلغ محجوز. بانتظار قبول البائع، وإن اعتذر يعود لك فوراً.';
+      hint = !o.escrow ? 'جارٍ حجز المبلغ...' : isSeller ? `المشتري دفع ${U(esc0.amount)} وهي محجوزة في التطبيق. ستستلم ${U(netOf(esc0.amount))} (≈ ${money(Math.round(netOf(esc0.amount) / 100 * esc0.rate))}) بعد عمولة ${Math.round(comRate() * 1000) / 10}%. اقبل الطلب أو اعتذر عنه.` : 'المبلغ محجوز. بانتظار قبول البائع، وإن اعتذر يعود لك فوراً.';
       actions = isSeller ? `<button class="btn btn-outline" data-wact="reject">اعتذار</button><button class="btn btn-primary" data-wact="accept">${ic('check')}قبول الطلب</button>` : `<button class="btn btn-ghost" data-wact="cancel">إلغاء واسترداد المبلغ</button>`;
     } else if (o.status === 'accepted') {
       hint = isSeller ? `سلّم الحيوان للمشتري. يُحرَّر المبلغ لمحفظتك عند تأكيده، أو تلقائياً بعد ${relDays} أيام إن لم يفتح نزاعاً.`
@@ -1667,7 +1753,7 @@ function drawOrder(o) {
     } else if (o.status === 'disputed') {
       hint = `فُتح نزاع: ${esc(o.disputeReason || '')}. المبلغ مجمّد حتى تراجعه الإدارة وتتواصل مع الطرفين.`;
     } else if (o.status === 'completed') {
-      hint = isSeller ? `أُضيف ${usdt(esc0.amount - (esc0.fee || 0))} USDT لمحفظتك (بعد عمولة ${usdt(esc0.fee || 0)}).` : 'اكتملت الصفقة وحُوّل المبلغ للبائع.';
+      hint = isSeller ? `أُضيف ${U(esc0.amount - (esc0.fee || 0))} لمحفظتك (بعد عمولة ${usdt(esc0.fee || 0)}).` : 'اكتملت الصفقة وحُوّل المبلغ للبائع.';
     }
   }
   const showBank = bank && !isSeller && ['accepted', 'paid'].includes(o.status);
@@ -1687,7 +1773,7 @@ function drawOrder(o) {
       ${o.note ? `<div class="card" style="font-size:14px"><span class="muted">ملاحظة المشتري: </span>${esc(o.note)}</div>` : ''}
       <div class="card">${timeline}</div>
       ${hint ? `<div class="note ${o.status === 'disputed' ? 'note-warn' : 'note-ok'}">${ic('help', 'style="width:20px;height:20px"')}<span>${hint}</span></div>` : ''}
-      ${wallet && o.escrow ? `<div class="card row" style="gap:12px"><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>${usdt(esc0.amount)} USDT</b><span class="muted">${{ held: 'محجوز في التطبيق', released: 'حُوّل للبائع', refunded: 'أُعيد للمشتري' }[esc0.status] || ''}</span></span><span class="muted" style="font-size:12px">${Number(esc0.rate).toLocaleString('en-US')} ج.س/USDT</span></div>` : ''}
+      ${wallet && o.escrow ? `<div class="card row" style="gap:12px"><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>${U(esc0.amount)}</b><span class="muted">${{ held: 'محجوز في التطبيق', released: 'حُوّل للبائع', refunded: 'أُعيد للمشتري' }[esc0.status] || ''}</span></span><span class="muted" style="font-size:12px"><bdi dir="ltr">1 USDT = ${Number(esc0.rate).toLocaleString('en-US')}</bdi> ج.س</span></div>` : ''}
       ${showBank ? `<div class="card stack" style="gap:10px">
         <h2 style="font-size:15px">حساب بنكك للبائع</h2>
         ${o.bankak ? `<div class="copy"><span class="grow ltr" style="text-align:left">${esc(o.bankak)}</span><button class="btn-link" id="copyBank">نسخ</button></div>` : `<span class="muted">لم يضف البائع رقم حساب. اطلبه منه في المحادثة.</span>`}
@@ -1724,7 +1810,7 @@ function drawOrder(o) {
     if (a === 'accept') b.onclick = (e) => busy(e.currentTarget, () => callApi({}, 'قبلت الطلب').catch(err => toast(errMsg(err), 'error')));
     if (a === 'reject') b.onclick = () => reasonSheet('الاعتذار عن الطلب', 'اعتذار وإعادة المبلغ', (r) => callApi({ reason: r }, 'أُعيد المبلغ للمشتري'));
     if (a === 'cancel') b.onclick = () => reasonSheet('إلغاء الطلب', 'إلغاء واسترداد', (r) => callApi({ reason: r }, 'أُلغي الطلب وأُعيد المبلغ'));
-    if (a === 'complete') b.onclick = () => confirmSheet('هل استلمت الحيوان؟', `سيُحوّل ${usdt(esc0.amount)} USDT للبائع ولا يمكن التراجع.`, 'نعم، استلمت', () => walletApi('complete', { orderId: o.id }).then(() => { notifyOrder(o.id); celebrate('purchase', esc0.amount, `${o.title || 'الحيوان'} صار لك. شكراً لثقتك بغنماية`); }));
+    if (a === 'complete') b.onclick = () => confirmSheet('هل استلمت الحيوان؟', `سيُحوّل ${U(esc0.amount)} للبائع ولا يمكن التراجع.`, 'نعم، استلمت', () => walletApi('complete', { orderId: o.id }).then(() => { notifyOrder(o.id); celebrate('purchase', esc0.amount, `${o.title || 'الحيوان'} صار لك. شكراً لثقتك بغنماية`); }));
     if (a === 'dispute') b.onclick = () => openSheet(`<div class="stack"><h2 style="font-size:19px">فتح نزاع</h2>
       <p class="muted" style="margin:0">سيتجمّد المبلغ وتتواصل الإدارة معكما. استخدمه فقط إذا لم يصلك الحيوان أو كان مختلفاً عن الإعلان.</p>
       <textarea class="input" id="dr" maxlength="500" style="height:100px;padding:10px 12px" placeholder="اشرح ما حدث..."></textarea>
@@ -1825,12 +1911,13 @@ const TX = {
 function drawWalletTop() {
   const w = S.wallet || { balance: 0, held: 0 }, el = $('#wTop'); if (!el) return;
   el.innerHTML = `
-    <div class="row" style="justify-content:space-between;position:relative"><span style="font-size:13px;color:var(--brand-tint)">الرصيد المتاح</span><span class="badge" style="background:rgba(255,255,255,.14);color:#fff">USDT · TRC20</span></div>
-    <div class="row" style="align-items:baseline;gap:8px;position:relative"><span style="font-size:36px;font-weight:700">${usdt(w.balance)}</span><span style="color:var(--brand-tint)">USDT</span></div>
-    ${w.held ? `<div class="row" style="background:rgba(255,255,255,.1);border-radius:12px;padding:10px 12px;font-size:12px;position:relative">${ic('clock', 'style="width:16px;height:16px;color:var(--brand-tint)"')}<span class="grow" style="color:var(--brand-tint)">محجوز في طلبات جارية</span><b>${usdt(w.held)}</b></div>` : ''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;position:relative">
-      <button class="btn" id="dep" style="background:#fff;color:var(--brand);height:48px">${ic('plus', 'style="width:20px;height:20px"')}إيداع</button>
-      <button class="btn" id="wd" style="background:rgba(255,255,255,.14);color:#fff;height:48px">${ic('up', 'style="width:20px;height:20px"')}سحب</button>
+    <div class="row" style="justify-content:space-between"><span style="font-size:13px;color:#CFE0BC">الرصيد المتاح</span><span class="badge" style="background:rgba(255,255,255,.14);color:#fff">${ic('shield', 'style="width:12px;height:12px;vertical-align:-2px"')} محمي · TRC20</span></div>
+    <div class="bal"><b>${usdt(w.balance)}</b><span>USDT</span></div>
+    ${S.walletSet && S.walletSet.sdgPerUsdt ? `<div style="font-size:12.5px;color:#CFE0BC;margin-top:-10px">≈ ${money(Math.round(w.balance / 100 * S.walletSet.sdgPerUsdt))}</div>` : ''}
+    ${w.held ? `<div class="held">${ic('clock', 'style="width:16px;height:16px;color:#CFE0BC"')}<span class="grow" style="color:#CFE0BC">محجوز في طلبات جارية</span><b class="num" dir="ltr">${usdt(w.held)}</b></div>` : ''}
+    <div class="acts">
+      <button class="btn" id="dep" style="background:#fff;color:#2C4120">${ic('plus', 'style="width:20px;height:20px"')}إيداع</button>
+      <button class="btn" id="wd" style="background:rgba(255,255,255,.16);color:#fff">${ic('up', 'style="width:20px;height:20px"')}سحب</button>
     </div>`;
   $('#dep').onclick = depositSheet;
   $('#wd').onclick = withdrawSheet;
@@ -1840,7 +1927,7 @@ async function renderWallet() {
   <div class="screen" style="padding-bottom:24px">
     <div class="topbar"><button class="ghost-btn" id="back" aria-label="رجوع">${ic('back')}</button><h1>المحفظة</h1></div>
     <div class="stack" style="padding:0 16px;gap:18px">
-      <div class="card stack" id="wTop" style="background:var(--brand);color:#fff;border-radius:24px;padding:20px;gap:16px;overflow:hidden"></div>
+      <div class="wallet-hero" id="wTop"></div>
       <div id="wPending"></div>
       <div class="stack" style="gap:10px"><h2 style="font-size:16px">سجل المعاملات</h2><div class="card" id="txs" style="padding:4px 14px">${'<div class="skel" style="height:56px;margin:10px 0"></div>'.repeat(3)}</div></div>
       <p class="muted" style="margin:0;text-align:center">الرصيد بعملة USDT، ويُستخدم للشراء المحمي داخل غنماية.</p>
@@ -1858,12 +1945,12 @@ async function renderWallet() {
     const txs = txSnap.docs.map(d => d.data()).sort((a, b) => millis(b.createdAt) - millis(a.createdAt)).slice(0, 60);
     const pendDep = depSnap.docs.map(d => d.data()).filter(d => ['pending', 'paying'].includes(d.status) && Date.now() - millis(d.createdAt) < 3600e3);
     const pendWd = wdSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => ['pending', 'scheduled', 'processing', 'frozen'].includes(d.status));
-    const left = (t) => { const m = Math.max(0, millis(t) - Date.now()); const h = Math.floor(m / 3600e3), mi = Math.ceil((m % 3600e3) / 60e3); return h ? `${h} ساعة${mi ? ` و${mi} دقيقة` : ''}` : `${mi} دقيقة`; };
-    const wdNote = (d) => d.status === 'processing' ? `سحب ${usdt(d.amount)} USDT قيد التحويل على الشبكة، يصل خلال دقائق.`
-      : d.status === 'scheduled' ? (millis(d.releaseAt) > Date.now() ? `🔒 سحب ${usdt(d.amount)} USDT يُرسل تلقائياً بعد ${left(d.releaseAt)}. فترة أمان لحمايتك${d.reviewReason ? ` (${esc(d.reviewReason)})` : ''}.` : `سحب ${usdt(d.amount)} USDT جاهز، يُرسل خلال لحظات.`)
-      : `سحب ${usdt(d.amount)} USDT قيد التحقق الأمني من الإدارة. رصيدك محفوظ.`;
+    const left = (t) => { const tm = Math.ceil(Math.max(0, millis(t) - Date.now()) / 60e3); const h = Math.floor(tm / 60), mi = tm % 60; return h ? `${h} ساعة${mi ? ` و${mi} دقيقة` : ''}` : `${mi} دقيقة`; };
+    const wdNote = (d) => d.status === 'processing' ? `سحب ${U(d.amount)} قيد التحويل على الشبكة، يصل خلال دقائق.`
+      : d.status === 'scheduled' ? (millis(d.releaseAt) > Date.now() ? `🔒 سحب ${U(d.amount)} يُرسل تلقائياً بعد ${left(d.releaseAt)}. فترة أمان لحمايتك${d.reviewReason ? ` (${esc(d.reviewReason)})` : ''}.` : `سحب ${U(d.amount)} جاهز، يُرسل خلال لحظات.`)
+      : `سحب ${U(d.amount)} قيد التحقق الأمني من الإدارة. رصيدك محفوظ.`;
     $('#wPending').innerHTML = [
-      ...pendDep.map(d => `<div class="note note-warn" style="margin-bottom:8px">${ic('clock', 'style="width:20px;height:20px"')}<span class="grow">إيداع ${usdt(d.amount)} USDT ${d.status === 'paying' ? 'قيد التأكيد على الشبكة' : 'بانتظار الدفع'}${d.sandbox ? ' (تجريبي)' : ''}</span>${d.status === 'pending' ? `<a class="btn-link" href="${esc(d.paymentUrl)}" target="_blank" style="padding:0">ادفع</a>` : ''}</div>`),
+      ...pendDep.map(d => `<div class="note note-warn" style="margin-bottom:8px">${ic('clock', 'style="width:20px;height:20px"')}<span class="grow">إيداع ${U(d.amount)} ${d.status === 'paying' ? 'قيد التأكيد على الشبكة' : 'بانتظار الدفع'}${d.sandbox ? ' (تجريبي)' : ''}</span>${d.status === 'pending' ? `<a class="btn-link" href="${esc(d.paymentUrl)}" target="_blank" style="padding:0">ادفع</a>` : ''}</div>`),
       ...pendWd.map(d => `<div class="note ${d.status === 'frozen' || d.status === 'pending' ? 'note-warn' : 'note-ok'}" style="margin-bottom:8px">${ic(d.status === 'processing' ? 'send' : 'shield', 'style="width:20px;height:20px"')}<span class="grow">${wdNote(d)}</span>${d.status !== 'processing' ? `<button class="btn-link" data-wdc="${d.id}" style="padding:0;color:var(--danger)">إلغاء</button>` : ''}</div>`)
     ].join('');
     $$('[data-wdc]').forEach(b => b.onclick = () => confirmSheet('إلغاء طلب السحب؟', 'يعود المبلغ لرصيدك فوراً.', 'إلغاء السحب', async () => {
@@ -1962,7 +2049,7 @@ async function withdrawSheet() {
     <div class="stack">
       <div class="row"><button class="icon-btn" id="wBack" aria-label="رجوع" style="box-shadow:none;background:var(--bg)">${ic('back')}</button><h2 class="grow" style="font-size:19px">تأكيد السحب</h2></div>
       <div class="card stack" style="gap:12px;background:var(--bg);box-shadow:none">
-        <div class="sum"><span class="muted">المبلغ</span><b style="font-size:22px;direction:ltr">${usdt(Math.round(amount * 100))} USDT</b></div>
+        <div class="sum"><span class="muted">المبلغ</span><b style="font-size:22px;direction:ltr">${U(Math.round(amount * 100))}</b></div>
         <div class="sum"><span class="muted">الشبكة</span><b>TRON (TRC20)</b></div>
         <div class="stack" style="gap:6px"><span class="muted">إلى العنوان</span>
           <div class="ltr" style="font-family:monospace;font-size:17px;line-height:1.9;letter-spacing:.5px;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left">${addrBlocks(address)}</div>
@@ -2097,7 +2184,7 @@ function celebrate(kind, cents, extra) {
   const bg = document.createElement('div'); bg.className = 'celeb-bg';
   bg.innerHTML = `<div class="celeb ${c.warn ? 'warn' : ''}" role="alertdialog" aria-label="${esc(c.t)}">${conf}
     <div class="ring">${ic(c.ic)}</div><h2>${esc(c.t)}</h2>
-    ${cents ? `<div class="amt">${c.sign}${usdt(Number(cents))} USDT</div>` : ''}
+    ${cents ? `<div class="amt">${U(Number(cents), c.sign)}</div>` : ''}
     <p>${esc(extra || c.s)}</p><button class="btn btn-primary" style="width:100%">رائع</button></div>`;
   document.body.append(bg);
   const close = () => bg.remove();
@@ -2156,7 +2243,7 @@ function viewAccount() {
   const item = (key, icon, label) => `<button data-go="${key}">${ic(icon, 'style="width:20px;height:20px;color:var(--ink-2)"')}<span class="grow">${label}</span>${ic('chev')}</button>`;
   return `
   <div class="pad stack" style="gap:18px;padding-top:calc(20px + var(--safe-t))">
-    <div class="row" style="gap:14px">
+    <div class="acct-head">
       <div class="avatar">${avatar}</div>
       <div class="grow">
         <div class="row" style="gap:6px;font-size:18px;font-weight:700">${esc(p.name)}${p.verified ? `<svg class="verified" role="img" aria-label="تاجر موثّق"><use href="#i-badge"/></svg>` : ''}</div>
@@ -2164,9 +2251,9 @@ function viewAccount() {
       </div>
       <button class="icon-btn" id="editProfile" aria-label="تعديل الملف">${ic('edit')}</button>
     </div>
-    <button class="card row" style="border:0;background:var(--brand);color:#fff;text-align:right;width:100%" id="walletCard">
-      ${ic('wallet', 'style="width:26px;height:26px;color:var(--brand-tint)"')}
-      <span class="grow" style="display:flex;flex-direction:column"><span style="font-size:12px;color:var(--brand-tint)">رصيد المحفظة</span><span style="font-weight:700;font-size:17px" id="walletBal">${S.wallet ? `${usdt(S.wallet.balance)} USDT` : '...'}</span></span>
+    <button class="wbanner" id="walletCard">
+      <span class="ico">${ic('wallet', 'style="width:24px;height:24px"')}</span>
+      <span class="grow" style="display:flex;flex-direction:column"><span style="font-size:12px;color:#CFE0BC">رصيد المحفظة</span><span style="font-weight:700;font-size:17px" id="walletBal">${S.wallet ? `${U(S.wallet.balance)}` : '...'}</span></span>
       ${ic('chev')}
     </button>
     ${p.isSeller ? `
@@ -2183,7 +2270,7 @@ function viewAccount() {
     </div>`}
     <nav class="card menu" aria-label="إعدادات الحساب">
       ${p.isSeller ? item('mine', 'list', 'إعلاناتي') : ''}
-      ${p.isSeller ? `<button class="row" id="walletToggle" style="gap:12px;width:100%;background:none;border:0;padding:14px 4px;font:inherit;color:inherit;text-align:right"><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>قبول الدفع بالمحفظة</b><span class="muted" style="font-size:12px">${p.walletOff ? 'متوقف: المشترون يدفعون ببنكك أو نقداً' : 'مفعّل: تستلم USDT بعد تأكيد المشتري'}</span></span><span class="radio ${p.walletOff ? '' : 'on'}"></span></button>` : ''}
+      ${p.isSeller ? `<button class="row" id="walletToggle" style="gap:12px;width:100%;background:none;border:0;border-bottom:1px solid var(--line-soft);padding:12px 0;font:inherit;color:inherit;text-align:right">${ic('wallet', 'style="width:20px;height:20px;color:var(--ink-2)"')}<span class="grow" style="display:flex;flex-direction:column"><span>قبول الدفع بالمحفظة</span><span class="muted" style="font-size:12px">${p.walletOff ? 'متوقف: المشترون يدفعون ببنكك أو نقداً' : 'مفعّل: تستلم USDT بعد تأكيد المشتري'}</span></span><span class="switch ${p.walletOff ? '' : 'on'}" role="switch" aria-checked="${!p.walletOff}"></span></button>` : ''}
       ${item('favs', 'heart', `المفضلة${S.favs.size ? ` (${S.favs.size})` : ''}`)}
       ${item('soon', 'bell', 'الإشعارات')}
       ${item('soon', 'help', 'المساعدة والدعم')}
