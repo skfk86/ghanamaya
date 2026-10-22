@@ -201,13 +201,18 @@ service cloud.firestore {
       let from = o.status;
       let to = request.resource.data.status;
       let keys = request.resource.data.diff(o).affectedKeys();
-      return (me == o.sellerId && from == 'pending' && to in ['accepted', 'rejected'])
+      // طلبات المحفظة: كل الحالات تتغير من السيرفر (/api/wallet) لأنها تحرّك المال،
+      // عدا إلغاء المشتري لطلب لم يُحجز مبلغه بعد
+      return (o.paymentMethod == 'wallet'
+          ? (me == o.buyerId && from == 'pending' && to == 'cancelled' && !('escrow' in o))
+          : (
+        (me == o.sellerId && from == 'pending' && to in ['accepted', 'rejected'])
         || (me == o.sellerId && from == 'accepted' && to == 'paid' && o.paymentMethod == 'bankak')
         || (me == o.sellerId && from == 'accepted' && to == 'cancelled')
         || (me == o.buyerId && from in ['pending', 'accepted'] && to == 'cancelled')
         || (me == o.buyerId && from == 'accepted' && to == 'accepted' && keys.hasOnly(['receiptUrl', 'updatedAt'])
             && request.resource.data.receiptUrl.matches('^https://ik\\.imagekit\\.io/7uwbsw4wl/.*'))
-        || (me == o.buyerId && from in ['accepted', 'paid'] && to == 'completed');
+        || (me == o.buyerId && from in ['accepted', 'paid'] && to == 'completed')));
     }
 
     match /orders/{orderId} {
@@ -226,7 +231,7 @@ service cloud.firestore {
         && request.resource.data.qty is int && request.resource.data.qty >= 1
         && request.resource.data.qty <= listingDoc(request.resource.data.listingId).qty
         && request.resource.data.total == request.resource.data.unitPrice * request.resource.data.qty
-        && request.resource.data.paymentMethod in ['bankak', 'cash']
+        && request.resource.data.paymentMethod in ['bankak', 'cash', 'wallet']
         && request.resource.data.delivery in ['pickup', 'seller']
         && priceOk(request.resource.data);
 
@@ -268,6 +273,20 @@ service cloud.firestore {
       allow update: if (isMe(uid) && resource.data.status == 'rejected' && request.resource.data.status == 'pending'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['note', 'status', 'createdAt']))
         || (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionNote', 'decidedAt']));
+    }
+
+    // ===== المحفظة: قراءة فقط من التطبيق، وكل الكتابة من السيرفر =====
+    match /wallets/{uid} {
+      allow read: if isMe(uid) || isAdmin();
+    }
+    match /transactions/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+    match /deposits/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+    match /withdrawals/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
     }
 
     // ===== الإعدادات العامة (العمولة، السلالات...) =====

@@ -290,6 +290,7 @@ html,body{overflow-x:hidden;max-width:100%}
 .st-accepted,.st-paid{background:#E6EEF8;color:#2B4C7E}
 .st-completed{background:var(--brand-soft);color:var(--brand)}
 .st-rejected,.st-cancelled{background:var(--line);color:var(--ink-2)}
+.st-disputed{background:var(--danger-soft);color:var(--danger)}
 @media (prefers-color-scheme:dark){.st-accepted,.st-paid{background:#1E2A3A;color:#9DBBE8}}
 .tl{display:flex;flex-direction:column}
 .tl .step{display:flex;gap:12px}
@@ -356,6 +357,7 @@ html,body{overflow-x:hidden;max-width:100%}
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></symbol>
   <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 9h13l-3-3M20 15H7l3 3"/></symbol>
   <symbol id="i-block" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
 </svg>
 
@@ -478,7 +480,25 @@ const S = {
   chats: [],                 // محادثاتي (مباشرة)
   blocked: new Set()         // من حظرتهم
 };
-let screenUnsub = null, chatsUnsub = null;
+let screenUnsub = null, chatsUnsub = null, walletUnsub = null;
+/* ---------- المحفظة: الرصيد مباشرة من wallets/{uid} (سنتات USDT) ---------- */
+const usdt = (c) => ((c || 0) / 100).toFixed(2);
+async function walletApi(action, data = {}) {
+  const t = await S.user.getIdToken();
+  const r = await fetch(`${API_BASE}/api/wallet`, { method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...data }) });
+  const out = await r.json().catch(() => ({}));
+  if (!r.ok) throw { userMsg: out.error || 'تعذّر الاتصال بالمحفظة' };
+  return out;
+}
+function startWallet(uid) {
+  if (walletUnsub) walletUnsub();
+  walletUnsub = onSnapshot(doc(db, 'wallets', uid), (s) => {
+    S.wallet = s.exists() ? s.data() : { balance: 0, held: 0 };
+    const b = $('#walletBal'); if (b) b.textContent = `${usdt(S.wallet.balance)} USDT`;
+    const top = S.stack[S.stack.length - 1]; if (top && top.name === 'wallet') drawWalletTop();
+  }, () => {});
+  getDoc(doc(db, 'settings', 'wallet')).then(s => { S.walletSet = s.exists() ? s.data() : {}; }).catch(() => { S.walletSet = {}; });
+}
 const push = (name, params = {}) => { S.stack.push({ name, params }); render(); window.scrollTo(0, 0); };
 const pop = () => { S.stack.pop(); render(); };
 function render() {
@@ -486,7 +506,7 @@ function render() {
   if (screenUnsub) { screenUnsub(); screenUnsub = null; }
   const top = S.stack[S.stack.length - 1];
   if (!top) return renderShell();
-  ({ details: renderDetails, seller: renderSeller, edit: renderEditor, mine: renderMine, favs: renderFavs, chat: renderChat, checkout: renderCheckout, order: renderOrder, reviews: renderReviews })[top.name](top.params);
+  ({ details: renderDetails, seller: renderSeller, edit: renderEditor, mine: renderMine, favs: renderFavs, chat: renderChat, wallet: renderWallet, checkout: renderCheckout, order: renderOrder, reviews: renderReviews })[top.name](top.params);
 }
 
 /* ========== البيانات ========== */
@@ -1437,9 +1457,9 @@ async function renderChat({ id }) {
 
 /* ========== الطلبات ========== */
 const ST = {
-  pending: 'بانتظار البائع', accepted: 'مقبول', paid: 'تم الدفع', completed: 'مكتمل', rejected: 'مرفوض', cancelled: 'ملغي'
+  pending: 'بانتظار البائع', accepted: 'مقبول', paid: 'تم الدفع', completed: 'مكتمل', rejected: 'مرفوض', cancelled: 'ملغي', disputed: 'نزاع'
 };
-const PAY = { bankak: 'تحويل بنكك', cash: 'عند الاستلام' };
+const PAY = { bankak: 'تحويل بنكك', cash: 'عند الاستلام', wallet: 'المحفظة الرقمية' };
 const DELIV = { pickup: 'استلام من موقع البائع', seller: 'توصيل من البائع' };
 const starText = (r) => `${ic('star', 'style="width:13px;height:13px;fill:var(--accent);stroke:var(--accent);vertical-align:-1px"')} ${r.avg.toFixed(1)} (${r.count})`;
 const ratingCache = {};
@@ -1465,6 +1485,9 @@ async function renderCheckout({ id, price, qty: q0, offerRef }) {
   if (!l || l.status !== 'active') return renderError({ userMsg: 'هذا الإعلان لم يعد متاحاً' });
   const unit = price || l.price;
   const st = { qty: Math.min(q0 || 1, l.qty), pay: 'cash', deliv: 'pickup' };
+  const rate = (S.walletSet && S.walletSet.sdgPerUsdt) || 0;
+  const needed = () => rate ? Math.ceil(unit * st.qty / rate * 100) : 0;
+  let bal = (S.wallet && S.wallet.balance) || 0;
   const draw = () => {
     app.innerHTML = `
     <div class="screen" style="padding-bottom:130px">
@@ -1484,15 +1507,19 @@ async function renderCheckout({ id, price, qty: q0, offerRef }) {
         <section class="stack" style="gap:10px"><h2 style="font-size:15px">طريقة الدفع</h2>
           <button class="opt ${st.pay === 'cash' ? 'on' : ''}" data-pm="cash" role="radio" aria-checked="${st.pay === 'cash'}"><span class="tile">${ic('cash')}</span><span class="grow" style="display:flex;flex-direction:column"><b>الدفع عند الاستلام</b><span class="muted">نقداً للبائع عند التسليم</span></span><span class="radio ${st.pay === 'cash' ? 'on' : ''}"></span></button>
           <button class="opt ${st.pay === 'bankak' ? 'on' : ''}" data-pm="bankak" role="radio" aria-checked="${st.pay === 'bankak'}"><span class="tile">${ic('bank')}</span><span class="grow" style="display:flex;flex-direction:column"><b>تحويل بنكك</b><span class="muted">يظهر رقم حساب البائع بعد قبوله الطلب</span></span><span class="radio ${st.pay === 'bankak' ? 'on' : ''}"></span></button>
-          <button class="opt" disabled><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>المحفظة الرقمية</b><span class="muted">دفع محمي بالضمان · قريباً</span></span></button>
+          ${rate ? `<button class="opt ${st.pay === 'wallet' ? 'on' : ''}" data-pm="wallet" role="radio" aria-checked="${st.pay === 'wallet'}"><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>المحفظة الرقمية</b><span class="muted">دفع محمي: ${usdt(needed())} USDT · رصيدك ${usdt(bal)}</span></span><span class="radio ${st.pay === 'wallet' ? 'on' : ''}"></span></button>`
+            : `<button class="opt" disabled><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>المحفظة الرقمية</b><span class="muted">غير متاحة حالياً</span></span></button>`}
         </section>
-        <div class="note note-warn">${ic('shield', 'style="width:20px;height:20px"')}<span>${st.pay === 'bankak' ? 'لا تحوّل المبلغ قبل معاينة الحيوان. حوّل عند التسليم، ثم أرفق صورة الإشعار.' : 'عاين الحيوان جيداً قبل الدفع والاستلام.'}</span></div>
+        ${st.pay === 'wallet'
+          ? `<div class="note note-ok">${ic('shield', 'style="width:20px;height:20px"')}<span><strong>دفع محمي:</strong> يُحجز ${usdt(needed())} USDT ولا يصل للبائع إلا بعد تأكيدك الاستلام. إن لم يقبل البائع يعود المبلغ لك فوراً.${bal < needed() ? ` <strong>رصيدك لا يكفي</strong>، اشحن ${usdt(needed() - bal)} USDT أولاً.` : ''}</span></div>`
+          : `<div class="note note-warn">${ic('shield', 'style="width:20px;height:20px"')}<span>${st.pay === 'bankak' ? 'لا تحوّل المبلغ قبل معاينة الحيوان. حوّل عند التسليم، ثم أرفق صورة الإشعار.' : 'عاين الحيوان جيداً قبل الدفع والاستلام.'}</span></div>`}
         <label class="field"><span>ملاحظة للبائع (اختياري)</span><input class="input" id="note" maxlength="200" placeholder="مثال: أفضّل الاستلام يوم الجمعة صباحاً"></label>
         <div class="card stack" style="gap:10px">
           <div class="sum"><span class="muted">سعر الرأس × ${st.qty}</span><span>${money(unit)}</span></div>
           <div class="sum"><span class="muted">التوصيل</span><span>${st.deliv === 'pickup' ? 'بدون' : 'يُتفق مع البائع'}</span></div>
           <div style="height:1px;background:var(--line)"></div>
           <div class="sum total"><span>الإجمالي</span><span class="price">${money(unit * st.qty)}</span></div>
+          ${st.pay === 'wallet' ? `<div class="sum"><span class="muted">يُخصم من المحفظة (سعر ${Number(rate).toLocaleString('en-US')} ج.س/USDT)</span><b>${usdt(needed())} USDT</b></div>` : ''}
         </div>
       </div>
       <div class="bottombar"><button class="btn btn-accent" id="place">إرسال الطلب للبائع</button></div>
@@ -1511,7 +1538,12 @@ async function renderCheckout({ id, price, qty: q0, offerRef }) {
           note: $('#note').value.trim().slice(0, 200), status: 'pending', createdAt: serverTimestamp(), updatedAt: serverTimestamp()
         };
         if (offerRef) data.offerRef = offerRef;
+        if (st.pay === 'wallet' && bal < needed()) { push('wallet'); return toast('اشحن محفظتك أولاً'); }
         const ref = await addDoc(collection(db, 'orders'), data);
+        if (st.pay === 'wallet') {
+          try { await walletApi('hold', { orderId: ref.id }); }
+          catch (err) { await updateDoc(doc(db, 'orders', ref.id), { status: 'cancelled', cancelReason: 'فشل حجز المبلغ', updatedAt: serverTimestamp() }).catch(() => {}); throw err; }
+        }
         notifyOrder(ref.id); haptic();
         toast('أُرسل طلبك للبائع', 'success');
         S.stack = [{ name: 'order', params: { id: ref.id } }]; S.tab = 'orders'; render();
@@ -1591,6 +1623,24 @@ function drawOrder(o) {
     hint = isSeller ? 'اكتملت الصفقة. لا تنسَ تحديث العدد المتاح في إعلانك.' : 'اكتملت الصفقة. شكراً لاستخدامك غنماية.';
   }
 
+  // ===== طلبات المحفظة: كل إجراء يمر عبر السيرفر =====
+  const wallet = o.paymentMethod === 'wallet', esc0 = o.escrow || {};
+  if (wallet) {
+    const relDays = (S.walletSet && S.walletSet.releaseDays) || 3;
+    actions = '';
+    if (o.status === 'pending') {
+      hint = !o.escrow ? 'جارٍ حجز المبلغ...' : isSeller ? `المشتري دفع ${usdt(esc0.amount)} USDT وهي محجوزة في التطبيق. اقبل الطلب أو اعتذر عنه.` : 'المبلغ محجوز. بانتظار قبول البائع، وإن اعتذر يعود لك فوراً.';
+      actions = isSeller ? `<button class="btn btn-outline" data-wact="reject">اعتذار</button><button class="btn btn-primary" data-wact="accept">${ic('check')}قبول الطلب</button>` : `<button class="btn btn-ghost" data-wact="cancel">إلغاء واسترداد المبلغ</button>`;
+    } else if (o.status === 'accepted') {
+      hint = isSeller ? `سلّم الحيوان للمشتري. يُحرَّر المبلغ لمحفظتك عند تأكيده، أو تلقائياً بعد ${relDays} أيام إن لم يفتح نزاعاً.`
+        : `عاين الحيوان عند التسليم. أكّد الاستلام ليصل المبلغ للبائع. إن لم تؤكد خلال ${relDays} أيام يُحرَّر تلقائياً، إلا إذا فتحت نزاعاً.`;
+      actions = isSeller ? `<button class="btn btn-ghost" data-wact="cancel">إلغاء واسترداد المشتري</button>` : `<button class="btn btn-outline" data-wact="dispute" style="color:var(--danger);border-color:var(--danger)">مشكلة؟</button><button class="btn btn-primary" data-wact="complete">${ic('check')}استلمت الحيوان</button>`;
+    } else if (o.status === 'disputed') {
+      hint = `فُتح نزاع: ${esc(o.disputeReason || '')}. المبلغ مجمّد حتى تراجعه الإدارة وتتواصل مع الطرفين.`;
+    } else if (o.status === 'completed') {
+      hint = isSeller ? `أُضيف ${usdt(esc0.amount - (esc0.fee || 0))} USDT لمحفظتك (بعد عمولة ${usdt(esc0.fee || 0)}).` : 'اكتملت الصفقة وحُوّل المبلغ للبائع.';
+    }
+  }
   const showBank = bank && !isSeller && ['accepted', 'paid'].includes(o.status);
   app.innerHTML = `
   <div class="screen" style="padding-bottom:${actions ? 120 : 30}px">
@@ -1607,7 +1657,8 @@ function drawOrder(o) {
       </div>
       ${o.note ? `<div class="card" style="font-size:14px"><span class="muted">ملاحظة المشتري: </span>${esc(o.note)}</div>` : ''}
       <div class="card">${timeline}</div>
-      ${hint ? `<div class="note note-ok">${ic('help', 'style="width:20px;height:20px"')}<span>${hint}</span></div>` : ''}
+      ${hint ? `<div class="note ${o.status === 'disputed' ? 'note-warn' : 'note-ok'}">${ic('help', 'style="width:20px;height:20px"')}<span>${hint}</span></div>` : ''}
+      ${wallet && o.escrow ? `<div class="card row" style="gap:12px"><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>${usdt(esc0.amount)} USDT</b><span class="muted">${{ held: 'محجوز في التطبيق', released: 'حُوّل للبائع', refunded: 'أُعيد للمشتري' }[esc0.status] || ''}</span></span><span class="muted" style="font-size:12px">${Number(esc0.rate).toLocaleString('en-US')} ج.س/USDT</span></div>` : ''}
       ${showBank ? `<div class="card stack" style="gap:10px">
         <h2 style="font-size:15px">حساب بنكك للبائع</h2>
         ${o.bankak ? `<div class="copy"><span class="grow ltr" style="text-align:left">${esc(o.bankak)}</span><button class="btn-link" id="copyBank">نسخ</button></div>` : `<span class="muted">لم يضف البائع رقم حساب. اطلبه منه في المحادثة.</span>`}
@@ -1638,6 +1689,20 @@ function drawOrder(o) {
       catch (err) { toast(errMsg(err), 'error'); }
     });
   };
+  $$('[data-wact]').forEach(b => {
+    const a = b.dataset.wact;
+    const callApi = (data, okMsg) => walletApi(a, { orderId: o.id, ...data }).then(() => { notifyOrder(o.id); haptic(); toast(okMsg, 'success'); });
+    if (a === 'accept') b.onclick = (e) => busy(e.currentTarget, () => callApi({}, 'قبلت الطلب').catch(err => toast(errMsg(err), 'error')));
+    if (a === 'reject') b.onclick = () => reasonSheet('الاعتذار عن الطلب', 'اعتذار وإعادة المبلغ', (r) => callApi({ reason: r }, 'أُعيد المبلغ للمشتري'));
+    if (a === 'cancel') b.onclick = () => reasonSheet('إلغاء الطلب', 'إلغاء واسترداد', (r) => callApi({ reason: r }, 'أُلغي الطلب وأُعيد المبلغ'));
+    if (a === 'complete') b.onclick = () => confirmSheet('هل استلمت الحيوان؟', `سيُحوّل ${usdt(esc0.amount)} USDT للبائع ولا يمكن التراجع.`, 'نعم، استلمت', () => callApi({}, 'اكتمل الطلب'));
+    if (a === 'dispute') b.onclick = () => openSheet(`<div class="stack"><h2 style="font-size:19px">فتح نزاع</h2>
+      <p class="muted" style="margin:0">سيتجمّد المبلغ وتتواصل الإدارة معكما. استخدمه فقط إذا لم يصلك الحيوان أو كان مختلفاً عن الإعلان.</p>
+      <textarea class="input" id="dr" maxlength="500" style="height:100px;padding:10px 12px" placeholder="اشرح ما حدث..."></textarea>
+      <div class="row"><button class="btn btn-ghost" data-close>رجوع</button><button class="btn" id="dOk" style="background:var(--danger);color:#fff">فتح النزاع</button></div></div>`, (sh) => {
+      $('#dOk', sh).onclick = (e) => busy(e.currentTarget, async () => { try { await callApi({ reason: $('#dr', sh).value.trim() }, 'فُتح النزاع، ستتواصل معك الإدارة'); closeSheet(); } catch (err) { toast(errMsg(err), 'error'); } });
+    });
+  });
   $$('[data-act]').forEach(b => {
     const a = b.dataset.act;
     if (a === 'accept') b.onclick = async (e) => {
@@ -1721,6 +1786,104 @@ async function renderReviews({ uid, name }) {
         <div class="stars" style="justify-content:flex-start;gap:2px">${[1, 2, 3, 4, 5].map(n => `<span class="${n <= v.stars ? 'on' : ''}" style="color:var(--accent)">${ic('star', 'style="width:15px;height:15px"')}</span>`).join('')}</div>
         ${v.comment ? `<span style="color:var(--ink-2)">${esc(v.comment)}</span>` : ''}<span class="muted" style="font-size:11px">اشترى: ${esc(v.title)}</span></div>`).join('')}</div></div>`;
   $('#back').onclick = pop;
+}
+
+/* ========== شاشة المحفظة ========== */
+const TX = {
+  deposit: ['إيداع', 'in'], hold: ['حجز لطلب', 'held'], refund: ['استرداد', 'in'], purchase: ['شراء', 'out'],
+  sale: ['بيع', 'in'], withdraw: ['سحب', 'out'], withdraw_refund: ['إرجاع سحب مرفوض', 'in']
+};
+function drawWalletTop() {
+  const w = S.wallet || { balance: 0, held: 0 }, el = $('#wTop'); if (!el) return;
+  el.innerHTML = `
+    <div class="row" style="justify-content:space-between;position:relative"><span style="font-size:13px;color:var(--brand-tint)">الرصيد المتاح</span><span class="badge" style="background:rgba(255,255,255,.14);color:#fff">USDT · TRC20</span></div>
+    <div class="row" style="align-items:baseline;gap:8px;position:relative"><span style="font-size:36px;font-weight:700">${usdt(w.balance)}</span><span style="color:var(--brand-tint)">USDT</span></div>
+    ${w.held ? `<div class="row" style="background:rgba(255,255,255,.1);border-radius:12px;padding:10px 12px;font-size:12px;position:relative">${ic('clock', 'style="width:16px;height:16px;color:var(--brand-tint)"')}<span class="grow" style="color:var(--brand-tint)">محجوز في طلبات جارية</span><b>${usdt(w.held)}</b></div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;position:relative">
+      <button class="btn" id="dep" style="background:#fff;color:var(--brand);height:48px">${ic('plus', 'style="width:20px;height:20px"')}إيداع</button>
+      <button class="btn" id="wd" style="background:rgba(255,255,255,.14);color:#fff;height:48px">${ic('up', 'style="width:20px;height:20px"')}سحب</button>
+    </div>`;
+  $('#dep').onclick = depositSheet;
+  $('#wd').onclick = withdrawSheet;
+}
+async function renderWallet() {
+  app.innerHTML = `
+  <div class="screen" style="padding-bottom:24px">
+    <div class="topbar"><button class="ghost-btn" id="back" aria-label="رجوع">${ic('back')}</button><h1>المحفظة</h1></div>
+    <div class="stack" style="padding:0 16px;gap:18px">
+      <div class="card stack" id="wTop" style="background:var(--brand);color:#fff;border-radius:24px;padding:20px;gap:16px;overflow:hidden"></div>
+      <div id="wPending"></div>
+      <div class="stack" style="gap:10px"><h2 style="font-size:16px">سجل المعاملات</h2><div class="card" id="txs" style="padding:4px 14px">${'<div class="skel" style="height:56px;margin:10px 0"></div>'.repeat(3)}</div></div>
+      <p class="muted" style="margin:0;text-align:center">الرصيد بعملة USDT، ويُستخدم للشراء المحمي داخل غنماية.</p>
+    </div>
+  </div>`;
+  $('#back').onclick = pop;
+  drawWalletTop();
+  try {
+    const [txSnap, depSnap, wdSnap] = await Promise.all([
+      getDocs(query(collection(db, 'transactions'), where('uid', '==', S.user.uid))),
+      getDocs(query(collection(db, 'deposits'), where('uid', '==', S.user.uid))),
+      getDocs(query(collection(db, 'withdrawals'), where('uid', '==', S.user.uid)))
+    ]);
+    const txs = txSnap.docs.map(d => d.data()).sort((a, b) => millis(b.createdAt) - millis(a.createdAt)).slice(0, 60);
+    const pendDep = depSnap.docs.map(d => d.data()).filter(d => ['pending', 'paying'].includes(d.status) && Date.now() - millis(d.createdAt) < 3600e3);
+    const pendWd = wdSnap.docs.map(d => d.data()).filter(d => d.status === 'pending');
+    $('#wPending').innerHTML = [
+      ...pendDep.map(d => `<div class="note note-warn" style="margin-bottom:8px">${ic('clock', 'style="width:20px;height:20px"')}<span class="grow">إيداع ${usdt(d.amount)} USDT ${d.status === 'paying' ? 'قيد التأكيد على الشبكة' : 'بانتظار الدفع'}${d.sandbox ? ' (تجريبي)' : ''}</span>${d.status === 'pending' ? `<a class="btn-link" href="${esc(d.paymentUrl)}" target="_blank" style="padding:0">ادفع</a>` : ''}</div>`),
+      ...pendWd.map(d => `<div class="note note-ok" style="margin-bottom:8px">${ic('clock', 'style="width:20px;height:20px"')}<span>طلب سحب ${usdt(d.amount)} USDT قيد المراجعة، يُرسل عادة خلال 24 ساعة.</span></div>`)
+    ].join('');
+    $('#txs').innerHTML = txs.length ? txs.map(x => {
+      const [label, kind] = TX[x.type] || [x.type, 'out'];
+      const color = kind === 'in' ? 'var(--brand)' : kind === 'held' ? 'var(--accent)' : 'var(--ink)';
+      const bg = kind === 'in' ? 'var(--brand-soft)' : kind === 'held' ? 'var(--accent-soft)' : 'var(--danger-soft)';
+      return `<div class="row" style="padding:12px 0;border-bottom:1px solid var(--line-soft)">
+        <span style="width:40px;height:40px;border-radius:12px;background:${bg};color:${color};display:flex;align-items:center;justify-content:center;flex-shrink:0">${ic(kind === 'in' ? 'plus' : kind === 'held' ? 'clock' : 'minus', 'style="width:18px;height:18px"')}</span>
+        <span class="grow" style="display:flex;flex-direction:column"><b style="font-size:14px">${label}${x.sandbox ? ' <span class="status s-sold">تجريبي</span>' : ''}</b><span class="muted ellipsis" style="font-size:12px">${esc(x.note || '')}${x.note ? ' · ' : ''}${ago(x.createdAt)}</span></span>
+        <b style="direction:ltr;color:${color}">${x.amount > 0 ? '+' : ''}${usdt(x.amount)}</b></div>`;
+    }).join('') : '<p class="muted" style="text-align:center;padding:20px 0;margin:0">لا توجد معاملات بعد. ابدأ بإيداع مبلغ.</p>';
+  } catch (e) { $('#txs').innerHTML = `<p class="muted" style="text-align:center;padding:20px 0">${errMsg(e)}</p>`; }
+}
+function depositSheet() {
+  let amt = 10;
+  openSheet(`
+    <div class="stack">
+      <div class="row"><h2 class="grow" style="font-size:19px">إيداع في المحفظة</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
+      <div class="pick" style="grid-template-columns:repeat(4,1fr)">${[5, 10, 25, 50].map(v => `<button data-amt="${v}" class="${v === amt ? 'on' : ''}">${v}</button>`).join('')}</div>
+      <label class="field"><span>المبلغ (USDT)</span><input class="input" id="dAmt" inputmode="decimal" value="${amt}" style="font-size:20px;font-weight:700"></label>
+      <div class="note note-ok">${ic('help', 'style="width:20px;height:20px"')}<span>ستفتح صفحة الدفع الآمنة من OxaPay. ادفع بـ USDT أو أي عملة رقمية مدعومة، وسيُضاف الرصيد تلقائياً بعد تأكيد الشبكة.</span></div>
+      <button class="btn btn-primary" id="dGo">متابعة للدفع</button>
+    </div>`, (sh) => {
+    $$('[data-amt]', sh).forEach(b => b.onclick = () => { amt = +b.dataset.amt; $('#dAmt', sh).value = amt; $$('[data-amt]', sh).forEach(x => x.classList.toggle('on', x === b)); });
+    $('#dGo', sh).onclick = (e) => busy(e.currentTarget, async () => {
+      try {
+        const out = await walletApi('deposit', { amount: parseFloat($('#dAmt', sh).value) });
+        closeSheet();
+        window.open(out.paymentUrl, '_blank');
+        toast(out.sandbox ? 'فاتورة تجريبية: لن يُخصم مال حقيقي' : 'أكمل الدفع في الصفحة المفتوحة', 'success');
+        setTimeout(render, 800);
+      } catch (err) { toast(errMsg(err), 'error'); }
+    });
+  });
+}
+function withdrawSheet() {
+  const bal = (S.wallet && S.wallet.balance) || 0;
+  openSheet(`
+    <div class="stack">
+      <div class="row"><h2 class="grow" style="font-size:19px">سحب إلى محفظتك</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
+      <label class="field"><span>المبلغ (USDT) · المتاح ${usdt(bal)}</span><div class="row"><input class="input" id="wAmt" inputmode="decimal" placeholder="0.00" style="font-size:18px;font-weight:700"><button class="btn btn-ghost" id="wMax" style="width:auto;height:50px;padding:0 14px">الكل</button></div></label>
+      <label class="field"><span>عنوان محفظتك (شبكة TRC20 فقط)</span><input class="input ltr" id="wAddr" placeholder="T..." autocapitalize="off" autocomplete="off" spellcheck="false"></label>
+      <div class="note note-warn">${ic('shield', 'style="width:20px;height:20px"')}<span>تأكد أن العنوان على شبكة <strong>TRC20</strong>. الإرسال لعنوان خاطئ لا يمكن استرداده. السحب يُراجع ويُرسل عادة خلال 24 ساعة.</span></div>
+      <button class="btn btn-primary" id="wGo">طلب السحب</button>
+    </div>`, (sh) => {
+    $('#wMax', sh).onclick = () => { $('#wAmt', sh).value = usdt(bal); };
+    $('#wGo', sh).onclick = (e) => busy(e.currentTarget, async () => {
+      const amount = parseFloat($('#wAmt', sh).value), address = $('#wAddr', sh).value.trim();
+      if (!(amount > 0)) return toast('اكتب المبلغ', 'error');
+      if (!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address)) return toast('عنوان TRC20 غير صحيح', 'error');
+      try { await walletApi('withdraw', { amount, address }); closeSheet(); toast('أُرسل طلب السحب', 'success'); render(); }
+      catch (err) { toast(errMsg(err), 'error'); }
+    });
+  });
 }
 
 /* ========== البلاغات ========== */
@@ -1860,7 +2023,7 @@ function viewAccount() {
     </div>
     <button class="card row" style="border:0;background:var(--brand);color:#fff;text-align:right;width:100%" id="walletCard">
       ${ic('wallet', 'style="width:26px;height:26px;color:var(--brand-tint)"')}
-      <span class="grow" style="display:flex;flex-direction:column"><span style="font-size:12px;color:var(--brand-tint)">المحفظة الرقمية</span><span style="font-weight:700">قريباً</span></span>
+      <span class="grow" style="display:flex;flex-direction:column"><span style="font-size:12px;color:var(--brand-tint)">رصيد المحفظة</span><span style="font-weight:700;font-size:17px" id="walletBal">${S.wallet ? `${usdt(S.wallet.balance)} USDT` : '...'}</span></span>
       ${ic('chev')}
     </button>
     ${p.isSeller ? `
@@ -1889,7 +2052,7 @@ function bindAccount() {
   const bs = $('#becomeSeller'); if (bs) bs.onclick = () => openSellerSheet();
   $('#logout').onclick = () => confirmSheet('تسجيل الخروج؟', '', 'خروج', () => signOut(auth));
   $('#editProfile').onclick = openProfileSheet;
-  $('#walletCard').onclick = () => toast('المحفظة الرقمية تُطلق في مرحلة لاحقة');
+  $('#walletCard').onclick = () => push('wallet');
   bindVerify();
   $$('[data-go]').forEach(b => b.onclick = () => b.dataset.go === 'soon' ? toast('هذا القسم قيد التجهيز') : push(b.dataset.go));
 }
@@ -2000,6 +2163,8 @@ renderLoading();
 onAuthStateChanged(auth, async (user) => {
   S.user = user; S.stack = []; S.listings = null; S.favs = new Set(); S.chats = []; S.blocked = new Set();
   if (chatsUnsub) { chatsUnsub(); chatsUnsub = null; }
+  if (walletUnsub) { walletUnsub(); walletUnsub = null; }
+  S.wallet = null;
   if (!user) { S.profile = null; return renderLogin(); }
   renderLoading();
   try {
@@ -2011,6 +2176,7 @@ onAuthStateChanged(auth, async (user) => {
     loadFavs(user.uid).catch(() => {});
     loadBlocks(user.uid).catch(() => {});
     startChatsListener(user.uid);
+    startWallet(user.uid);
     renderShell();
     setupPush();
   } catch (err) {

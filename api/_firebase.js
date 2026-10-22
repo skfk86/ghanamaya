@@ -20,6 +20,13 @@ export function cors(req, res) {
   return false;
 }
 
+// مثل verifyUser لكن يعيد التوكن كاملاً (لفحص صلاحية الأدمن)
+export async function verifyToken(req) {
+  const h = req.headers.authorization || '';
+  if (!h.startsWith('Bearer ')) return null;
+  try { return await adminAuth().verifyIdToken(h.slice(7)); } catch { return null; }
+}
+
 // يتحقق من توكن Firebase المرسل في الهيدر ويعيد uid أو null
 export async function verifyUser(req) {
   const h = req.headers.authorization || '';

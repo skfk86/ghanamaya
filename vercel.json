@@ -4,6 +4,24 @@
   "buildCommand": "rm -rf public && mkdir -p public/admin && cp -r www/. public/ && cp admin/index.html public/admin/index.html",
   "outputDirectory": "public",
   "headers": [
-    { "source": "/admin/(.*)", "headers": [{ "key": "X-Robots-Tag", "value": "noindex" }, { "key": "X-Frame-Options", "value": "DENY" }] }
+    {
+      "source": "/admin/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron-release",
+      "schedule": "0 6 * * *"
+    }
   ]
 }

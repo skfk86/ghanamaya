@@ -80,6 +80,7 @@ td{padding:10px 8px;border-bottom:1px solid #F1ECE3;vertical-align:middle}
   <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 10l1.5-5h13L20 10M4 10v10h16V10M4 10h16"/><path d="M10 20v-5h4v5"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
   <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 7h14l-1.2 12.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8z"/><path d="M9 7a3 3 0 0 1 6 0"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M16 12.5h2M3 10h18"/></symbol>
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l9 4v5c0 5-4 8.5-9 9-5-.5-9-4-9-9V7z"/></symbol>
 </svg>
 <div id="app"></div>
@@ -87,7 +88,7 @@ td{padding:10px 8px;border-bottom:1px solid #F1ECE3;vertical-align:middle}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
-import { getFirestore, collection, query, where, orderBy, limit, getDocs, getDoc, doc, updateDoc, deleteDoc, writeBatch, increment, serverTimestamp, getCountFromServer } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+import { getFirestore, collection, query, where, orderBy, limit, getDocs, getDoc, doc, updateDoc, deleteDoc, setDoc, writeBatch, increment, serverTimestamp, getCountFromServer } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 
 const fb = initializeApp({
   apiKey: "AIzaSyDT2eTXJ5gkXh31W5MoOmHfHmOrveKTkU8", authDomain: "ghanamaya-4e639.firebaseapp.com", projectId: "ghanamaya-4e639",
@@ -109,7 +110,7 @@ function toast(m) { const t = document.createElement('div'); t.className = 'toas
 async function run(btn, fn, ok) { btn.disabled = true; try { await fn(); if (ok) toast(ok); } catch (e) { toast(e.code === 'permission-denied' ? 'لا صلاحية' : 'حدث خطأ'); console.error(e); } finally { btn.disabled = false; } }
 
 const S = { me: null, sec: 'home', counts: {}, sel: null, filter: 'open' };
-const SECTIONS = [['home', 'نظرة عامة', 'home'], ['reports', 'البلاغات', 'flag'], ['verify', 'التوثيق', 'badge'], ['listings', 'الإعلانات', 'store'], ['users', 'المستخدمون', 'user'], ['orders', 'الطلبات', 'bag']];
+const SECTIONS = [['home', 'نظرة عامة', 'home'], ['reports', 'البلاغات', 'flag'], ['verify', 'التوثيق', 'badge'], ['listings', 'الإعلانات', 'store'], ['users', 'المستخدمون', 'user'], ['orders', 'الطلبات', 'bag'], ['finance', 'المالية', 'wallet']];
 
 /* ---------- الدخول ---------- */
 function renderLogin(msg = '') {
@@ -141,12 +142,17 @@ async function refreshCounts() {
     getCountFromServer(query(collection(db, 'verifyRequests'), where('status', '==', 'pending')))
   ]);
   S.counts.reports = r.data().count; S.counts.verify = v.data().count;
+  const [w, d] = await Promise.all([
+    getCountFromServer(query(collection(db, 'withdrawals'), where('status', '==', 'pending'))),
+    getCountFromServer(query(collection(db, 'orders'), where('status', '==', 'disputed')))
+  ]);
+  S.counts.finance = w.data().count + d.data().count;
 }
 async function go() {
   shell(loading());
   try { await refreshCounts(); } catch (e) {}
   shell(loading());
-  try { await ({ home, reports, verify, listings, users, orders })[S.sec](); }
+  try { await ({ home, reports, verify, listings, users, orders, finance })[S.sec](); }
   catch (e) { console.error(e); $('#main').innerHTML = `<div class="empty">تعذّر التحميل: ${esc(e.code || e.message)}</div>`; }
 }
 
@@ -166,7 +172,7 @@ async function home() {
       <div class="card kpi"><span class="muted">بلاغات مفتوحة</span><b style="color:${S.counts.reports ? 'var(--danger)' : 'inherit'}">${S.counts.reports || 0}</b></div>
       <div class="card kpi"><span class="muted">طلبات توثيق</span><b>${S.counts.verify || 0}</b></div>
     </div>
-    <div class="card"><h2>المحفظة الرقمية والسحوبات</h2><p class="muted" style="margin:6px 0 0">تُضاف في المرحلة السادسة مع OxaPay.</p></div>`;
+    ${S.counts.finance ? `<div class="card"><h2>المالية</h2><p class="muted" style="margin:6px 0 0">${S.counts.finance} عنصر بانتظارك (سحوبات أو نزاعات) في قسم المالية.</p></div>` : ''}`;
 }
 
 /* ---------- البلاغات ---------- */
@@ -336,6 +342,75 @@ async function orders() {
       <tr><td><b>${esc(o.title)}</b> × ${o.qty}</td><td>${esc(o.buyerName)}</td><td>${esc(o.sellerName)}</td><td>${money(o.total)}</td>
       <td>${o.paymentMethod === 'bankak' ? 'بنكك' : 'نقداً'}${o.receiptUrl ? ` <a href="${esc(o.receiptUrl)}" target="_blank">الإشعار</a>` : ''}</td>
       <td><span class="tag ${ST[o.status][1]}">${ST[o.status][0]}</span>${o.cancelReason ? `<div class="muted" style="font-size:11px">${esc(o.cancelReason)}</div>` : ''}</td><td class="muted">${ago(o.updatedAt)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="card empty">لا توجد طلبات بعد.</div>'}`;
+}
+
+/* ---------- المالية ---------- */
+const usd = (c) => ((c || 0) / 100).toFixed(2);
+async function api(action, data) {
+  const t = await S.me.getIdToken();
+  const r = await fetch('/api/wallet', { method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...data }) });
+  const out = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(out.error || 'فشل'); throw new Error(out.error); }
+  return out;
+}
+async function finance() {
+  const [wSnap, wdSnap, dsSnap, setSnap] = await Promise.all([
+    getDocs(collection(db, 'wallets')),
+    getDocs(query(collection(db, 'withdrawals'), where('status', '==', 'pending'))),
+    getDocs(query(collection(db, 'orders'), where('status', '==', 'disputed'))),
+    getDoc(doc(db, 'settings', 'wallet'))
+  ]);
+  let bal = 0, held = 0, plat = 0;
+  wSnap.docs.forEach(d => { if (d.id === 'platform') plat = d.get('balance') || 0; else { bal += d.get('balance') || 0; held += d.get('held') || 0; } });
+  const wds = wdSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => ms(a.createdAt) - ms(b.createdAt));
+  const disputes = dsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const set = setSnap.exists() ? setSnap.data() : {};
+  const pendingWd = wds.reduce((a, w) => a + w.amount, 0);
+  const users = {};
+  await Promise.all([...new Set(wds.map(w => w.uid))].map(async u => { const x = await getDoc(doc(db, 'users', u)); users[u] = x.exists() ? x.data() : {}; }));
+  $('#main').innerHTML = `<div class="head"><h1>المالية</h1><span class="muted">كل المبالغ بـ USDT</span></div>
+    <div class="kpis">
+      <div class="card kpi"><span class="muted">أرصدة المستخدمين</span><b>${usd(bal)}</b></div>
+      <div class="card kpi"><span class="muted">محجوز في طلبات</span><b>${usd(held)}</b></div>
+      <div class="card kpi"><span class="muted">سحوبات قيد الإرسال</span><b>${usd(pendingWd)}</b></div>
+      <div class="card kpi"><span class="muted">عمولات المنصة</span><b style="color:var(--brand)">${usd(plat)}</b></div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:6px"><h2>المطابقة</h2>
+      <span>يجب أن يكون رصيد OxaPay ≥ <b>${usd(bal + held + pendingWd + plat)} USDT</b> (أرصدة + محجوز + سحوبات معلّقة + عمولات).</span>
+      <span class="muted">قارنه برصيدك في لوحة OxaPay. أي نقص يعني خللاً: أوقف السحوبات حتى تراجعه.</span></div>
+    <div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>طلبات السحب (${wds.length})</h2>
+      ${wds.length ? `<div class="scroll"><table><thead><tr><th>المستخدم</th><th>المبلغ</th><th>العنوان (TRC20)</th><th>منذ</th><th></th></tr></thead><tbody>${wds.map(w => `<tr>
+        <td><b>${esc((users[w.uid] || {}).storeName || (users[w.uid] || {}).name || w.uid)}</b>${(users[w.uid] || {}).verified ? ' <span class="tag t-green">موثّق</span>' : ''}</td>
+        <td><b>${usd(w.amount)}</b></td><td dir="ltr" style="font-family:monospace;font-size:12px">${esc(w.address)}</td><td class="muted">${ago(w.createdAt)}</td>
+        <td><div class="actions"><button class="btn primary" data-sent="${w.id}">أُرسل</button><button class="btn" data-rej="${w.id}">رفض وإرجاع</button></div></td></tr>`).join('')}</tbody></table></div>
+        <p class="muted" style="margin:0">أرسل المبلغ من لوحة OxaPay (Payout) إلى العنوان، ثم اضغط "أُرسل" وألصق رقم المعاملة.</p>` : '<span class="muted">لا توجد طلبات سحب.</span>'}</div>
+    <div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>النزاعات (${disputes.length})</h2>
+      ${disputes.length ? disputes.map(o => `<div class="note">
+        <span style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px"><b>${esc(o.title)} × ${o.qty} — ${usd((o.escrow || {}).amount)} USDT</b><span class="muted">${ago(o.disputedAt || o.updatedAt)}</span></span>
+        <span>المشتري: ${esc(o.buyerName)} · البائع: ${esc(o.sellerName)}</span>
+        <span><b>سبب النزاع:</b> ${esc(o.disputeReason || '')}</span>
+        <div class="actions" style="margin-top:6px"><input class="input" placeholder="ملاحظة الحسم" data-note="${o.id}" style="flex:1;min-width:180px">
+          <button class="btn primary" data-to="seller" data-o="${o.id}">للبائع</button><button class="btn orange" data-to="buyer" data-o="${o.id}">استرداد للمشتري</button></div></div>`).join('') : '<span class="muted">لا توجد نزاعات.</span>'}</div>
+    <div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>الإعدادات</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+        <label><span class="muted">سعر الصرف (جنيه لكل 1 USDT)</span><input class="input" id="sRate" inputmode="numeric" value="${set.sdgPerUsdt || ''}" placeholder="مطلوب لتفعيل الدفع بالمحفظة"></label>
+        <label><span class="muted">العمولة على الشراء بالمحفظة (%)</span><input class="input" id="sCom" inputmode="decimal" value="${set.commissionRate != null ? set.commissionRate * 100 : 3}"></label>
+        <label><span class="muted">التحرير التلقائي بعد (أيام)</span><input class="input" id="sDays" inputmode="numeric" value="${set.releaseDays || 3}"></label>
+        <label><span class="muted">أقل سحب (USDT)</span><input class="input" id="sMin" inputmode="decimal" value="${usd(set.minWithdraw || 500)}"></label>
+      </div>
+      <button class="btn primary" id="sSave" style="align-self:flex-start">حفظ الإعدادات</button>
+      <span class="muted">حدّث سعر الصرف دورياً. الطلبات تحفظ السعر وقت إنشائها.</span></div>`;
+  $$('[data-sent]').forEach(b => b.onclick = () => { const h = prompt('رقم المعاملة (TX hash):'); if (!h) return; run(b, async () => { await api('withdrawDecide', { id: b.dataset.sent, decision: 'sent', txHash: h }); await go(); }, 'سُجّل الإرسال'); });
+  $$('[data-rej]').forEach(b => b.onclick = () => { const n = prompt('سبب الرفض (يظهر للمستخدم):', ''); if (n === null) return; run(b, async () => { await api('withdrawDecide', { id: b.dataset.rej, decision: 'rejected', note: n }); await go(); }, 'رُفض وأُرجع المبلغ'); });
+  $$('[data-to]').forEach(b => b.onclick = () => {
+    if (!confirm(b.dataset.to === 'seller' ? 'تحويل المبلغ للبائع؟' : 'إرجاع المبلغ للمشتري؟')) return;
+    run(b, async () => { await api('resolve', { orderId: b.dataset.o, to: b.dataset.to, note: $(`[data-note="${b.dataset.o}"]`).value }); await go(); }, 'حُسم النزاع');
+  });
+  $('#sSave').onclick = (e) => run(e.currentTarget, async () => {
+    const rate = parseFloat($('#sRate').value), com = parseFloat($('#sCom').value), days = parseInt($('#sDays').value, 10), min = parseFloat($('#sMin').value);
+    if (!(rate > 0) || !(com >= 0 && com <= 20) || !(days >= 1 && days <= 14) || !(min >= 1)) throw new Error('قيم غير صالحة');
+    await setDoc(doc(db, 'settings', 'wallet'), { sdgPerUsdt: rate, commissionRate: com / 100, releaseDays: days, minWithdraw: Math.round(min * 100), updatedAt: serverTimestamp() }, { merge: true });
+  }, 'حُفظت الإعدادات');
 }
 
 /* ---------- التشغيل ---------- */
