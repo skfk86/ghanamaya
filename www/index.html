@@ -102,6 +102,7 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 /* الحساب */
 .avatar{width:64px;height:64px;border-radius:50%;background:var(--brand-tint);color:var(--brand-dark);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;flex-shrink:0;overflow:hidden}
 .avatar img{width:100%;height:100%;object-fit:cover}
+.avatar .icon{width:56%;height:56%}
 .seller-cta{border:1.5px dashed var(--brand-tint)}
 .tile{width:48px;height:48px;border-radius:var(--r-md);background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .menu{padding:4px 14px}
@@ -670,7 +671,7 @@ function renderOnboarding() {
     if (data.name.length < 2 || !data.state || data.city.length < 2) return toast('أكمل كل الحقول', 'error');
     busy(e.currentTarget, async () => {
       try {
-        const profile = { ...data, photo: u.photoURL || '', isSeller: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+        const profile = { ...data, photo: '', isSeller: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
         await setDoc(doc(db, 'users', u.uid), profile);
         S.profile = { ...profile, verified: false };
         startChatsListener(u.uid); setupPush();
@@ -879,7 +880,7 @@ async function renderDetails({ id }) {
         <div class="spec"><span>المتاح</span><b>${l.qty}</b></div>
       </div>
       <button class="card sellerbox" id="sellerBox">
-        <div class="avatar sm">${seller.photo ? `<img src="${esc(seller.photo)}" alt="">` : esc(initial(seller.storeName || seller.name))}</div>
+        <div class="avatar sm">${ic('user')}</div>
         <span class="grow" style="display:flex;flex-direction:column">
           <span class="row" style="gap:4px;font-weight:700">${esc(seller.storeName || seller.name)}${seller.verified ? `<svg class="verified" role="img" aria-label="تاجر موثّق"><use href="#i-badge"/></svg>` : ''}</span>
           <span class="muted" id="sellerRating">${esc(seller.city || '')}${seller.verified ? ' · تاجر موثّق' : ''}</span>
@@ -952,7 +953,7 @@ async function renderSeller({ uid }) {
     <div class="sellerhead"><button class="icon-btn" id="back" aria-label="رجوع">${ic('back')}</button>${uid !== S.user.uid ? `<button class="icon-btn" id="sMore" aria-label="خيارات">${ic('dots')}</button>` : ''}</div>
     <div class="card stack" style="margin:-48px 16px 0;padding:18px;border-radius:22px">
       <div class="row" style="gap:14px">
-        <div class="avatar">${seller.photo ? `<img src="${esc(seller.photo)}" alt="">` : esc(initial(name))}</div>
+        <div class="avatar">${ic('user')}</div>
         <div class="grow">
           <div class="row" style="gap:5px;font-size:18px;font-weight:700">${esc(name)}${seller.verified ? `<svg class="verified" style="width:19px;height:19px" role="img" aria-label="تاجر موثّق"><use href="#i-badge"/></svg>` : ''}</div>
           <span class="muted row" style="gap:4px">${ic('pin', 'style="width:14px;height:14px"')}${esc(seller.city || '')}، ${esc(seller.state || '')}</span>
@@ -1360,7 +1361,7 @@ async function renderChat({ id }) {
     <div class="chat-head">
       <div class="row" style="gap:8px">
         <button class="ghost-btn" id="back" aria-label="رجوع">${ic('back')}</button>
-        <div class="avatar sm" style="width:42px;height:42px;font-size:16px">${esc(initial(name))}</div>
+        <div class="avatar sm" style="width:42px;height:42px;font-size:16px">${ic('user')}</div>
         <button class="grow" id="who" style="border:0;background:none;text-align:right;padding:0;display:flex;flex-direction:column">
           <b class="ellipsis">${esc(name)}</b><span class="muted" style="font-size:12px">${chat.sellerId === S.user.uid ? 'مشترٍ مهتم' : 'البائع'}</span></button>
         <button class="ghost-btn" id="more" aria-label="خيارات">${ic('dots')}</button>
@@ -1982,11 +1983,25 @@ function renderBanned() {
 }
 
 /* ========== الإشعارات (FCM) ========== */
+// نغمة قصيرة للطلبات عندما يكون التطبيق مفتوحاً (الإشعار لا يظهر في الشريط حينها)
+function chime() {
+  try {
+    const A = window.AudioContext || window.webkitAudioContext; if (!A) return;
+    const c = new A(); const t = c.currentTime;
+    [[880, 0], [1320, 0.16]].forEach(([f, d]) => {
+      const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.35, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.3);
+      o.connect(g).connect(c.destination); o.start(t + d); o.stop(t + d + 0.32);
+    });
+    setTimeout(() => c.close(), 800);
+  } catch (e) {}
+}
 async function setupPush() {
   const PN = P.PushNotifications;
   if (!isNative || !PN) return;
   try {
-    await PN.createChannel({ id: 'messages', name: 'الرسائل والعروض', importance: 5, visibility: 1, vibration: true });
+    await PN.createChannel({ id: 'messages', name: 'الرسائل والعروض', importance: 5, visibility: 1, vibration: true, sound: 'default' });
+    await PN.createChannel({ id: 'orders', name: 'الطلبات', description: 'طلبات الشراء وتحديثاتها', importance: 5, visibility: 1, vibration: true, lights: true, sound: 'default' });
     const perm = await PN.requestPermissions();
     if (perm.receive !== 'granted') return;
     PN.addListener('registration', ({ value }) => {
@@ -1997,6 +2012,7 @@ async function setupPush() {
     PN.addListener('pushNotificationReceived', (n) => {
       const open = S.stack[S.stack.length - 1];
       if (open && open.name === 'chat' && n.data && open.params.id === n.data.chatId) return; // المحادثة مفتوحة
+      if (n.data && n.data.orderId) { chime(); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) {} }
       toast(`${n.title}: ${n.body}`);
     });
     PN.addListener('pushNotificationActionPerformed', ({ notification }) => {
@@ -2012,7 +2028,7 @@ async function setupPush() {
 /* ---------- الحساب ---------- */
 function viewAccount() {
   const p = S.profile, u = S.user;
-  const avatar = p.photo ? `<img src="${esc(p.photo)}" alt="">` : esc(initial(p.name));
+  const avatar = ic('user');
   const role = p.isSeller ? 'مشترٍ وبائع' : 'مشترٍ';
   const item = (key, icon, label) => `<button data-go="${key}">${ic(icon, 'style="width:20px;height:20px;color:var(--ink-2)"')}<span class="grow">${label}</span>${ic('chev')}</button>`;
   return `

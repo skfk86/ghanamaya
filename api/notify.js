@@ -39,7 +39,7 @@ export default async function handler(req, res) {
     try {
       await getMessaging().send({
         token, notification: { title, body }, data: { orderId },
-        android: { priority: 'high', notification: { channelId: 'messages', tag: orderId } }
+        android: { priority: 'high', notification: { channelId: 'orders', tag: orderId, sound: 'default', defaultSound: true, defaultVibrateTimings: true, notificationPriority: 'PRIORITY_MAX' } }
       });
     } catch (e) {}
     return res.status(200).json({ ok: true });
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
       token,
       notification: { title: fromName, body },
       data: { chatId },
-      android: { priority: 'high', notification: { channelId: 'messages', tag: chatId } }
+      android: { priority: 'high', notification: { channelId: 'messages', tag: chatId, sound: 'default', defaultSound: true } }
     });
     return res.status(200).json({ ok: true, sent: true });
   } catch (e) {
