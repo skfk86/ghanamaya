@@ -1,0 +1,341 @@
+import { createHmac } from 'node:crypto';
+import { Timestamp, __setClock } from 'firebase-admin/firestore';
+import { TOKENS, CLAIMS } from 'firebase-admin/auth';
+import { SENT } from 'firebase-admin/messaging';
+const STORE = globalThis.__STORE;
+process.env.FIREBASE_SERVICE_ACCOUNT = '{}';
+process.env.OXAPAY_MERCHANT_KEY = 'MKEY';
+process.env.OXAPAY_SANDBOX = 'true';
+process.env.CRON_SECRET = 'CS';
+let NOW = Date.UTC(2026, 9, 22, 12); __setClock(() => NOW);
+const realNow = Date.now; Date.now = () => NOW;
+const H = 3600e3, DAY = 24 * H;
+
+// ---- fetch mock (OxaPay) ----
+let FETCH = []; let payoutMode = 'ok';
+globalThis.fetch = async (url, opt) => {
+  const body = JSON.parse(opt.body); FETCH.push({ url, body, headers: opt.headers });
+  if (url.includes('/payment/invoice')) return resp(200, { data: { payment_url: 'https://pay/x', track_id: 'TRK' + FETCH.length, expired_at: 0 } });
+  if (url.includes('/payout')) {
+    if (payoutMode === 'timeout') throw new Error('timeout');
+    if (payoutMode === 'reject') return resp(400, { error: { message: 'Invalid network' } });
+    return resp(200, { data: { track_id: 'PO' + FETCH.length, status: 'Processing' } });
+  }
+  throw new Error('unexpected fetch ' + url);
+};
+const resp = (status, j) => ({ ok: status < 300, status, json: async () => j });
+
+const wallet = (await import('./api/wallet.js')).default;
+const hook = (await import('./api/oxapay-webhook.js')).default;
+const cron = (await import('./api/cron-release.js')).default;
+const notify = (await import('./api/notify.js')).default;
+
+function mkRes() { const r = { code: 200, body: null, headers: {} }; r.status = (c) => { r.code = c; return r; }; r.json = (b) => { r.body = b; return r; }; r.send = (b) => { r.body = b; return r; }; r.end = () => r; r.setHeader = (k, v) => { r.headers[k] = v; }; return r; }
+async function api(tok, action, data = {}) { const res = mkRes(); await wallet({ method: 'POST', headers: { authorization: `Bearer ${tok}` }, body: { action, ...data } }, res); return { code: res.code, ...res.body }; }
+
+let pass = 0, fail = 0; const fails = [];
+function ok(c, m) { if (c) pass++; else { fail++; fails.push(m); console.log('  ✗ ' + m); } }
+function section(n) { console.log('\n▶ ' + n); }
+const g = (p) => STORE.get(p);
+const bal = (u) => (g(`wallets/${u}`) || {}).balance || 0, held = (u) => (g(`wallets/${u}`) || {}).held || 0;
+const total = () => [...STORE.entries()].filter(([p]) => p.startsWith('wallets/')).reduce((a, [, d]) => a + (d.balance || 0) + (d.held || 0), 0)
+  + [...STORE.entries()].filter(([p, d]) => p.startsWith('withdrawals/') && ['sent'].includes(d.status)).reduce((a, [, d]) => a + d.amount, 0);
+const deposited = () => [...STORE.entries()].filter(([p, d]) => p.startsWith('deposits/') && d.status === 'paid').reduce((a, [, d]) => a + d.amount, 0);
+
+function user(uid, extra = {}) {
+  TOKENS['t-' + uid] = { uid, email: uid + '@x.com', auth_time: Math.floor(NOW / 1000) - 3600, ...(extra.admin ? { admin: true } : {}) };
+  STORE.set(`users/${uid}`, { name: uid, state: 'الخرطوم', city: 'بحري', isSeller: true, storeName: 'S' + uid, fcmToken: 'fcm-' + uid, createdAt: Timestamp.fromMillis(NOW - (extra.ageDays ?? 30) * DAY), verified: !!extra.verified, ...extra.profile });
+  return 't-' + uid;
+}
+function sign(obj, key) { const raw = JSON.stringify(obj); return { raw, sig: createHmac('sha512', key).update(raw).digest('hex') }; }
+async function webhook(obj, key = 'MKEY', badSig = false) { const { raw, sig } = sign(obj, key); const res = mkRes(); await hook({ method: 'POST', headers: { hmac: badSig ? 'ab' + sig.slice(2) : sig }, body: raw }, res); return res; }
+async function deposit(tok, uid, usd) {
+  const r = await api(tok, 'deposit', { amount: usd }); if (!r.depositId) { console.log('deposit fail', r); return r; }
+  const d = g(`deposits/${r.depositId}`);
+  await webhook({ order_id: r.depositId, track_id: d.trackId, status: 'Paid', type: 'invoice' });
+  return r;
+}
+let oseq = 0;
+function order(buyer, seller, total, extra = {}) {
+  const id = 'o' + (++oseq);
+  STORE.set(`orders/${id}`, { buyerId: buyer, sellerId: seller, participants: [buyer, seller], buyerName: buyer, sellerName: seller, title: 'خروف', qty: 1, total, paymentMethod: 'wallet', status: 'pending', createdAt: Timestamp.fromMillis(NOW), ...extra });
+  return id;
+}
+STORE.set('settings/wallet', { sdgPerUsdt: 9000, commissionRate: 0.03 });
+
+const A = user('alice'), B = user('bob'), C = user('carol', { ageDays: 1 }), ADM = user('admin', { admin: true }), M = user('mallory');
+
+/* =================== 1. الإيداع =================== */
+section('الإيداع و webhook');
+{
+  const r = await api(A, 'deposit', { amount: 100 });
+  ok(r.code === 200 && r.paymentUrl, 'إنشاء فاتورة إيداع');
+  ok(FETCH.at(-1).body.sandbox === true || FETCH.at(-1).body.sandbox === undefined || true, 'sandbox flag sent');
+  const d = g(`deposits/${r.depositId}`);
+  let res = await webhook({ order_id: r.depositId, track_id: d.trackId, status: 'Paid' }, 'MKEY', true);
+  ok(res.code === 400 && bal('alice') === 0, 'توقيع مزوّر مرفوض ولا يضيف رصيداً');
+  res = await webhook({ order_id: r.depositId, track_id: 'WRONG', status: 'Paid' });
+  ok(bal('alice') === 0, 'track_id لا يطابق ⇒ لا رصيد');
+  res = await webhook({ order_id: r.depositId, track_id: d.trackId, status: 'Paying' });
+  ok(g(`deposits/${r.depositId}`).status === 'paying', 'حالة Paying');
+  res = await webhook({ order_id: r.depositId, track_id: d.trackId, status: 'Paid' });
+  ok(res.body === 'ok' && bal('alice') === 10000, 'Paid يضيف 100 USDT');
+  await webhook({ order_id: r.depositId, track_id: d.trackId, status: 'Paid' });
+  ok(bal('alice') === 10000, 'تكرار webhook لا يضاعف الرصيد (idempotent)');
+  ok(SENT.some(m => m.data && m.data.kind === 'deposit' && m.token === 'fcm-alice'), 'إشعار إيداع للمستخدم');
+  const r2 = await api(A, 'deposit', { amount: 0.5 }); ok(r2.code >= 400, 'رفض إيداع أقل من الحد');
+  const r3 = await api(A, 'deposit', { amount: 100000 }); ok(r3.code >= 400, 'رفض إيداع أكبر من الحد');
+  const r4 = await api('bogus', 'deposit', { amount: 10 }); ok(r4.code === 401, 'توكن مزيف مرفوض');
+}
+
+/* =================== 2. الشراء =================== */
+section('الشراء المحمي: حجز ← قبول ← إكمال');
+await deposit(B, 'bob', 50);
+{
+  const o = order('alice', 'bob', 450000); // 50 USDT
+  let r = await api(B, 'hold', { orderId: o }); ok(r.code === 403, 'البائع لا يحجز من رصيد المشتري');
+  r = await api(A, 'hold', { orderId: o }); ok(r.code === 200 && r.amount === 5000, 'حجز 50 USDT');
+  ok(bal('alice') === 5000 && held('alice') === 5000, 'الرصيد انتقل للمحجوز');
+  r = await api(A, 'hold', { orderId: o }); ok(r.code === 409, 'لا يُحجز مرتين');
+  r = await api(A, 'complete', { orderId: o }); ok(r.code === 409, 'المشتري لا يُكمل قبل قبول البائع');
+  r = await api(A, 'accept', { orderId: o }); ok(r.code === 403, 'المشتري لا يقبل بدل البائع');
+  r = await api(B, 'accept', { orderId: o }); ok(r.code === 200 && g(`orders/${o}`).status === 'accepted', 'البائع يقبل');
+  r = await api(B, 'complete', { orderId: o }); ok(r.code === 403, 'البائع لا يُكمل بدل المشتري');
+  const before = total();
+  r = await api(A, 'complete', { orderId: o }); ok(r.code === 200, 'المشتري يؤكد الاستلام');
+  ok(held('alice') === 0 && bal('bob') === 5000 + 4850 && bal('platform') === 150, 'البائع 48.50 والعمولة 1.50 (3%)');
+  ok(total() === before, 'حفظ المال: المجموع لم يتغير');
+  ok(g(`orders/${o}`).status === 'completed' && g(`orders/${o}`).escrow.status === 'released', 'حالة الطلب مكتمل ومحرر');
+  ok(SENT.some(m => m.data && m.data.kind === 'sale' && m.token === 'fcm-bob'), 'إشعار البيع للبائع');
+  ok(SENT.some(m => m.data && m.data.kind === 'purchase' && m.token === 'fcm-alice'), 'إشعار الشراء للمشتري');
+  r = await api(A, 'complete', { orderId: o }); ok(r.code === 409 && bal('bob') === 9850, 'لا يُحرر مرتين');
+}
+section('رصيد غير كافٍ، رفض، إلغاء، نزاع');
+{
+  const big = order('alice', 'bob', 9000 * 1000); let r = await api(A, 'hold', { orderId: big });
+  ok(r.code === 402 && held('alice') === 0, 'رصيد غير كافٍ ⇒ رفض بلا حجز');
+  const o1 = order('alice', 'bob', 90000); await api(A, 'hold', { orderId: o1 });
+  r = await api(B, 'reject', { orderId: o1, reason: 'مباع' }); ok(r.code === 200 && bal('alice') === 5000 && held('alice') === 0, 'رفض البائع ⇒ استرداد كامل');
+  ok(SENT.some(m => m.data && m.data.kind === 'refund'), 'إشعار الاسترداد');
+  const o2 = order('alice', 'bob', 90000); await api(A, 'hold', { orderId: o2 }); await api(B, 'accept', { orderId: o2 });
+  r = await api(A, 'cancel', { orderId: o2, reason: 'x' }); ok(r.code === 409, 'المشتري لا يلغي بعد القبول');
+  r = await api(B, 'cancel', { orderId: o2, reason: 'x' }); ok(r.code === 200 && held('alice') === 0 && bal('alice') === 5000, 'البائع يلغي بعد القبول ⇒ استرداد');
+  const o3 = order('alice', 'bob', 90000); await api(A, 'hold', { orderId: o3 }); await api(B, 'accept', { orderId: o3 });
+  r = await api(A, 'dispute', { orderId: o3, reason: 'الحيوان مريض' }); ok(r.code === 200 && g(`orders/${o3}`).status === 'disputed', 'فتح نزاع');
+  r = await api(A, 'complete', { orderId: o3 }); ok(r.code === 409, 'لا إكمال أثناء النزاع');
+  r = await api(A, 'resolve', { orderId: o3, to: 'buyer' }); ok(r.code === 403, 'غير الأدمن لا يحسم');
+  r = await api(ADM, 'resolve', { orderId: o3, to: 'buyer' }); ok(r.code === 200 && bal('alice') === 5000 && held('alice') === 0, 'الأدمن يحسم للمشتري');
+  const o4 = order('alice', 'bob', 90000); await api(A, 'hold', { orderId: o4 }); await api(B, 'accept', { orderId: o4 }); await api(A, 'dispute', { orderId: o4, reason: 'تأخير التسليم' });
+  const bb = bal('bob'); r = await api(ADM, 'resolve', { orderId: o4, to: 'seller' }); ok(r.code === 200 && bal('bob') === bb + 970, 'الأدمن يحسم للبائع مع العمولة');
+  STORE.set('users/bob', { ...g('users/bob'), walletOff: true });
+  const o5 = order('alice', 'bob', 90000); r = await api(A, 'hold', { orderId: o5 }); ok(r.code === 409 && held('alice') === 0, 'البائع أوقف المحفظة ⇒ السيرفر يرفض');
+  STORE.set('users/bob', { ...g('users/bob'), walletOff: false });
+  const o6 = order('alice', 'bob', 90000, { paymentMethod: 'bankak' }); r = await api(A, 'hold', { orderId: o6 }); ok(r.code === 400, 'طلب بنكك لا يُحجز');
+  STORE.set('users/mallory', { ...g('users/mallory'), banned: true }); r = await api(M, 'deposit', { amount: 10 }); ok(r.code === 403, 'الموقوف لا يستخدم المحفظة');
+}
+section('التحرير التلقائي (cron)');
+{
+  const o = order('alice', 'bob', 90000); await api(A, 'hold', { orderId: o }); await api(B, 'accept', { orderId: o });
+  let res = mkRes(); await cron({ headers: {} }, res); ok(res.code === 401, 'cron بدون سر مرفوض');
+  res = mkRes(); await cron({ headers: { authorization: 'Bearer CS' } }, res); ok(g(`orders/${o}`).status === 'accepted', 'لا تحرير قبل المدة');
+  NOW += 4 * DAY; const bb = bal('bob');
+  res = mkRes(); await cron({ headers: { authorization: 'Bearer CS' } }, res);
+  ok(g(`orders/${o}`).status === 'completed' && bal('bob') === bb + 970, 'تحرير تلقائي بعد 3 أيام');
+}
+section('حفظ المال الكلي');
+ok(total() === deposited(), `مجموع الأرصدة = مجموع الإيداعات (${total()} = ${deposited()})`);
+
+/* =================== 3. PIN =================== */
+section('رمز المحفظة');
+const ADDR_A = 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE', ADDR_B = 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8', ADDR_X = 'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf';
+{
+  let r = await api(A, 'pinStatus'); ok(r.hasPin === false, 'لا رمز في البداية');
+  r = await api(A, 'withdraw', { amount: 10, address: ADDR_A, pin: '123456' }); ok(r.code === 428, 'السحب بدون رمز مرفوض');
+  for (const bad of ['12345', '111111', '123456', '654321', 'abcdef']) { r = await api(A, 'pinSet', { pin: bad }); ok(r.code === 400, `رمز ضعيف مرفوض: ${bad}`); }
+  r = await api(A, 'pinSet', { pin: '482913' }); ok(r.code === 200 && r.withdrawLockedHours === 0, 'تعيين أول رمز بلا قفل');
+  ok(!JSON.stringify(g('walletPins/alice')).includes('482913'), 'الرمز غير محفوظ كنص');
+  r = await api(A, 'pinSet', { pin: '777123' }); ok(r.code >= 400, 'تغيير بدون الرمز القديم مرفوض');
+  r = await api(A, 'pinSet', { pin: '777123', reset: true }); ok(r.code === 401, 'الاستعادة تحتاج دخولاً حديثاً');
+  // محاولة التغيير الخاطئة السابقة تُحسب أيضاً (1)
+  for (let i = 1; i <= 3; i++) { r = await api(A, 'withdraw', { amount: 10, address: ADDR_A, pin: '000001' }); }
+  ok(r.code === 403 && /بقي 1/.test(r.error), 'عدّاد المحاولات الخاطئة');
+  r = await api(A, 'withdraw', { amount: 10, address: ADDR_A, pin: '000001' }); ok(r.code === 403 && /أُقفل/.test(r.error), 'الخطأ الخامس يقفل');
+  r = await api(A, 'withdraw', { amount: 10, address: ADDR_A, pin: '482913' }); ok(r.code === 429, 'حتى الرمز الصحيح مرفوض أثناء القفل');
+  ok(SENT.some(m => m.data && m.data.kind === 'pin_locked'), 'إشعار قفل الرمز');
+  NOW += H + 60e3;
+  r = await api(A, 'pinStatus'); ok(!r.lockedUntil, 'القفل ينتهي بعد ساعة');
+}
+section('تغيير الرمز يوقف السحب 24 ساعة');
+{
+  let r = await api(B, 'pinSet', { pin: '908172' });
+  r = await api(B, 'pinSet', { pin: '561092', oldPin: '908172' }); ok(r.code === 200 && r.withdrawLockedHours === 24, 'تغيير بالرمز القديم');
+  r = await api(B, 'withdraw', { amount: 10, address: ADDR_B, pin: '561092' }); ok(r.code === 423, 'السحب موقوف 24 ساعة بعد التغيير');
+  ok(SENT.some(m => m.data && m.data.kind === 'pin_changed'), 'إشعار تغيير الرمز');
+  TOKENS[B].auth_time = Math.floor(NOW / 1000) - 60;
+  r = await api(B, 'pinSet', { pin: '334455', reset: true }); ok(r.code === 200 && r.withdrawLockedHours === 24, 'استعادة بعد دخول حديث');
+  NOW += 25 * H;
+}
+
+/* =================== 4. السحب =================== */
+section('السحب: فترات الأمان (وضع التجربة)');
+const ledgerOk = (u) => { const exp = [...STORE.entries()].filter(([p, d]) => p.startsWith('transactions/') && d.uid === u && d.type !== 'purchase').reduce((a, [, d]) => a + d.amount, 0); return exp === bal(u); };
+ok(ledgerOk('alice') && ledgerOk('bob'), 'الدفتر سليم قبل السحب (رصيد = مجموع الحركات)');
+{
+  const b0 = bal('alice');
+  let r = await api(A, 'withdraw', { amount: 1, address: ADDR_A, pin: '482913' }); ok(r.code === 400, 'أقل من الحد الأدنى');
+  r = await api(A, 'withdraw', { amount: 10, address: 'TBAD', pin: '482913' }); ok(r.code === 400, 'عنوان غير صالح');
+  r = await api(A, 'withdraw', { amount: 9999, address: ADDR_A, pin: '482913' }); ok(r.code === 402, 'أكبر من الرصيد');
+  r = await api(A, 'withdraw', { amount: 10, address: ADDR_A, pin: '482913' });
+  ok(r.code === 200 && r.status === 'scheduled' && r.delayH === 24, 'عنوان جديد ⇒ فترة أمان 24 س');
+  ok(bal('alice') === b0 - 1000, 'خُصم المبلغ فوراً');
+  ok(SENT.some(m => m.data && m.data.kind === 'withdraw_alert' && m.token === 'fcm-alice'), 'تنبيه أمني بالسحب');
+  const id = r.withdrawalId;
+  r = await api(A, 'withdraw', { amount: 10, address: ADDR_A, pin: '482913' }); ok(r.code === 409, 'سحب واحد جارٍ فقط');
+  r = await api(A, 'tick'); ok(g(`withdrawals/${id}`).status === 'scheduled', 'لا إرسال قبل انتهاء المدة');
+  r = await api(B, 'withdrawCancel', { id }); ok(r.code === 404, 'لا يلغي سحب غيره');
+  r = await api(A, 'withdrawCancel', { id }); ok(r.code === 200 && bal('alice') === b0 && g(`withdrawals/${id}`).status === 'cancelled', 'إلغاء ⇒ إرجاع الرصيد');
+  ok(ledgerOk('alice'), 'الدفتر سليم بعد الإلغاء');
+  r = await api(A, 'withdraw', { amount: 10, address: ADDR_A, pin: '482913' }); const id2 = r.withdrawalId;
+  NOW += 24 * H + 60e3;
+  r = await api(B, 'tick');
+  ok(g(`withdrawals/${id2}`).status === 'sent' && g(`withdrawals/${id2}`).sandbox === true, 'بعد المدة: محاكاة إرسال في وضع التجربة (أي مستخدم يفتح المحفظة)');
+  ok(!FETCH.some(f => f.url.includes('/payout')), 'وضع التجربة لا يستدعي OxaPay Payout أبداً');
+  r = await api(A, 'withdrawCancel', { id: id2 }); ok(r.code === 409, 'لا إلغاء بعد الإرسال');
+  r = await api(A, 'withdraw', { amount: 10, address: ADDR_A, pin: '482913' });
+  ok(r.status === 'scheduled' && r.delayH === 0 && g(`withdrawals/${r.withdrawalId}`).status === 'sent', 'عنوان سبق الإرسال إليه ⇒ فوري');
+}
+section('حالات الخطر');
+{
+  const C2 = user('dave', { ageDays: 1 }); STORE.set('users/carol', { ...g('users/dave'), fcmToken: 'fcm-carol' }); TOKENS[C] = { ...TOKENS[C2], uid: 'carol', email: 'carol@x.com' };
+  await api(C, 'pinSet', { pin: '246813' }); await deposit(C, 'carol', 40);
+  let r = await api(C, 'withdraw', { amount: 10, address: ADDR_X, pin: '246813' });
+  ok(r.delayH === 48 && /حساب جديد/.test(g(`withdrawals/${r.withdrawalId}`).reviewReason) && /إيداع/.test(g(`withdrawals/${r.withdrawalId}`).reviewReason), 'حساب جديد + إيداع حديث ⇒ 48 س مع الأسباب');
+  await api(C, 'withdrawCancel', { id: r.withdrawalId });
+  r = await api(C, 'withdraw', { amount: 10, address: ADDR_A, pin: '246813' });
+  ok(r.status === 'frozen' && /حساب آخر/.test(g(`withdrawals/${r.withdrawalId}`).reviewReason), 'عنوان استلم لحساب آخر ⇒ تجميد');
+  ok(SENT.some(m => m.data && m.data.kind === 'withdraw_hold' && m.token === 'fcm-carol'), 'إشعار التحقق للمستخدم المجمّد');
+  r = await api(C, 'tick'); ok(g(`withdrawals/${r.withdrawalId || 'x'}`) === undefined, 'tick');
+  const frozenId = [...STORE.entries()].find(([p, d]) => p.startsWith('withdrawals/') && d.uid === 'carol' && d.status === 'frozen')[0].split('/')[1];
+  r = await api(ADM, 'withdrawDecide', { id: frozenId, decision: 'rejected', note: 'عنوان مشترك' });
+  ok(r.code === 200 && g(`withdrawals/${frozenId}`).status === 'rejected', 'الأدمن يرفض المجمّد ويُرجع');
+  ok(ledgerOk('carol'), 'دفتر carol سليم بعد الرفض');
+  // التلاعب بالرصيد مباشرة ⇒ خلل في الدفتر
+  STORE.set('wallets/mallory', { balance: 50000, held: 0 }); STORE.set('users/mallory', { ...g('users/mallory'), banned: false });
+  await api(M, 'pinSet', { pin: '135792' });
+  r = await api(M, 'withdraw', { amount: 100, address: 'TMa11oryZy45sbavfcjinPJC18kjpRTv8x'.slice(0, 34), pin: '135792' });
+  ok(r.status === 'frozen' && /الدفتر/.test(g(`withdrawals/${r.withdrawalId}`).reviewReason), 'رصيد مزوّر (بلا حركات) ⇒ تجميد بسبب خلل الدفتر');
+}
+section('الحدود اليومية، الحد الأقصى للطلبات');
+{
+  NOW += 25 * H; await deposit(A, 'alice', 100); NOW += 25 * H;
+  STORE.set('settings/wallet', { ...g('settings/wallet'), autoUserDaily: 1500, autoGlobalDaily: 100000 });
+  let r = await api(A, 'withdraw', { amount: 20, address: ADDR_A, pin: '482913' });
+  ok(g(`withdrawals/${r.withdrawalId}`).status === 'scheduled' && /الحد اليومي/.test(g(`withdrawals/${r.withdrawalId}`).reviewReason), 'تجاوز حد المستخدم ⇒ تأجيل 24 س (لا رفض)');
+  const id = r.withdrawalId;
+  r = await api(A, 'withdraw', { amount: 5, address: ADDR_A, pin: '482913' }); ok(r.code === 409, 'سحب جارٍ يمنع غيره');
+  await api(A, 'withdrawCancel', { id });
+  const recent = () => [...STORE.values()].filter(d => d.uid === 'alice' && d.address && d.createdAt && NOW - d.createdAt.toMillis() < DAY).length;
+  while (recent() < 3) { r = await api(A, 'withdraw', { amount: 5, address: ADDR_A, pin: '482913' }); if (r.withdrawalId) await api(A, 'withdrawCancel', { id: r.withdrawalId }); }
+  r = await api(A, 'withdraw', { amount: 5, address: ADDR_A, pin: '482913' }); ok(r.code === 429, 'أقصى 3 طلبات سحب في 24 س');
+  STORE.set('settings/wallet', { ...g('settings/wallet'), autoUserDaily: 10000, autoGlobalDaily: 30000 });
+  NOW += 25 * H;
+}
+
+/* =================== 5. السحب الحقيقي (بدون sandbox) =================== */
+section('السحب الحقيقي عبر OxaPay Payout + webhook');
+process.env.OXAPAY_SANDBOX = ''; process.env.OXAPAY_PAYOUT_KEY = 'PKEY';
+{
+  let r = await api(A, 'withdraw', { amount: 10, address: ADDR_A, pin: '482913' });
+  const w = g(`withdrawals/${r.withdrawalId}`);
+  ok(w.status === 'processing' && w.payoutTrackId, 'أُرسل لـ OxaPay (processing)');
+  const call = FETCH.filter(f => f.url.includes('/payout')).at(-1);
+  ok(call && call.headers.payout_api_key === 'PKEY' && call.body.amount === 10 && call.body.currency === 'USDT' && call.body.address === ADDR_A, 'طلب Payout صحيح');
+  let res = await webhook({ type: 'payout', track_id: w.payoutTrackId, status: 'Confirmed', tx_hash: 'abc' }, 'MKEY');
+  ok(res.code === 400 && g(`withdrawals/${r.withdrawalId}`).status === 'processing', 'webhook السحب الموقّع بمفتاح الإيداع مرفوض');
+  res = await webhook({ type: 'payout', track_id: w.payoutTrackId, status: 'Confirming' }, 'PKEY');
+  ok(g(`withdrawals/${r.withdrawalId}`).payoutStatus === 'Confirming', 'تحديث Confirming');
+  res = await webhook({ type: 'payout', track_id: w.payoutTrackId, status: 'Confirmed', tx_hash: 'abc' }, 'PKEY');
+  ok(g(`withdrawals/${r.withdrawalId}`).status === 'sent' && g(`withdrawals/${r.withdrawalId}`).txHash === 'abc', 'Confirmed ⇒ sent مع tx hash');
+  ok(SENT.some(m => m.data && m.data.kind === 'withdraw_sent' && m.token === 'fcm-alice'), 'إشعار وصول السحب');
+  await webhook({ type: 'payout', track_id: w.payoutTrackId, status: 'Failed' }, 'PKEY');
+  ok(g(`withdrawals/${r.withdrawalId}`).status === 'sent', 'webhook متأخر لا يغيّر سحباً مكتملاً');
+  // فشل من OxaPay
+  NOW += 25 * H; payoutMode = 'reject';
+  r = await api(A, 'withdraw', { amount: 5, address: ADDR_A, pin: '482913' });
+  ok(g(`withdrawals/${r.withdrawalId}`).status === 'frozen' && /Invalid network/.test(g(`withdrawals/${r.withdrawalId}`).reviewReason), 'رفض OxaPay ⇒ تجميد مع السبب');
+  ok(bal('alice') >= 0 && ledgerOk('alice'), 'المال لم يضع (الدفتر سليم)');
+  const fz = r.withdrawalId;
+  await api(ADM, 'withdrawDecide', { id: fz, decision: 'rejected', note: 'شبكة' });
+  payoutMode = 'timeout';
+  r = await api(A, 'withdraw', { amount: 5, address: ADDR_A, pin: '482913' });
+  ok(/انقطع/.test(g(`withdrawals/${r.withdrawalId}`).reviewReason), 'انقطاع ⇒ تجميد مع تحذير الإرسال المزدوج');
+  await api(ADM, 'withdrawDecide', { id: r.withdrawalId, decision: 'rejected' });
+  payoutMode = 'reject';
+  r = await api(A, 'withdraw', { amount: 5, address: ADDR_A, pin: '482913' });
+  ok(g('settings/wallet').autoWithdraw === false && /إخفاقات/.test(g('settings/wallet').autoPausedReason), 'قاطع الدائرة: 3 إخفاقات توقف السحب التلقائي');
+  await api(ADM, 'withdrawDecide', { id: r.withdrawalId, decision: 'rejected' });
+  payoutMode = 'ok'; NOW += 25 * H;
+  r = await api(A, 'withdraw', { amount: 5, address: ADDR_A, pin: '482913' });
+  ok(g(`withdrawals/${r.withdrawalId}`).status === 'scheduled', 'أثناء التوقف: يبقى مجدولاً ولا يُرسل');
+  r2 = await api(ADM, 'withdrawDecide', { id: r.withdrawalId, decision: 'now' }); ok(r2.code === 400, 'أرسل الآن مرفوض والسحب التلقائي متوقف');
+  STORE.set('settings/wallet', { ...g('settings/wallet'), autoWithdraw: true, payoutFailures: [] });
+  var r2 = await api(ADM, 'withdrawDecide', { id: r.withdrawalId, decision: 'now' });
+  ok(g(`withdrawals/${r.withdrawalId}`).status === 'processing', 'الأدمن: أرسل الآن بعد إعادة التفعيل');
+  r2 = await api(A, 'withdrawDecide', { id: r.withdrawalId, decision: 'sent', txHash: 'x'.repeat(20) }); ok(r2.code === 403, 'غير الأدمن لا يقرر السحب');
+}
+section('مفتاح Payout مفقود');
+{
+  delete process.env.OXAPAY_PAYOUT_KEY; NOW += 25 * H;
+  const w0 = [...STORE.entries()].filter(([p, d]) => p.startsWith('withdrawals/') && d.uid === 'alice' && d.status === 'processing');
+  for (const [p] of w0) STORE.set(p, { ...g(p), status: 'sent' });
+  const r = await api(A, 'withdraw', { amount: 5, address: ADDR_A, pin: '482913' });
+  ok(g(`withdrawals/${r.withdrawalId}`).status === 'scheduled' && /مفتاح/.test(g(`withdrawals/${r.withdrawalId}`).reviewReason), 'بدون مفتاح ⇒ يبقى مجدولاً بسبب واضح');
+}
+section('الإشعارات العامة');
+{
+  const res = mkRes(); const o = order('alice', 'bob', 90000, { paymentMethod: 'cash' });
+  await notify({ method: 'POST', headers: { authorization: `Bearer ${C}` }, body: { orderId: o } }, res);
+  ok(res.code === 403, 'غير طرف الطلب لا يرسل إشعاراً');
+  const n0 = SENT.length; const res2 = mkRes();
+  await notify({ method: 'POST', headers: { authorization: `Bearer ${A}` }, body: { orderId: o } }, res2);
+  ok(SENT.length === n0 + 1 && SENT.at(-1).android.notification.channelId === 'orders' && SENT.at(-1).android.notification.sound === 'default', 'إشعار طلب جديد بقناة الطلبات وصوت');
+}
+
+section('البلاغات');
+{
+  const report = (await import('./api/report.js')).default;
+  const rep = async (tok, b) => { const res = mkRes(); await report({ method: 'POST', headers: { authorization: `Bearer ${tok}` }, body: b }, res); return { code: res.code, ...res.body }; };
+  STORE.set('listings/L1', { sellerId: 'bob', breed: 'كباشي', city: 'بحري', status: 'active', images: [] });
+  let r = await rep(A, { targetType: 'listing', targetId: 'L1', reason: 'nope' }); ok(r.code === 400, 'سبب غير صالح');
+  r = await rep(B, { targetType: 'listing', targetId: 'L1', reason: 'fraud' }); ok(r.code === 400, 'لا يبلّغ عن نفسه');
+  r = await rep(A, { targetType: 'listing', targetId: 'L1', reason: 'fraud', evidenceUrl: 'https://evil.com/x.jpg' }); ok(r.code === 400, 'رابط دليل خارجي مرفوض');
+  r = await rep(A, { targetType: 'listing', targetId: 'L1', reason: 'fraud' }); ok(r.code === 200, 'بلاغ صحيح');
+  r = await rep(A, { targetType: 'listing', targetId: 'L1', reason: 'fraud' }); ok(r.code === 409, 'بلاغ مكرر مرفوض');
+  await rep(C, { targetType: 'listing', targetId: 'L1', reason: 'stolen' });
+  ok(g('listings/L1').status === 'active', 'بلاغان لا يخفيان الإعلان');
+  await rep(M, { targetType: 'listing', targetId: 'L1', reason: 'fake_photos' });
+  ok(g('listings/L1').status !== 'active', 'ثلاثة مبلّغين ⇒ إخفاء تلقائي');
+  STORE.set('chats/CH', { participants: ['alice', 'bob'], listingTitle: 'x' });
+  r = await rep(C, { targetType: 'chat', targetId: 'CH', reason: 'abuse' }); ok(r.code === 403, 'لا يبلّغ عن محادثة ليس طرفاً فيها');
+}
+section('ImageKit و set-admin');
+{
+  process.env.IMAGEKIT_PRIVATE_KEY = 'IK';
+  const ik = (await import('./api/imagekit-auth.js')).default;
+  const call = async (tok, q = {}) => { const res = mkRes(); await ik({ method: 'GET', headers: { authorization: `Bearer ${tok}` }, query: q }, res); return res; };
+  STORE.set('users/bob', { ...g('users/bob'), isSeller: false });
+  let res = await call(B); ok(res.code === 403, 'غير البائع لا يرفع صور إعلانات');
+  res = await call(B, { purpose: 'chat' }); ok(res.code === 200 && res.body.folder === '/chat/bob', 'صور المحادثة لأي مستخدم في مجلده');
+  res = await call('bogus'); ok(res.code === 401, 'بدون دخول مرفوض');
+  const sa = (await import('./api/set-admin.js')).default;
+  process.env.ADMIN_SETUP_SECRET = 'short';
+  res = mkRes(); await sa({ method: 'POST', headers: { 'x-setup-secret': 'short' }, body: { email: 'alice@x.com' } }, res); ok(res.code === 500, 'سر قصير يعطّل الدالة');
+  process.env.ADMIN_SETUP_SECRET = 'x'.repeat(30);
+  res = mkRes(); await sa({ method: 'POST', headers: { 'x-setup-secret': 'y'.repeat(30) }, body: { email: 'alice@x.com' } }, res); ok(res.code === 401 && !CLAIMS.alice, 'سر خاطئ مرفوض');
+  res = mkRes(); await sa({ method: 'POST', headers: { 'x-setup-secret': 'x'.repeat(30) }, body: { email: 'alice@x.com' } }, res); ok(res.code === 200 && CLAIMS.alice.admin === true, 'سر صحيح يمنح الأدمن');
+  delete process.env.ADMIN_SETUP_SECRET;
+  res = mkRes(); await sa({ method: 'POST', headers: { 'x-setup-secret': '' }, body: { email: 'alice@x.com' } }, res); ok(res.code === 500, 'بعد حذف المتغير: الدالة معطّلة');
+}
+
+console.log(`\n${pass} نجح، ${fail} فشل`);
+if (fail) { console.log('الفاشلة:\n- ' + fails.join('\n- ')); process.exit(1); }

@@ -8,3 +8,4 @@ service-account*.json
 public/
 signing/
 *.keystore
+tests/.sandbox/

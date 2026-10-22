@@ -41,7 +41,9 @@ async function assess(db, set, { uid, me, cents, address, id }) {
     db.collection('withdrawals').where('uid', '==', uid).get(),
     db.collection('withdrawals').where('address', '==', address).get()
   ]);
-  if (sameAddr.docs.some(d => d.get('uid') !== uid)) return { freeze: 'العنوان مستخدم من حساب آخر' };
+  // عنوان استلم فعلاً أموالاً لحساب آخر (لا نحسب الملغى أو المرفوض، حتى لا يُجمّد مهاجم عنوان ضحية بطلب وهمي)
+  const mineSent = sameAddr.docs.some(d => d.get('uid') === uid && d.get('status') === 'sent');
+  if (!mineSent && sameAddr.docs.some(d => d.get('uid') !== uid && ['sent', 'processing'].includes(d.get('status')))) return { freeze: 'العنوان استلم سحوبات لحساب آخر' };
 
   const why = []; let delayH = 0;
   const need = (h, reason) => { why.push(reason); delayH = Math.max(delayH, h); };

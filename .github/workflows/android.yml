@@ -32,6 +32,9 @@ jobs:
           test -n "$KS_B64" || { echo "::error::السر KEYSTORE_BASE64 غير مضبوط"; exit 1; }
           echo "$KS_B64" | base64 -d > "$KS_FILE"
 
+      - name: Server tests (wallet, withdrawals, PIN, reports)
+        run: bash tests/run.sh
+
       - name: Install dependencies
         run: npm install
 
