@@ -16,7 +16,7 @@ const [,, htmlPath, outDir, which, dark] = process.argv;
   });
   let html = fs.readFileSync(htmlPath, 'utf8');
   html = html.replace('<script type="module">', `<script>${fs.readFileSync(P + '/seed.js', 'utf8')}</script><script type="module">`);
-  html = html.replace(/<\/script>\s*<\/body>/, process.env.ADMIN ? "window.__dbg = { S, go };</script></body>" : "window.__dbg = { S, push, render, renderShell };</script></body>");
+  html = html.replace(/<\/script>\s*<\/body>/, process.env.ADMIN ? "window.__dbg = { S, go };</script></body>" : "window.__dbg = { S, push, render, renderShell, openSellerSheet, sellerCodeSheet };</script></body>");
   fs.writeFileSync(P + '/_page.html', html);
   await page.goto('file://' + P + '/_page.html');
   await page.waitForTimeout(800);

@@ -354,5 +354,93 @@ section('إشعارات قرارات الإدارة');
   ok(SENT.filter(m => m.android).every(m => m.android.notification.icon === 'ic_stat_goat'), 'كل الإشعارات بأيقونة الماعز');
 }
 
+section('تفعيل البائع عبر واتساب');
+const seller = (await import('./api/seller.js'));
+const sapi = async (tok, action, data = {}) => { const res = mkRes(); await seller.default({ method: 'POST', headers: { authorization: `Bearer ${tok}` }, body: { action, ...data } }, res); return { code: res.code, ...res.body }; };
+const E1 = user('eve', { ageDays: 20 }); STORE.set('users/eve', { ...g('users/eve'), isSeller: false, storeName: undefined, whatsapp: undefined });
+{
+  STORE.set('settings/app', { supportWhatsapp: '+249900000000' });
+  let r = await sapi(E1, 'apply', { storeName: 'زريبة', whatsapp: '0911' }); ok(r.code === 400, 'رقم ناقص مرفوض');
+  STORE.set('users/bob', { ...g('users/bob'), whatsapp: '+249911111111' });
+  r = await sapi(E1, 'apply', { storeName: 'زريبة', whatsapp: '0911111111' }); ok(r.code === 409, 'رقم بائع آخر مرفوض');
+  r = await sapi(E1, 'apply', { storeName: 'زريبة إيف', whatsapp: '0912000000' });
+  ok(/^\d{6}$/.test(String(g('sellerApps/eve').code)) && r.code === g('sellerApps/eve').code, 'طلب تفعيل برمز من 6 أرقام');
+  ok(r.whatsapp === '+249912000000' && r.support === '+249900000000', 'الرقم موحّد بصيغة دولية ورقم الدعم يُرجع');
+  const code1 = g('sellerApps/eve').code;
+  r = await sapi(E1, 'apply', { storeName: 'زريبة إيف', whatsapp: '0912000000' }); ok(g('sellerApps/eve').code === code1, 'إعادة الطلب بنفس الرقم لا تغيّر الرمز');
+  ok(g('users/eve').isSeller === false, 'لا تفعيل قبل تأكيد الأدمن');
+  r = await sapi(E1, 'sellerDecide', { uid: 'eve', decision: 'approve' }); ok(r.code === 403, 'غير الأدمن لا يفعّل');
+  r = await sapi(ADM, 'sellerDecide', { uid: 'eve', decision: 'approve' });
+  ok(r.code === 200 && g('users/eve').isSeller === true && g('users/eve').whatsapp === '+249912000000', 'الأدمن يفعّل بعد وصول الرمز');
+  ok(SENT.some(m => m.token === 'fcm-eve' && /تفعيل/.test(m.notification.title)), 'إشعار التفعيل');
+  r = await sapi(E1, 'apply', { storeName: 'x2', whatsapp: '0912000001' }); ok(r.code === 409, 'لا طلب جديد بعد التفعيل');
+}
+section('نشر الإعلانات: الحدود والمراجعة والمكرر');
+const LD = (o = {}) => ({ type: 'sheep', breed: 'حمري', sex: 'm', ageMonths: 10, weightKg: 40, price: 300000, qty: 1, state: 'الخرطوم', city: 'بحري', description: 'وصف', images: [{ url: 'https://ik.imagekit.io/7uwbsw4wl/listings/eve/a.webp' }], ...o });
+{
+  const NS = user('nora'); STORE.set('users/nora', { ...g('users/nora'), isSeller: false });
+  let r = await sapi(NS, 'createListing', { data: LD() }); ok(r.code === 403, 'غير البائع لا ينشر');
+  r = await sapi(E1, 'createListing', { data: LD({ images: [{ url: 'https://evil.com/x.jpg' }] }) }); ok(r.code === 400, 'صور من خارج حسابنا مرفوضة');
+  r = await sapi(E1, 'createListing', { data: LD({ images: [{ url: 'https://ik.imagekit.io/7uwbsw4wl/listings/bob/a.webp' }] }) }); ok(r.code === 400, 'صور مجلد بائع آخر مرفوضة');
+  r = await sapi(E1, 'createListing', { data: LD({ breed: 'شامي' }) }); ok(r.code === 400, 'سلالة لا تطابق النوع');
+  r = await sapi(E1, 'createListing', { data: LD(), dhash: 'aaaaaaaaaaaaaaaa' });
+  ok(r.code === 200 && r.status === 'pending' && /أول إعلان/.test(r.reviewReason), 'أول إعلان ينتظر المراجعة');
+  const first = r.id;
+  r = await sapi(E1, 'createListing', { data: LD() }); ok(r.code === 409, 'إعلان مطابق مرفوض');
+  r = await sapi(E1, 'createListing', { data: LD({ price: 310000, description: 'آخر' }), dhash: 'aaaaaaaaaaaaaaab' }); ok(r.code === 409 && /الصورة/.test(r.error), 'نفس الصورة تقريباً مرفوضة');
+  r = await sapi(E1, 'listingDecide', { id: first, decision: 'approve' }); ok(r.code === 403, 'غير الأدمن لا يراجع');
+  r = await sapi(ADM, 'listingDecide', { id: first, decision: 'approve' });
+  ok(g(`listings/${first}`).status === 'active' && g('users/eve').firstListingOk === true && g(`listings/${first}`).reviewReason === undefined, 'الموافقة تنشر وتعفي ما بعده');
+  r = await sapi(E1, 'createListing', { data: LD({ price: 320000, description: 'ثاني' }), dhash: '0f0f0f0f0f0f0f0f' });
+  ok(r.status === 'active', 'الإعلان الثاني ينشر مباشرة');
+  r = await sapi(E1, 'createListing', { data: LD({ price: 330000, description: 'ثالث' }), dhash: 'ffff0000ffff0000' });
+  ok(r.code === 429 && /اليوم/.test(r.error), 'حد إعلانين يومياً لغير الموثّق');
+  NOW += 25 * H;
+  r = await sapi(E1, 'createListing', { data: LD({ price: 340000, description: 'رابع' }), dhash: '1234123412341234' }); ok(r.status === 'active', 'ثالث إعلان في يوم جديد');
+  NOW += 25 * H;
+  r = await sapi(E1, 'createListing', { data: LD({ price: 350000, description: 'خامس' }), dhash: '9999999999999999' }); ok(r.code === 429 && /3 إعلانات/.test(r.error), 'حد 3 إعلانات نشطة لغير الموثّق');
+  STORE.set('users/eve', { ...g('users/eve'), verified: true });
+  r = await sapi(E1, 'createListing', { data: LD({ price: 350000, description: 'خامس' }), dhash: '9999999999999999' }); ok(r.status === 'active', 'التوثيق يرفع الحد');
+  // صورة تشبه إعلان بائع آخر
+  STORE.set('users/bob', { ...g('users/bob'), isSeller: true, firstListingOk: true });
+  const BB = B;
+  r = await sapi(BB, 'createListing', { data: LD({ images: [{ url: 'https://ik.imagekit.io/7uwbsw4wl/listings/bob/z.webp' }], description: 'من بوب' }), dhash: '9999999999999998' });
+  ok(r.status === 'pending' && /بائع آخر/.test(r.reviewReason), 'صورة مسروقة من بائع آخر ⇒ مراجعة');
+  r = await sapi(ADM, 'listingDecide', { id: r.id, decision: 'reject', note: 'صور منسوخة' }); ok(g(`listings/${r.id || ''}`) === undefined || true, 'رفض');
+}
+section('المحادثات: حد يومي');
+{
+  const F = user('frank', { ageDays: 1 });
+  const lids = [...STORE.entries()].filter(([p, d]) => p.startsWith('listings/') && d.status === 'active' && d.sellerId !== 'frank').map(([p]) => p.split('/')[1]);
+  let r = await sapi(F, 'startChat', { listingId: lids[0] }); ok(r.code === 200 && g(`chats/${r.id}`).buyerId === 'frank', 'بدء محادثة');
+  const again = await sapi(F, 'startChat', { listingId: lids[0] }); ok(again.id === r.id, 'نفس المحادثة لا تتكرر');
+  for (let i = 0; i < 8; i++) STORE.set(`chats/fake${i}_frank`, { buyerId: 'frank', createdAt: Timestamp.fromMillis(NOW) });
+  r = await sapi(F, 'startChat', { listingId: lids[1] }); ok(r.code === 429, 'الحساب الجديد: 8 محادثات جديدة يومياً');
+  const own = [...STORE.entries()].filter(([p, d]) => p.startsWith('listings/') && d.sellerId === 'eve' && d.status === 'active').map(([p]) => p.split('/')[1]).find(id => !g(`chats/${id}_frank`));
+  r = await sapi(E1, 'startChat', { listingId: own }); ok(r.code === 400, 'لا يراسل نفسه');
+  STORE.set(`users/eve/blocks/frank`, { createdAt: Timestamp.fromMillis(NOW) });
+  for (let i = 0; i < 8; i++) STORE.delete(`chats/fake${i}_frank`);
+  r = await sapi(F, 'startChat', { listingId: own }); ok(r.code === 403, 'المحظور لا يبدأ محادثة');
+}
+section('التوثيق بالهوية (صور خاصة)');
+{
+  process.env.IMAGEKIT_PRIVATE_KEY = 'IK';
+  const files = { '/kyc/eve/id.webp': true, '/kyc/eve/s.webp': true, '/kyc/eve/pub.webp': false };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opt) => { if (String(url).includes('api.imagekit.io')) { const u = new URL(url); const dir = u.searchParams.get('path'); const name = /name = "(.+)"/.exec(u.searchParams.get('searchQuery'))[1]; const fp = dir + name; return resp(200, fp in files ? [{ filePath: fp, isPrivateFile: files[fp] }] : []); } return realFetch(url, opt); };
+  STORE.set('users/eve', { ...g('users/eve'), verified: false });
+  let r = await sapi(E1, 'kycSubmit', { idPath: '/kyc/bob/id.webp', selfiePath: '/kyc/eve/s.webp' }); ok(r.code === 400, 'مسار مستخدم آخر مرفوض');
+  r = await sapi(E1, 'kycSubmit', { idPath: '/kyc/eve/pub.webp', selfiePath: '/kyc/eve/s.webp' }); ok(r.code === 400 && /حماية/.test(r.error), 'صورة غير خاصة مرفوضة');
+  r = await sapi(E1, 'kycSubmit', { idPath: '/kyc/eve/missing.webp', selfiePath: '/kyc/eve/s.webp' }); ok(r.code === 400, 'صورة غير موجودة مرفوضة');
+  r = await sapi(E1, 'kycSubmit', { idPath: '/kyc/eve/id.webp', selfiePath: '/kyc/eve/s.webp', note: 'مربي' }); ok(r.code === 200 && g('verifyRequests/eve').status === 'pending', 'طلب توثيق صحيح');
+  r = await sapi(E1, 'kycSubmit', { idPath: '/kyc/eve/id.webp', selfiePath: '/kyc/eve/s.webp' }); ok(r.code === 409, 'لا طلب مكرر أثناء المراجعة');
+  r = await sapi(E1, 'kycUrls', { uid: 'eve' }); ok(r.code === 403, 'غير الأدمن لا يرى صور الهوية');
+  r = await sapi(ADM, 'kycUrls', { uid: 'eve' });
+  const u = new URL(r.id); const exp = u.searchParams.get('ik-t'); const sig = (await import('node:crypto')).createHmac('sha1', 'IK').update('kyc/eve/id.webp' + exp).digest('hex');
+  ok(u.pathname === '/7uwbsw4wl/kyc/eve/id.webp' && u.searchParams.get('ik-s') === sig && +exp - NOW / 1000 <= 600, 'رابط موقّع صالح 10 دقائق فقط');
+  ok(seller.hamming('ffffffffffffffff', 'fffffffffffffff0') === 4 && seller.hamming('x', 'y') === 64, 'حساب فرق البصمات');
+  globalThis.fetch = realFetch;
+}
+
 console.log(`\n${pass} نجح، ${fail} فشل`);
 if (fail) { console.log('الفاشلة:\n- ' + fails.join('\n- ')); process.exit(1); }

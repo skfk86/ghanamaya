@@ -53,10 +53,10 @@ export default async function handler(req, res) {
     const texts = {
       pending: ['طلب شراء جديد', `${order.buyerName} يريد ${order.title} × ${order.qty}`],
       accepted: ['قُبل طلبك', `${order.sellerName} قبل طلب ${order.title}. اتفقا على التسليم.`],
-      rejected: ['رُفض طلبك', `${order.sellerName} اعتذر عن طلب ${order.title}`],
+      rejected: ['اعتذر البائع عن طلبك', `${order.sellerName} اعتذر عن طلب ${order.title}${order.cancelReason ? ` · ${String(order.cancelReason).slice(0, 60)}` : ''}`],
       paid: ['تأكد استلام المبلغ', `${order.sellerName} أكد وصول تحويل بنكك`],
       completed: ['اكتمل الطلب', `${order.buyerName} أكد استلام ${order.title}`],
-      cancelled: ['أُلغي الطلب', `طلب ${order.title} أُلغي`]
+      cancelled: ['أُلغي الطلب', `${uid === order.buyerId ? order.buyerName : order.sellerName} ألغى طلب ${order.title}${order.cancelReason ? ` · ${String(order.cancelReason).slice(0, 60)}` : ''}`]
     };
     // صفقات المحفظة المكتملة أو المستردة لها إشعار مالي خاص من السيرفر
     if (order.paymentMethod === 'wallet' && order.escrow && ['released', 'refunded'].includes(order.escrow.status) && event !== 'receipt') return res.status(200).json({ ok: true, sent: false });

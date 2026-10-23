@@ -15,8 +15,12 @@ service cloud.firestore {
 
     // الحقول التي يحق للمستخدم كتابتها في ملفه
     function userFields() {
-      return ['name', 'photo', 'state', 'city', 'isSeller', 'storeName', 'whatsapp',
+      return ['name', 'photo', 'state', 'city', 'isSeller',
               'walletOff', 'fcmToken', 'createdAt', 'updatedAt'];
+    }
+    // التفعيل كبائع، واسم المتجر، ورقم واتساب: من السيرفر فقط بعد تأكيد الرقم (/api/seller)
+    function ownerEditable() {
+      return ['name', 'photo', 'state', 'city', 'walletOff', 'fcmToken', 'updatedAt'];
     }
     function validUser(d) {
       return str(d.name, 2, 60)
@@ -49,10 +53,8 @@ service cloud.firestore {
       allow update: if isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verified', 'banned', 'banReason', 'warnings', 'reportsDismissed', 'updatedAt']);
       allow update: if isMe(uid)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userFields())
-        && validUser(request.resource.data)
-        && sellerNotDowngraded()
-        && sellerComplete(request.resource.data);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(ownerEditable())
+        && validUser(request.resource.data);
       allow delete: if false;
 
       // ===== بيانات خاصة (حساب بنكك): للمالك والأدمن فقط =====
@@ -97,11 +99,8 @@ service cloud.firestore {
       // القراءة لأي مستخدم مسجّل؛ التطبيق يعرض النشط فقط في السوق
       allow read: if signedIn();
 
-      allow create: if signedIn() && amSeller() && notBanned()
-        && request.resource.data.sellerId == request.auth.uid
-        && request.resource.data.keys().hasOnly(listingFields())
-        && request.resource.data.status == 'active'
-        && validListing(request.resource.data);
+      // الإنشاء من السيرفر فقط (/api/seller): حدود، مراجعة أول إعلان، كشف المكرر
+      allow create: if false;
 
       // صاحب الإعلان يعدّله أو يعلّمه "مباع"؛ لا يستطيع فك إيقاف الأدمن ولا تغيير المالك أو التمييز
       allow update: if isAdmin() || (signedIn() && notBanned()
@@ -110,8 +109,8 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(listingFields())
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sellerId', 'createdAt'])
         && validListing(request.resource.data)
-        && (resource.data.status == 'hidden'
-              ? request.resource.data.status == 'hidden'
+        && (resource.data.status in ['hidden', 'pending']
+              ? request.resource.data.status == resource.data.status
               : request.resource.data.status in ['active', 'sold']));
 
       allow delete: if isAdmin() || (signedIn() && resource.data.sellerId == request.auth.uid);
@@ -134,15 +133,8 @@ service cloud.firestore {
     match /chats/{chatId} {
       allow read: if isAdmin() || (signedIn() && (resource == null || request.auth.uid in resource.data.participants));
 
-      allow create: if signedIn() && notBanned()
-        && request.resource.data.buyerId == request.auth.uid
-        && chatId == request.resource.data.listingId + '_' + request.auth.uid
-        && request.resource.data.sellerId == get(/databases/$(database)/documents/listings/$(request.resource.data.listingId)).data.sellerId
-        && request.resource.data.sellerId != request.auth.uid
-        && request.resource.data.participants == [request.auth.uid, request.resource.data.sellerId]
-        && !blockedBy(request.resource.data.sellerId, request.auth.uid)
-        && request.resource.data.keys().hasOnly(['listingId', 'buyerId', 'sellerId', 'participants', 'buyerName', 'sellerName',
-             'listingTitle', 'listingImage', 'listingPrice', 'lastMessage', 'lastSenderId', 'updatedAt', 'readAt', 'createdAt']);
+      // البدء من السيرفر فقط (/api/seller startChat): حد يومي للمحادثات الجديدة
+      allow create: if false;
 
       allow update: if signedIn() && request.auth.uid in resource.data.participants
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessage', 'lastSenderId', 'updatedAt', 'readAt'])
@@ -154,6 +146,8 @@ service cloud.firestore {
 
         allow create: if inChat(chatId) && notBanned()
           && request.resource.data.senderId == request.auth.uid
+          // حماية من الإغراق: رسالة واحدة كل ثانية في المحادثة
+          && request.time > chatDoc(chatId).updatedAt + duration.value(1, 's')
           && !blockedBy(otherOf(chatDoc(chatId)), request.auth.uid)
           && request.resource.data.keys().hasOnly(['senderId', 'kind', 'text', 'imageUrl', 'offer', 'createdAt'])
           && (
@@ -186,7 +180,7 @@ service cloud.firestore {
     function orderFields() {
       return ['listingId', 'buyerId', 'sellerId', 'participants', 'buyerName', 'sellerName', 'title', 'image',
               'unitPrice', 'qty', 'total', 'paymentMethod', 'delivery', 'note', 'offerRef', 'status',
-              'bankak', 'receiptUrl', 'cancelReason', 'createdAt', 'updatedAt'];
+              'bankak', 'receiptUrl', 'cancelReason', 'cancelledBy', 'createdAt', 'updatedAt'];
     }
     // السعر: إما السعر المعلن، أو عرض مقبول في محادثة المشتري لهذا الإعلان
     function priceOk(d) {
@@ -239,7 +233,8 @@ service cloud.firestore {
       allow update: if isAdmin() || (signedIn()
         && request.auth.uid in resource.data.participants
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status', 'updatedAt', 'bankak', 'receiptUrl', 'cancelReason'])
+             .hasOnly(['status', 'updatedAt', 'bankak', 'receiptUrl', 'cancelReason', 'cancelledBy'])
+        && (!('cancelledBy' in request.resource.data) || request.resource.data.cancelledBy == resource.data.get('cancelledBy', request.auth.uid))
         && transitionOk());
     }
 
@@ -266,14 +261,12 @@ service cloud.firestore {
     // ===== طلبات التوثيق: طلب واحد لكل بائع =====
     match /verifyRequests/{uid} {
       allow read: if isMe(uid) || isAdmin();
-      allow create: if isMe(uid) && amSeller()
-        && request.resource.data.keys().hasOnly(['name', 'storeName', 'whatsapp', 'state', 'city', 'note', 'status', 'createdAt'])
-        && request.resource.data.status == 'pending'
-        && request.resource.data.note is string && request.resource.data.note.size() <= 500;
-      // إعادة التقديم بعد الرفض
-      allow update: if (isMe(uid) && resource.data.status == 'rejected' && request.resource.data.status == 'pending'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['note', 'status', 'createdAt']))
-        || (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionNote', 'decidedAt']));
+      // التقديم من السيرفر فقط (/api/seller kycSubmit) لأنه يتحقق أن صور الهوية خاصة
+      allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionNote', 'decidedAt']);
+    }
+    // طلبات تفعيل البائعين (تُنشأ من السيرفر)
+    match /sellerApps/{uid} {
+      allow read: if isMe(uid) || isAdmin();
     }
 
     // ===== المحفظة: قراءة فقط من التطبيق، وكل الكتابة من السيرفر =====

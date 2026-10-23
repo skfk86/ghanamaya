@@ -1,0 +1,247 @@
+// غنماية — البائعون والحماية من السبام (كل الإنشاءات الحساسة من السيرفر)
+// POST /api/seller  مع  Authorization: Bearer <ID token>  والجسم {"action": "...", ...}
+//
+// - apply: طلب تفعيل حساب بائع ⇒ رمز يرسله البائع من رقمه عبر واتساب، والأدمن يؤكد
+// - createListing: إنشاء إعلان بحدود (البائع الجديد/الموثّق)، أول إعلان يُراجَع، كشف المكرر والصور المسروقة
+// - startChat: بدء محادثة بحد يومي (يمنع إغراق البائعين)
+// - kycSubmit: طلب شارة التوثيق بصورة الهوية + سيلفي (ملفات خاصة في ImageKit)
+// - للأدمن: sellerDecide, listingDecide, kycUrls
+import { createHmac, randomInt } from 'node:crypto';
+import { FieldValue } from 'firebase-admin/firestore';
+import { cors, verifyToken, adminDb } from './_firebase.js';
+import { pushTo } from './_push.js';
+
+const IK_ENDPOINT = 'https://ik.imagekit.io/7uwbsw4wl/';
+const DAY = 86400000;
+class UserError extends Error { constructor(msg, code = 400) { super(msg); this.code = code; } }
+const ms = (t) => (t && t.toMillis ? t.toMillis() : 0);
+const str = (v, min, max) => typeof v === 'string' && v.trim().length >= min && v.trim().length <= max;
+
+// الحدود: البائع الجديد مقيّد، وتتسع مع التوثيق
+export const LIMITS = {
+  unverified: { active: 3, perDay: 2 },
+  verified: { active: 30, perDay: 10 },
+  chatsPerDay: { newUser: 8, normal: 25 },  // محادثات جديدة يومياً
+  newUserDays: 7
+};
+const TYPES = { goat: ['شامي', 'نوبي', 'صحراوي', 'بلدي'], sheep: ['حمري', 'كباشي', 'زغاوي', 'بلدي'], cattle: ['كناني', 'بطانة', 'بقارة', 'بلدي'], camel: ['عنافي', 'بشاري', 'بلدي'] };
+
+export default async function handler(req, res) {
+  if (cors(req, res)) return;
+  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+  const tok = await verifyToken(req);
+  if (!tok) return res.status(401).json({ error: 'سجّل الدخول أولاً' });
+  const uid = tok.uid, isAdmin = tok.admin === true, body = req.body || {}, db = adminDb();
+  try {
+    const me = await db.doc(`users/${uid}`).get();
+    if (!me.exists) throw new UserError('أكمل ملفك أولاً', 403);
+    if (me.get('banned') === true && !isAdmin) throw new UserError('حسابك موقوف', 403);
+    const fn = ACTIONS[body.action];
+    if (!fn) throw new UserError('عملية غير معروفة');
+    if (fn.admin && !isAdmin) throw new UserError('غير مصرّح', 403);
+    return res.status(200).json({ ok: true, ...(await fn({ db, uid, me, body })) });
+  } catch (e) {
+    if (e instanceof UserError) return res.status(e.code).json({ error: e.message });
+    console.error(e);
+    return res.status(500).json({ error: 'حدث خطأ، حاول مرة أخرى' });
+  }
+}
+
+function normPhone(v) {
+  let p = String(v || '').replace(/[\s-]/g, '');
+  if (/^0\d{9}$/.test(p)) p = '+249' + p.slice(1);
+  if (/^249\d{9}$/.test(p)) p = '+' + p;
+  return /^\+\d{9,15}$/.test(p) ? p : null;
+}
+const admin = (f) => Object.assign(f, { admin: true });
+
+// فرق البتات بين بصمتين (dHash 64 بت بصيغة hex)
+export function hamming(a, b) {
+  if (!/^[0-9a-f]{16}$/.test(a || '') || !/^[0-9a-f]{16}$/.test(b || '')) return 64;
+  let x = BigInt('0x' + a) ^ BigInt('0x' + b), n = 0;
+  while (x) { n += Number(x & 1n); x >>= 1n; }
+  return n;
+}
+
+export const ACTIONS = {
+  /* ===== طلب تفعيل حساب بائع ===== */
+  async apply({ db, uid, me, body }) {
+    if (me.get('isSeller') === true) throw new UserError('حسابك بائع مفعّل مسبقاً', 409);
+    const storeName = String(body.storeName || '').trim(), whatsapp = normPhone(body.whatsapp);
+    if (!str(storeName, 2, 60)) throw new UserError('اكتب اسم المتجر');
+    if (!whatsapp) throw new UserError('رقم واتساب غير صحيح');
+    // الرقم مستخدم لبائع آخر؟
+    const used = await db.collection('users').where('whatsapp', '==', whatsapp).get();
+    if (used.docs.some(d => d.id !== uid)) throw new UserError('هذا الرقم مسجّل لحساب بائع آخر', 409);
+    const ref = db.doc(`sellerApps/${uid}`);
+    const old = await ref.get();
+    // لا تغيير للرمز عند إعادة الإرسال بنفس الرقم (حتى لا يضيع رمز أُرسل فعلاً)
+    const keep = old.exists && old.get('status') === 'pending' && old.get('whatsapp') === whatsapp;
+    const code = keep ? old.get('code') : String(randomInt(100000, 999999));
+    await ref.set({ uid, name: me.get('name'), storeName, whatsapp, code, status: 'pending', city: me.get('city') || '', state: me.get('state') || '', createdAt: FieldValue.serverTimestamp() }, { merge: false });
+    const app = await db.doc('settings/app').get();
+    return { code, whatsapp, support: (app.exists && app.get('supportWhatsapp')) || '' };
+  },
+
+  /* ===== الأدمن: قبول أو رفض تفعيل البائع ===== */
+  sellerDecide: admin(async ({ db, body }) => {
+    const ref = db.doc(`sellerApps/${body.uid}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('status') !== 'pending') throw new UserError('الطلب غير موجود أو تم البت فيه', 409);
+    const a = s.data();
+    if (body.decision === 'approve') {
+      const batch = db.batch();
+      batch.update(db.doc(`users/${body.uid}`), { isSeller: true, storeName: a.storeName, whatsapp: a.whatsapp, sellerSince: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      batch.update(ref, { status: 'approved', decidedAt: FieldValue.serverTimestamp() });
+      await batch.commit();
+      await pushTo(db, body.uid, { title: '🎉 تم تفعيل حساب البائع', body: 'يمكنك الآن نشر إعلاناتك. أول إعلان يُراجع سريعاً قبل النشر.', data: { kind: 'seller' }, tag: 'seller' });
+    } else if (body.decision === 'reject') {
+      const note = String(body.note || 'لم نتمكن من تأكيد الرقم').slice(0, 200);
+      await ref.update({ status: 'rejected', note, decidedAt: FieldValue.serverTimestamp() });
+      await pushTo(db, body.uid, { title: 'لم يُفعّل حساب البائع', body: `${note}. يمكنك إعادة المحاولة من حسابك.`, data: { kind: 'seller' }, tag: 'seller' });
+    } else throw new UserError('قرار غير صالح');
+    return {};
+  }),
+
+  /* ===== إنشاء إعلان ===== */
+  async createListing({ db, uid, me, body }) {
+    if (me.get('isSeller') !== true) throw new UserError('فعّل حساب البائع أولاً', 403);
+    const d = body.data || {}, verified = me.get('verified') === true;
+    // التحقق من الحقول (نفس قواعد التطبيق)
+    if (!TYPES[d.type] || !TYPES[d.type].includes(d.breed)) throw new UserError('النوع أو السلالة غير صحيحة');
+    if (!['m', 'f'].includes(d.sex)) throw new UserError('حدد الجنس');
+    if (!Number.isInteger(d.ageMonths) || d.ageMonths < 0 || d.ageMonths > 300) throw new UserError('العمر غير صحيح');
+    if (typeof d.weightKg !== 'number' || !(d.weightKg > 0 && d.weightKg <= 2000)) throw new UserError('الوزن غير صحيح');
+    if (!Number.isInteger(d.price) || d.price <= 0 || d.price > 1e11) throw new UserError('السعر غير صحيح');
+    if (!Number.isInteger(d.qty) || d.qty < 1 || d.qty > 999) throw new UserError('الكمية غير صحيحة');
+    if (!str(d.state, 2, 40) || !str(d.city, 2, 60)) throw new UserError('حدد الموقع');
+    const description = String(d.description || '').trim().slice(0, 1000);
+    const images = Array.isArray(d.images) ? d.images.slice(0, 6) : [];
+    if (!images.length || !images.every(i => i && typeof i.url === 'string' && i.url.startsWith(`${IK_ENDPOINT}listings/${uid}/`))) throw new UserError('الصور غير صالحة');
+    const dhash = /^[0-9a-f]{16}$/.test(body.dhash || '') ? body.dhash : '';
+
+    const lim = verified ? LIMITS.verified : LIMITS.unverified;
+    const mine = await db.collection('listings').where('sellerId', '==', uid).get();
+    const live = mine.docs.filter(x => ['active', 'pending'].includes(x.get('status')));
+    if (live.length >= lim.active) throw new UserError(verified ? `وصلت للحد الأقصى (${lim.active} إعلاناً نشطاً). علّم المباع أو احذف القديم.` : `البائع غير الموثّق يُسمح له بـ ${lim.active} إعلانات نشطة. وثّق حسابك لترفع الحد.`, 429);
+    const today = mine.docs.filter(x => ms(x.get('createdAt')) > Date.now() - DAY).length;
+    if (today >= lim.perDay) throw new UserError(`الحد ${lim.perDay} إعلانات جديدة في اليوم. حاول غداً.`, 429);
+
+    // مكرر من نفس البائع: نفس النوع والسلالة والسعر والوصف، أو نفس الصورة تقريباً
+    const norm = (t) => String(t || '').replace(/\s+/g, ' ').trim();
+    if (live.some(x => x.get('type') === d.type && x.get('breed') === d.breed && x.get('price') === d.price && norm(x.get('description')) === norm(description)))
+      throw new UserError('لديك إعلان مطابق منشور. عدّل الكمية فيه بدل تكراره.', 409);
+    if (dhash && live.some(x => hamming(x.get('dhash'), dhash) <= 4)) throw new UserError('هذه الصورة مستخدمة في إعلان آخر لك. عدّل الإعلان القائم بدل تكراره.', 409);
+
+    // صور تشبه إعلاناً لبائع آخر ⇒ مراجعة (ربما صور مسروقة من الإنترنت أو من بائع آخر)
+    let review = '';
+    if (me.get('firstListingOk') !== true) review = 'أول إعلان للبائع';
+    if (dhash) {
+      const others = await db.collection('listings').where('status', 'in', ['active', 'pending', 'sold']).get();
+      if (others.docs.some(x => x.get('sellerId') !== uid && hamming(x.get('dhash'), dhash) <= 6)) review = 'صورة تشبه إعلاناً لبائع آخر';
+    }
+    const ref = db.collection('listings').doc();
+    await ref.set({
+      sellerId: uid, sellerName: me.get('storeName') || me.get('name'), type: d.type, breed: d.breed, sex: d.sex,
+      ageMonths: d.ageMonths, weightKg: d.weightKg, price: d.price, qty: d.qty, state: d.state.trim(), city: d.city.trim(),
+      description, images: images.map(i => ({ url: i.url, fileId: String(i.fileId || '') })), dhash,
+      status: review ? 'pending' : 'active', ...(review ? { reviewReason: review } : {}),
+      createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
+    });
+    return { id: ref.id, status: review ? 'pending' : 'active', reviewReason: review };
+  },
+
+  /* ===== الأدمن: مراجعة إعلان ===== */
+  listingDecide: admin(async ({ db, body }) => {
+    const ref = db.doc(`listings/${body.id}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('status') !== 'pending') throw new UserError('الإعلان غير موجود أو تمت مراجعته', 409);
+    const sellerId = s.get('sellerId');
+    if (body.decision === 'approve') {
+      await ref.update({ status: 'active', reviewReason: FieldValue.delete(), approvedAt: FieldValue.serverTimestamp(), createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      await db.doc(`users/${sellerId}`).update({ firstListingOk: true });
+      await pushTo(db, sellerId, { title: '✅ نُشر إعلانك', body: 'وافقت الإدارة على إعلانك وأصبح ظاهراً للمشترين.', data: { kind: 'listing' }, tag: `l-${body.id}` });
+    } else if (body.decision === 'reject') {
+      const note = String(body.note || 'الإعلان مخالف لشروط النشر').slice(0, 200);
+      await ref.update({ status: 'hidden', hiddenReason: 'admin', adminNote: note, updatedAt: FieldValue.serverTimestamp() });
+      await pushTo(db, sellerId, { title: 'لم يُنشر إعلانك', body: note, data: { kind: 'listing' }, tag: `l-${body.id}` });
+    } else throw new UserError('قرار غير صالح');
+    return {};
+  }),
+
+  /* ===== بدء محادثة (بحد يومي) ===== */
+  async startChat({ db, uid, me, body }) {
+    const l = await db.doc(`listings/${String(body.listingId || '')}`).get();
+    if (!l.exists || l.get('status') !== 'active') throw new UserError('الإعلان غير متاح', 404);
+    const sellerId = l.get('sellerId');
+    if (sellerId === uid) throw new UserError('هذا إعلانك');
+    const id = `${l.id}_${uid}`, ref = db.doc(`chats/${id}`);
+    if ((await ref.get()).exists) return { id };
+    if ((await db.doc(`users/${sellerId}/blocks/${uid}`).get()).exists) throw new UserError('لا يمكنك مراسلة هذا البائع', 403);
+    const isNew = Date.now() - ms(me.get('createdAt')) < LIMITS.newUserDays * DAY;
+    const cap = isNew ? LIMITS.chatsPerDay.newUser : LIMITS.chatsPerDay.normal;
+    const mine = await db.collection('chats').where('buyerId', '==', uid).get();
+    if (mine.docs.filter(c => ms(c.get('createdAt')) > Date.now() - DAY).length >= cap) throw new UserError(`وصلت لحد ${cap} محادثات جديدة اليوم. أكمل محادثاتك الحالية أو حاول غداً.`, 429);
+    const seller = await db.doc(`users/${sellerId}`).get();
+    const images = l.get('images') || [];
+    await ref.set({
+      listingId: l.id, buyerId: uid, sellerId, participants: [uid, sellerId],
+      buyerName: me.get('name'), sellerName: seller.get('storeName') || seller.get('name') || l.get('sellerName'),
+      listingTitle: `${{ goat: 'ماعز', sheep: 'خروف', cattle: 'عجل', camel: 'جمل' }[l.get('type')] || ''} ${l.get('breed')}`.trim(),
+      listingImage: (images[0] || {}).url || '', listingPrice: l.get('price'),
+      lastMessage: '', lastSenderId: '', readAt: { [uid]: FieldValue.serverTimestamp() },
+      createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
+    });
+    return { id };
+  },
+
+  /* ===== طلب شارة التوثيق: هوية + سيلفي (ملفات خاصة) ===== */
+  async kycSubmit({ db, uid, me, body }) {
+    if (me.get('isSeller') !== true) throw new UserError('للبائعين فقط', 403);
+    if (me.get('verified') === true) throw new UserError('حسابك موثّق مسبقاً', 409);
+    const ref = db.doc(`verifyRequests/${uid}`);
+    const old = await ref.get();
+    if (old.exists && old.get('status') === 'pending') throw new UserError('طلبك قيد المراجعة', 409);
+    const paths = [body.idPath, body.selfiePath];
+    if (!paths.every(p => typeof p === 'string' && p.startsWith(`/kyc/${uid}/`) && !p.includes('..'))) throw new UserError('أرفق صورة الهوية والسيلفي');
+    // نتأكد أن الملفين خاصّان فعلاً (لا يمكن فتحهما برابط عادي)
+    for (const p of paths) {
+      const f = await ikFile(p);
+      if (!f) throw new UserError('لم نجد الصورة، أعد رفعها');
+      if (f.isPrivateFile !== true) throw new UserError('خطأ في حماية الصورة، أعد رفعها');
+    }
+    await ref.set({
+      uid, name: me.get('name'), storeName: me.get('storeName'), whatsapp: me.get('whatsapp'), state: me.get('state'), city: me.get('city'),
+      note: String(body.note || '').slice(0, 500), idPath: paths[0], selfiePath: paths[1], status: 'pending', createdAt: FieldValue.serverTimestamp()
+    });
+    return {};
+  },
+
+  /* ===== الأدمن: روابط مؤقتة لصور التوثيق (10 دقائق) ===== */
+  kycUrls: admin(async ({ db, body }) => {
+    const s = await db.doc(`verifyRequests/${String(body.uid || '')}`).get();
+    if (!s.exists) throw new UserError('غير موجود', 404);
+    return { id: signedUrl(s.get('idPath')), selfie: signedUrl(s.get('selfiePath')) };
+  })
+};
+
+// رابط موقّع لملف خاص في ImageKit: HMAC-SHA1(المفتاح الخاص، المسار + وقت الانتهاء)
+export function signedUrl(path, seconds = 600) {
+  if (!path || !process.env.IMAGEKIT_PRIVATE_KEY) return '';
+  const rel = String(path).replace(/^\//, '');
+  const exp = Math.floor(Date.now() / 1000) + seconds;
+  const sig = createHmac('sha1', process.env.IMAGEKIT_PRIVATE_KEY).update(rel + exp).digest('hex');
+  return `${IK_ENDPOINT}${rel}?ik-t=${exp}&ik-s=${sig}`;
+}
+
+// تفاصيل ملف من ImageKit (للتأكد أنه خاص)
+async function ikFile(path) {
+  const key = process.env.IMAGEKIT_PRIVATE_KEY;
+  if (!key) throw new UserError('خدمة الصور غير مضبوطة', 500);
+  const dir = path.slice(0, path.lastIndexOf('/') + 1), name = path.slice(path.lastIndexOf('/') + 1);
+  const url = `https://api.imagekit.io/v1/files?path=${encodeURIComponent(dir)}&searchQuery=${encodeURIComponent(`name = "${name}"`)}`;
+  const r = await fetch(url, { headers: { Authorization: 'Basic ' + Buffer.from(key + ':').toString('base64') } });
+  if (!r.ok) return null;
+  const list = await r.json().catch(() => []);
+  return Array.isArray(list) ? list.find(f => f.filePath === path) || null : null;
+}

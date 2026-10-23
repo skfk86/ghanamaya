@@ -131,7 +131,7 @@ function toast(m) { const t = document.createElement('div'); t.className = 'toas
 async function run(btn, fn, ok) { btn.disabled = true; try { await fn(); if (ok) toast(ok); } catch (e) { toast(e.code === 'permission-denied' ? 'لا صلاحية' : 'حدث خطأ'); console.error(e); } finally { btn.disabled = false; } }
 
 const S = { me: null, sec: 'home', counts: {}, sel: null, filter: 'open' };
-const SECTIONS = [['home', 'نظرة عامة', 'home'], ['reports', 'البلاغات', 'flag'], ['verify', 'التوثيق', 'badge'], ['listings', 'الإعلانات', 'store'], ['users', 'المستخدمون', 'user'], ['orders', 'الطلبات', 'bag'], ['finance', 'المالية', 'wallet']];
+const SECTIONS = [['home', 'نظرة عامة', 'home'], ['sellers', 'تفعيل البائعين', 'user'], ['reports', 'البلاغات', 'flag'], ['verify', 'التوثيق', 'badge'], ['listings', 'الإعلانات', 'store'], ['users', 'المستخدمون', 'user'], ['orders', 'الطلبات', 'bag'], ['finance', 'المالية', 'wallet']];
 
 /* ---------- الدخول ---------- */
 function renderLogin(msg = '') {
@@ -168,12 +168,17 @@ async function refreshCounts() {
     getCountFromServer(query(collection(db, 'orders'), where('status', '==', 'disputed')))
   ]);
   S.counts.finance = w.data().count + d.data().count;
+  const [sa, lp] = await Promise.all([
+    getCountFromServer(query(collection(db, 'sellerApps'), where('status', '==', 'pending'))),
+    getCountFromServer(query(collection(db, 'listings'), where('status', '==', 'pending')))
+  ]);
+  S.counts.sellers = sa.data().count; S.counts.listings = lp.data().count;
 }
 async function go() {
   shell(loading());
   try { await refreshCounts(); } catch (e) {}
   shell(loading());
-  try { await ({ home, reports, verify, listings, users, orders, finance })[S.sec](); }
+  try { await ({ home, sellers, reports, verify, listings, users, orders, finance })[S.sec](); }
   catch (e) { console.error(e); $('#main').innerHTML = `<div class="empty">تعذّر التحميل: ${esc(e.code || e.message)}</div>`; }
 }
 
@@ -187,7 +192,7 @@ async function home() {
   ]);
   const [wal, recent] = await Promise.all([getDoc(doc(db, 'wallets', 'platform')).catch(() => null), getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(6))).catch(() => ({ docs: [] }))]);
   const plat = wal && wal.exists() ? (wal.get('balance') || 0) : 0;
-  const todo = [['reports', 'flag', 'بلاغات مفتوحة', S.counts.reports || 0], ['verify', 'badge', 'طلبات توثيق', S.counts.verify || 0], ['finance', 'wallet', 'سحوبات مجمّدة ونزاعات', S.counts.finance || 0]];
+  const todo = [['sellers', 'user', 'بائعون بانتظار التفعيل', S.counts.sellers || 0], ['listings', 'store', 'إعلانات للمراجعة', S.counts.listings || 0], ['reports', 'flag', 'بلاغات مفتوحة', S.counts.reports || 0], ['verify', 'badge', 'طلبات توثيق', S.counts.verify || 0], ['finance', 'wallet', 'سحوبات مجمّدة ونزاعات', S.counts.finance || 0]];
   const hr = new Date().getHours();
   const ST = { pending: ['جديد', 't-orange'], accepted: ['مقبول', 't-blue'], paid: ['مدفوع', 't-blue'], completed: ['مكتمل', 't-green'], rejected: ['مرفوض', 't-gray'], cancelled: ['ملغى', 't-gray'], disputed: ['نزاع', 't-red'] };
   const PM = { wallet: 'المحفظة', bankak: 'بنكك', cash: 'نقداً' };
@@ -297,12 +302,17 @@ async function verify() {
   const snap = await getDocs(query(collection(db, 'verifyRequests'), where('status', '==', 'pending')));
   const list = snap.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => ms(a.createdAt) - ms(b.createdAt));
   $('#main').innerHTML = `<div class="head"><h1>طلبات التوثيق</h1><span class="muted">${list.length} بانتظار المراجعة</span></div>
-    ${list.length ? `<div class="card scroll"><table><thead><tr><th>التاجر</th><th>الموقع</th><th>واتساب</th><th>نبذة</th><th>منذ</th><th></th></tr></thead><tbody>${list.map(v => `
-      <tr><td><b>${esc(v.storeName)}</b><div class="muted">${esc(v.name)}</div></td><td>${esc(v.city)}، ${esc(v.state)}</td>
+    ${list.length ? `<div class="card scroll"><table><thead><tr><th>التاجر</th><th>الهوية والسيلفي</th><th>واتساب</th><th>نبذة</th><th>منذ</th><th></th></tr></thead><tbody>${list.map(v => `
+      <tr><td><b>${esc(v.storeName)}</b><div class="muted">${esc(v.name)} · ${esc(v.city)}</div></td><td>${v.idPath ? `<button class="btn" data-kyc="${v.uid}">عرض الصور</button><div class="gallery" id="kyc-${v.uid}" style="margin-top:6px"></div>` : '<span class="tag t-red">بدون صور</span>'}</td>
       <td><a href="https://wa.me/${esc(String(v.whatsapp).replace(/\D/g, ''))}" target="_blank" dir="ltr">${esc(v.whatsapp)}</a></td>
       <td style="max-width:260px">${esc(v.note) || '<span class="muted">—</span>'}</td><td class="muted">${ago(v.createdAt)}</td>
       <td><div class="actions"><button class="btn primary" data-ok="${v.uid}">توثيق</button><button class="btn" data-no="${v.uid}">رفض</button></div></td></tr>`).join('')}</tbody></table>
-      <p class="muted">تواصل مع التاجر عبر واتساب وتحقق من هويته ومكان مواشيه قبل التوثيق.</p></div>` : '<div class="card empty">لا توجد طلبات توثيق.</div>'}`;
+      <p class="muted">طابق الاسم في الهوية مع اسم صاحب الحساب، وتأكد أن الوجه في السيلفي هو نفسه في الهوية، وأن الصور غير معدّلة. عند الشك تواصل معه عبر واتساب.</p></div>` : '<div class="card empty">لا توجد طلبات توثيق.</div>'}`;
+  $$('[data-kyc]').forEach(b => b.onclick = () => run(b, async () => {
+    const u = await sellerApi('kycUrls', { uid: b.dataset.kyc });
+    $(`#kyc-${b.dataset.kyc}`).innerHTML = [u.id, u.selfie].filter(Boolean).map(x => `<img src="${esc(x)}" alt="" data-full="${esc(x)}">`).join('');
+    $$(`#kyc-${b.dataset.kyc} img`).forEach(i => i.onclick = () => window.open(i.dataset.full, '_blank'));
+  }, 'الروابط صالحة 10 دقائق'));
   $$('[data-ok]').forEach(b => b.onclick = () => run(b, async () => {
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', b.dataset.ok), { verified: true, updatedAt: serverTimestamp() });
@@ -324,18 +334,22 @@ async function listings() {
     $('#rows').innerHTML = list.map(l => `<tr>
       <td><div style="display:flex;gap:10px;align-items:center"><img class="thumb" src="${esc(ik((l.images || [])[0]?.url, 120))}" alt=""><div><b>${esc(ltitle(l))}</b><div class="muted">${esc(l.sellerName)}</div></div></div></td>
       <td>${money(l.price)}</td><td>${esc(l.city)}</td>
-      <td><span class="tag ${l.status === 'active' ? 't-green' : l.status === 'hidden' ? 't-red' : 't-gray'}">${{ active: 'نشط', hidden: 'موقوف', sold: 'مباع' }[l.status]}</span></td>
+      <td><span class="tag ${l.status === 'active' ? 't-green' : l.status === 'hidden' ? 't-red' : l.status === 'pending' ? 't-orange' : 't-gray'}">${{ active: 'نشط', hidden: 'موقوف', sold: 'مباع', pending: 'للمراجعة' }[l.status]}</span>${l.reviewReason ? `<div class="muted" style="font-size:11px">${esc(l.reviewReason)}</div>` : ''}</td>
       <td class="muted">${ago(l.createdAt)}</td>
-      <td><div class="actions">${l.status === 'hidden' ? `<button class="btn" data-un="${l.id}">إعادة نشر</button>` : `<button class="btn" data-hide="${l.id}">إيقاف</button>`}<button class="btn orange" data-del="${l.id}">حذف</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="empty">لا نتائج</td></tr>';
+      <td><div class="actions">${l.status === 'pending' ? `<button class="btn primary" data-lok="${l.id}">موافقة ونشر</button><button class="btn" data-lno="${l.id}">رفض</button>` : l.status === 'hidden' ? `<button class="btn" data-un="${l.id}">إعادة نشر</button>` : `<button class="btn" data-hide="${l.id}">إيقاف</button>`}<button class="btn orange" data-del="${l.id}">حذف</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="empty">لا نتائج</td></tr>';
     $$('[data-hide]').forEach(b => b.onclick = () => { const why = prompt('سبب الإيقاف (يظهر للبائع):', ''); if (why === null) return; run(b, async () => { await updateDoc(doc(db, 'listings', b.dataset.hide), { status: 'hidden', hiddenReason: 'admin', adminNote: why, updatedAt: serverTimestamp() }); all.find(x => x.id === b.dataset.hide).status = 'hidden'; draw($('#q').value, $('#st').value); }, 'أُوقف'); });
+    $$('[data-lok]').forEach(b => b.onclick = () => run(b, async () => { await sellerApi('listingDecide', { id: b.dataset.lok, decision: 'approve' }); all.find(x => x.id === b.dataset.lok).status = 'active'; draw($('#q').value, $('#st').value); }, 'نُشر الإعلان'));
+    $$('[data-lno]').forEach(b => b.onclick = () => { const note = prompt('سبب الرفض (يظهر للبائع):', 'الصور غير حقيقية أو مخالفة'); if (note === null) return; run(b, async () => { await sellerApi('listingDecide', { id: b.dataset.lno, decision: 'reject', note }); all.find(x => x.id === b.dataset.lno).status = 'hidden'; draw($('#q').value, $('#st').value); }, 'رُفض'); });
     $$('[data-un]').forEach(b => b.onclick = () => run(b, async () => { await updateDoc(doc(db, 'listings', b.dataset.un), { status: 'active', hiddenReason: '', adminNote: '', updatedAt: serverTimestamp() }); all.find(x => x.id === b.dataset.un).status = 'active'; draw($('#q').value, $('#st').value); }, 'أُعيد نشره'));
     $$('[data-del]').forEach(b => b.onclick = () => { if (!confirm('حذف الإعلان نهائياً؟')) return; run(b, async () => { await deleteDoc(doc(db, 'listings', b.dataset.del)); all.splice(all.findIndex(x => x.id === b.dataset.del), 1); draw($('#q').value, $('#st').value); }, 'حُذف'); });
   };
   $('#main').innerHTML = `<div class="head"><h1>الإعلانات</h1><div class="actions"><input class="input" id="q" placeholder="بحث: سلالة، بائع، مدينة" style="width:240px">
-    <select class="input" id="st" style="width:140px"><option value="all">الكل</option><option value="active">نشطة</option><option value="hidden">موقوفة</option><option value="sold">مباعة</option></select></div></div>
+    <select class="input" id="st" style="width:140px"><option value="all">الكل</option><option value="pending">للمراجعة</option><option value="active">نشطة</option><option value="hidden">موقوفة</option><option value="sold">مباعة</option></select></div></div>
     <div class="card scroll"><table><thead><tr><th>الإعلان</th><th>السعر</th><th>المدينة</th><th>الحالة</th><th>نُشر</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>`;
   $('#q').oninput = () => draw($('#q').value, $('#st').value); $('#st').onchange = () => draw($('#q').value, $('#st').value);
-  draw();
+  const anyPending = all.some(l => l.status === 'pending');
+  if (anyPending) $('#st').value = 'pending';
+  draw('', anyPending ? 'pending' : 'all');
 }
 
 /* ---------- المستخدمون ---------- */
@@ -382,6 +396,38 @@ const usd = (c) => ((c || 0) / 100).toFixed(2);
 async function adminNotify(adminEvent, to, note = '') {
   try { const t = await S.me.getIdToken(); await fetch('/api/notify', { method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ adminEvent, to, note }) }); } catch (e) {}
 }
+async function sellerApi(action, data) {
+  const t = await S.me.getIdToken();
+  const r = await fetch('/api/seller', { method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...data }) });
+  const out = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(out.error || 'فشل'); throw new Error(out.error); }
+  return out;
+}
+
+/* ---------- تفعيل البائعين (تأكيد واتساب) ---------- */
+async function sellers() {
+  const [snap, app] = await Promise.all([getDocs(query(collection(db, 'sellerApps'), where('status', '==', 'pending'))), getDoc(doc(db, 'settings', 'app'))]);
+  const list = snap.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => ms(a.createdAt) - ms(b.createdAt));
+  const support = app.exists() ? app.get('supportWhatsapp') || '' : '';
+  $('#main').innerHTML = `<div class="head"><div><h1>تفعيل البائعين</h1><span class="muted">${list.length} بانتظار تأكيد الرقم</span></div></div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>${ic('user')}رقم واتساب الدعم</h2>
+      <span class="muted">البائع يرسل رمز التفعيل إلى هذا الرقم. ${support ? '' : '<b style="color:var(--danger)">غير مضبوط: البائعون لا يستطيعون إرسال الرمز.</b>'}</span>
+      <div class="actions"><input class="input" id="sup" dir="ltr" placeholder="+2499XXXXXXXX" value="${esc(support)}" style="max-width:260px"><button class="btn primary" id="supSave">حفظ</button></div></div>
+    ${list.length ? `<div class="card scroll"><table><thead><tr><th>البائع</th><th>الموقع</th><th>رقمه</th><th>الرمز المتوقع</th><th>منذ</th><th></th></tr></thead><tbody>${list.map(a => `
+      <tr><td><b>${esc(a.storeName)}</b><div class="muted">${esc(a.name || '')}</div></td><td>${esc(a.city || '')}، ${esc(a.state || '')}</td>
+      <td><a href="https://wa.me/${esc(String(a.whatsapp).replace(/\D/g, ''))}" target="_blank" dir="ltr">${esc(a.whatsapp)}</a></td>
+      <td><b dir="ltr" style="font-size:18px;letter-spacing:3px;color:var(--brand)">${esc(a.code)}</b></td><td class="muted">${ago(a.createdAt)}</td>
+      <td><div class="actions"><button class="btn primary" data-sok="${a.uid}">وصلني الرمز ✓ فعّل</button><button class="btn" data-sno="${a.uid}">رفض</button></div></td></tr>`).join('')}</tbody></table>
+      <p class="muted">فعّل فقط إذا وصلتك رسالة واتساب <b>من نفس الرقم</b> وفيها <b>نفس الرمز</b>. الرقم المختلف أو الرمز الخاطئ = رفض.</p></div>` : '<div class="card empty">لا توجد طلبات تفعيل.</div>'}`;
+  $('#supSave').onclick = (e) => run(e.currentTarget, async () => {
+    let v = $('#sup').value.replace(/[\s-]/g, ''); if (/^0\d{9}$/.test(v)) v = '+249' + v.slice(1);
+    if (!/^\+\d{9,15}$/.test(v)) throw new Error('رقم غير صحيح');
+    await setDoc(doc(db, 'settings', 'app'), { supportWhatsapp: v, updatedAt: serverTimestamp() }, { merge: true }); await go();
+  }, 'حُفظ رقم الدعم');
+  $$('[data-sok]').forEach(b => b.onclick = () => run(b, async () => { await sellerApi('sellerDecide', { uid: b.dataset.sok, decision: 'approve' }); await go(); }, 'فُعّل البائع'));
+  $$('[data-sno]').forEach(b => b.onclick = () => { const note = prompt('سبب الرفض (يظهر للمستخدم):', 'لم يصلنا الرمز من نفس الرقم'); if (note === null) return; run(b, async () => { await sellerApi('sellerDecide', { uid: b.dataset.sno, decision: 'reject', note }); await go(); }, 'رُفض'); });
+}
+
 async function api(action, data) {
   const t = await S.me.getIdToken();
   const r = await fetch('/api/wallet', { method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...data }) });

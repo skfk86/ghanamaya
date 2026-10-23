@@ -16,7 +16,8 @@ export default async function handler(req, res) {
   if (!uid) return res.status(401).json({ error: 'سجّل الدخول أولاً' });
 
   // صور الإعلانات للبائعين فقط، وصور المحادثات لأي مستخدم له ملف
-  const forChat = req.query && req.query.purpose === 'chat';
+  const purpose = req.query && req.query.purpose;
+  const forChat = purpose === 'chat', forKyc = purpose === 'kyc';
   const user = await adminDb().doc(`users/${uid}`).get();
   if (!user.exists) return res.status(403).json({ error: 'أكمل ملفك أولاً' });
   if (!forChat && user.get('isSeller') !== true) {
@@ -27,5 +28,6 @@ export default async function handler(req, res) {
   const expire = Math.floor(Date.now() / 1000) + 600;
   const signature = createHmac('sha1', key).update(token + expire).digest('hex');
   res.setHeader('Cache-Control', 'no-store');
-  return res.status(200).json({ token, expire, signature, folder: forChat ? `/chat/${uid}` : `/listings/${uid}` });
+  // صور التوثيق تُرفع خاصة (isPrivateFile) ولا تُفتح إلا برابط موقّع من الأدمن
+  return res.status(200).json({ token, expire, signature, folder: forChat ? `/chat/${uid}` : forKyc ? `/kyc/${uid}` : `/listings/${uid}`, private: forKyc });
 }

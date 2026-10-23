@@ -224,6 +224,7 @@ html,body{overflow-x:hidden;max-width:100%}
 .s-active{background:var(--brand-soft);color:var(--brand)}
 .s-sold{background:var(--line);color:var(--ink-2)}
 .s-hidden{background:var(--danger-soft);color:var(--danger)}
+.s-pending{background:var(--accent-soft);color:var(--accent-ink)}
 .actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .actions button{height:40px;border-radius:12px;border:0;font-size:13px;font-weight:700;background:var(--bg)}
 .radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);flex-shrink:0}
@@ -594,6 +595,26 @@ async function walletApi(action, data = {}) {
   const out = await r.json().catch(() => ({}));
   if (!r.ok) throw { userMsg: out.error || 'تعذّر الاتصال بالمحفظة' };
   return out;
+}
+async function sellerApi(action, data = {}) {
+  const t = await S.user.getIdToken();
+  const r = await fetch(`${API_BASE}/api/seller`, { method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...data }) });
+  const out = await r.json().catch(() => ({}));
+  if (!r.ok) throw { userMsg: out.error || 'تعذّر الاتصال بالخادم' };
+  return out;
+}
+// بصمة الصورة (dHash 64 بت) لكشف الصور المكررة أو المنسوخة من إعلانات أخرى
+async function imageHash(blob) {
+  try {
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement('canvas'); c.width = 9; c.height = 8;
+    const x = c.getContext('2d'); x.drawImage(bmp, 0, 0, 9, 8);
+    const d = x.getImageData(0, 0, 9, 8).data, g = [];
+    for (let i = 0; i < 72; i++) g.push(d[i * 4] * .299 + d[i * 4 + 1] * .587 + d[i * 4 + 2] * .114);
+    let bits = '';
+    for (let y = 0; y < 8; y++) for (let k = 0; k < 8; k++) bits += g[y * 9 + k] > g[y * 9 + k + 1] ? '1' : '0';
+    return BigInt('0b' + bits).toString(16).padStart(16, '0');
+  } catch (e) { return ''; }
 }
 function startWallet(uid) {
   if (walletUnsub) walletUnsub();
@@ -982,7 +1003,7 @@ async function renderDetails({ id }) {
       ${imgs.length > 1 ? `<div class="dots">${imgs.map((_, i) => `<span class="${i ? '' : 'on'}"></span>`).join('')}</div>` : ''}
     </div>
     <div class="sheet-body">
-      ${l.status !== 'active' ? `<div class="note ${l.status === 'hidden' ? 'note-warn' : 'note-ok'}">${l.status === 'sold' ? 'هذا الإعلان مباع.' : 'هذا الإعلان موقوف بعد مراجعة الإدارة.'}</div>` : ''}
+      ${l.status !== 'active' ? `<div class="note ${l.status === 'hidden' ? 'note-warn' : 'note-ok'}">${l.status === 'sold' ? 'هذا الإعلان مباع.' : l.status === 'pending' ? 'هذا الإعلان قيد مراجعة الإدارة ولا يظهر للمشترين بعد.' : 'هذا الإعلان موقوف بعد مراجعة الإدارة.'}</div>` : ''}
       <div class="stack" style="gap:4px">
         <div class="row" style="align-items:flex-start;justify-content:space-between"><h1 style="font-size:22px">${esc(titleOf(l))}</h1><span class="price" style="font-size:20px">${money(l.price)}</span></div>
         <span class="muted row" style="gap:4px">${ic('pin', 'style="width:14px;height:14px"')}${esc(l.city)}، ${esc(l.state)} · ${ago(l.createdAt)}</span>
@@ -1124,10 +1145,11 @@ async function uploadImage(blob, purpose = '') {
   fd.append('token', a.token);
   fd.append('folder', a.folder);
   fd.append('useUniqueFileName', 'true');
+  if (a.private) fd.append('isPrivateFile', 'true');
   const u = await fetch(IK_UPLOAD, { method: 'POST', body: fd });
   const res = await u.json().catch(() => ({}));
   if (!u.ok || !res.url) throw Object.assign(new Error('upload'), { userMsg: 'فشل رفع الصورة، تحقق من الإنترنت' });
-  return { url: res.url, fileId: res.fileId };
+  return { url: res.url, fileId: res.fileId, filePath: res.filePath };
 }
 
 /* ---------- إضافة / تعديل إعلان ---------- */
@@ -1225,6 +1247,8 @@ async function renderEditor({ id } = {}) {
     busy(e.currentTarget, async () => {
       const prog = $('#prog'), bar = $('#progBar'), txt = $('#progText');
       try {
+        const firstBlob = st.photos[0] && st.photos[0].blob;
+        const dhash = !existing && firstBlob ? await imageHash(firstBlob) : '';
         const pending = st.photos.filter(ph => ph.blob);
         if (pending.length) prog.classList.remove('hidden');
         let done = 0;
@@ -1239,13 +1263,16 @@ async function renderEditor({ id } = {}) {
           ageMonths: age, weightKg: weight, price, qty: st.qty, state, city, description: desc,
           images: st.photos.map(ph => ({ url: ph.url, fileId: ph.fileId })), updatedAt: serverTimestamp()
         };
+        let out = null;
         if (existing) {
           await updateDoc(doc(db, 'listings', existing.id), data);
         } else {
-          await addDoc(collection(db, 'listings'), { ...data, sellerId: S.user.uid, status: 'active', createdAt: serverTimestamp() });
+          const { updatedAt, ...clean } = data;
+          out = await sellerApi('createListing', { data: clean, dhash });
         }
         S.listings = null; haptic();
-        toast(existing ? 'تم حفظ التعديلات' : 'نُشر إعلانك', 'success');
+        if (out && out.status === 'pending') toast(`إعلانك قيد المراجعة (${out.reviewReason}). يُنشر بعد موافقة الإدارة، عادة خلال ساعات.`, 'success');
+        else toast(existing ? 'تم حفظ التعديلات' : 'نُشر إعلانك', 'success');
         S.stack = existing ? [] : []; S.tab = 'home';
         if (existing) push('mine'); else render();
       } catch (err) { prog.classList.add('hidden'); toast(errMsg(err), 'error'); }
@@ -1261,7 +1288,7 @@ async function renderMine({ tab = 'active' } = {}) {
     const snap = await getDocs(query(collection(db, 'listings'), where('sellerId', '==', S.user.uid)));
     items = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => millis(b.createdAt) - millis(a.createdAt));
   } catch (e) { return renderError(e); }
-  const groups = [['active', 'نشطة'], ['sold', 'مباعة'], ['hidden', 'موقوفة']];
+  const groups = [['active', 'نشطة'], ['pending', 'قيد المراجعة'], ['sold', 'مباعة'], ['hidden', 'موقوفة']];
   const list = items.filter(l => l.status === tab);
   app.innerHTML = `
   <div class="screen" style="padding-bottom:110px">
@@ -1273,12 +1300,13 @@ async function renderMine({ tab = 'active' } = {}) {
         <div class="row" style="align-items:flex-start;gap:12px">
           <button class="thumb" data-open="${l.id}" aria-label="${esc(titleOf(l))}">${l.images[0] ? `<img src="${esc(ik(l.images[0].url, 200))}" alt="">` : ''}</button>
           <div class="grow stack" style="gap:2px">
-            <div class="row" style="justify-content:space-between;align-items:flex-start"><b>${esc(titleOf(l))}</b><span class="status s-${l.status}">${{ active: 'نشط', sold: 'مباع', hidden: 'موقوف' }[l.status]}</span></div>
+            <div class="row" style="justify-content:space-between;align-items:flex-start"><b>${esc(titleOf(l))}</b><span class="status s-${l.status}">${{ active: 'نشط', sold: 'مباع', hidden: 'موقوف', pending: 'قيد المراجعة' }[l.status]}</span></div>
             <span class="muted">${ageText(l.ageMonths)} · ${l.weightKg} كجم · ${l.qty} متاح</span>
             <span class="price">${money(l.price)}</span>
             <span class="muted" style="font-size:12px">${ago(l.createdAt)}</span>
           </div>
         </div>
+        ${l.status === 'pending' ? `<div class="note note-ok">${ic('clock', 'style="width:18px;height:18px"')}<span>تراجعه الإدارة قبل النشر${l.reviewReason ? ` (${esc(l.reviewReason)})` : ''}. سيصلك إشعار فور الموافقة.</span></div>` : ''}
         ${l.status === 'hidden' ? `<div class="note note-warn">${l.hiddenReason === 'auto' ? 'أُخفي مؤقتاً بعد عدة بلاغات، وهو قيد مراجعة الإدارة.' : 'أوقفته الإدارة بعد مراجعة بلاغ.'}${l.adminNote ? ` السبب: ${esc(l.adminNote)}` : ''} عدّل الإعلان بصور ومعلومات صحيحة ثم تواصل مع الدعم.</div>` : ''}
         <div class="actions">
           <button data-edit="${l.id}">${'تعديل'}</button>
@@ -1376,17 +1404,8 @@ function bindChats() { $$('[data-chat]').forEach(b => b.onclick = () => push('ch
 async function openChat(l, seller) {
   const id = `${l.id}_${S.user.uid}`;
   try {
-    const ref = doc(db, 'chats', id);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      await setDoc(ref, {
-        listingId: l.id, buyerId: S.user.uid, sellerId: l.sellerId, participants: [S.user.uid, l.sellerId],
-        buyerName: S.profile.name, sellerName: seller.storeName || seller.name || l.sellerName,
-        listingTitle: titleOf(l), listingImage: (l.images[0] || {}).url || '', listingPrice: l.price,
-        lastMessage: '', lastSenderId: '', updatedAt: serverTimestamp(), createdAt: serverTimestamp(),
-        readAt: { [S.user.uid]: serverTimestamp() }
-      });
-    }
+    const snap = await getDoc(doc(db, 'chats', id)).catch(() => null);
+    if (!snap || !snap.exists()) await sellerApi('startChat', { listingId: l.id });
     push('chat', { id });
   } catch (e) {
     toast(e.code === 'permission-denied' ? 'لا يمكنك مراسلة هذا البائع' : errMsg(e), 'error');
@@ -1400,7 +1419,9 @@ function notify(chatId, messageId, event) {
   })).catch(() => {});
 }
 async function sendMessage(chat, data, preview) {
-  const ref = await addDoc(collection(db, 'chats', chat.id, 'messages'), { ...data, senderId: S.user.uid, createdAt: serverTimestamp() });
+  const add = () => addDoc(collection(db, 'chats', chat.id, 'messages'), { ...data, senderId: S.user.uid, createdAt: serverTimestamp() });
+  // حد الإغراق: رسالة كل ثانية؛ إن رُفضت لأنها سريعة نعيد المحاولة مرة
+  const ref = await add().catch(async (e) => { if (e.code !== 'permission-denied') throw e; await new Promise(r => setTimeout(r, 1300)); return add(); });
   await updateDoc(doc(db, 'chats', chat.id), {
     lastMessage: preview, lastSenderId: S.user.uid, updatedAt: serverTimestamp(), [`readAt.${S.user.uid}`]: serverTimestamp()
   });
@@ -1710,6 +1731,17 @@ function renderOrder({ id }) {
     drawOrder({ id, ...snap.data() });
   }, (e) => renderError(e));
 }
+// رسالة نهاية الطلب تختلف حسب من يقرؤها ومن أنهاه
+function endText(o, isSeller, me) {
+  const wallet = o.paymentMethod === 'wallet' && o.escrow && o.escrow.status === 'refunded';
+  const refund = wallet ? (isSeller ? ' أُعيد المبلغ المحجوز للمشتري.' : ' أُعيد المبلغ كاملاً لمحفظتك.') : '';
+  if (o.status === 'rejected') return isSeller ? `اعتذرتَ عن هذا الطلب، وأُبلغ المشتري.${refund}` : `اعتذر البائع عن هذا الطلب.${refund} يمكنك تصفح إعلانات مشابهة.`;
+  const by = o.cancelledBy || o.refundedBy || '';
+  if (by === me || (by === 'buyer' && !isSeller) || (by === 'seller' && isSeller)) return `ألغيتَ هذا الطلب، وأُبلغ الطرف الآخر.${refund}`;
+  if (by === 'admin') return `أُلغي الطلب بقرار من الإدارة.${refund}`;
+  if (by && by !== 'auto') return `${isSeller ? 'ألغى المشتري' : 'ألغى البائع'} هذا الطلب.${refund}`;
+  return `أُلغي هذا الطلب.${refund}`;
+}
 function drawOrder(o) {
   const me = S.user.uid, isSeller = o.sellerId === me, bank = o.paymentMethod === 'bankak';
   const flow = bank ? ['pending', 'accepted', 'paid', 'completed'] : ['pending', 'accepted', 'completed'];
@@ -1717,7 +1749,7 @@ function drawOrder(o) {
   const ended = o.status === 'rejected' || o.status === 'cancelled';
   const cur = ended ? -1 : flow.indexOf(o.status);
   const timeline = ended
-    ? `<div class="note note-warn">${o.status === 'rejected' ? 'اعتذر البائع عن هذا الطلب.' : 'أُلغي هذا الطلب.'}${o.cancelReason ? ` السبب: ${esc(o.cancelReason)}` : ''}</div>`
+    ? `<div class="note note-warn">${ic(o.status === 'rejected' ? 'close' : 'block', 'style="width:20px;height:20px"')}<span>${endText(o, isSeller, me)}${o.cancelReason ? `<br><b>السبب:</b> ${esc(o.cancelReason)}` : ''}</span></div>`
     : `<div class="tl">${flow.map((k, i) => `
         <div class="step"><div class="rail"><span class="dot ${i <= cur ? 'done' : i === cur + 1 ? 'now' : ''}">${i <= cur ? ic('check') : ''}</span>${i < flow.length - 1 ? `<span class="line ${i < cur ? 'done' : ''}"></span>` : ''}</div>
         <div class="txt"><b style="font-size:14px;${i > cur ? 'color:var(--muted);font-weight:500' : ''}">${labels[k]}</b></div></div>`).join('')}</div>`;
@@ -1777,7 +1809,7 @@ function drawOrder(o) {
       ${o.note ? `<div class="card" style="font-size:14px"><span class="muted">ملاحظة المشتري: </span>${esc(o.note)}</div>` : ''}
       <div class="card">${timeline}</div>
       ${hint ? `<div class="note ${o.status === 'disputed' ? 'note-warn' : 'note-ok'}">${ic('help', 'style="width:20px;height:20px"')}<span>${hint}</span></div>` : ''}
-      ${wallet && o.escrow ? `<div class="card row" style="gap:12px"><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>${U(esc0.amount)}</b><span class="muted">${{ held: 'محجوز في التطبيق', released: 'حُوّل للبائع', refunded: 'أُعيد للمشتري' }[esc0.status] || ''}</span></span><span class="muted" style="font-size:12px"><bdi dir="ltr">1 USDT = ${Number(esc0.rate).toLocaleString('en-US')}</bdi> ج.س</span></div>` : ''}
+      ${wallet && o.escrow ? `<div class="card row" style="gap:12px"><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>${U(esc0.amount)}</b><span class="muted">${{ held: 'محجوز في التطبيق', released: isSeller ? 'وصل لمحفظتك' : 'حُوّل للبائع', refunded: isSeller ? 'أُعيد للمشتري' : 'أُعيد لمحفظتك' }[esc0.status] || ''}</span></span><span class="muted" style="font-size:12px"><bdi dir="ltr">1 USDT = ${Number(esc0.rate).toLocaleString('en-US')}</bdi> ج.س</span></div>` : ''}
       ${showBank ? `<div class="card stack" style="gap:10px">
         <h2 style="font-size:15px">حساب بنكك للبائع</h2>
         ${o.bankak ? `<div class="copy"><span class="grow ltr" style="text-align:left">${esc(o.bankak)}</span><button class="btn-link" id="copyBank">نسخ</button></div>` : `<span class="muted">لم يضف البائع رقم حساب. اطلبه منه في المحادثة.</span>`}
@@ -1840,8 +1872,8 @@ function drawOrder(o) {
       }
       set(bank ? { status: 'accepted', bankak } : { status: 'accepted' }, 'قبلت الطلب')(e);
     };
-    if (a === 'reject') b.onclick = () => reasonSheet('الاعتذار عن الطلب', 'اعتذار', (r) => updateDoc(doc(db, 'orders', o.id), { status: 'rejected', cancelReason: r, updatedAt: serverTimestamp() }).then(() => notifyOrder(o.id)));
-    if (a === 'cancel') b.onclick = () => reasonSheet('إلغاء الطلب', 'إلغاء الطلب', (r) => updateDoc(doc(db, 'orders', o.id), { status: 'cancelled', cancelReason: r, updatedAt: serverTimestamp() }).then(() => notifyOrder(o.id)));
+    if (a === 'reject') b.onclick = () => reasonSheet('الاعتذار عن الطلب', 'اعتذار', (r) => updateDoc(doc(db, 'orders', o.id), { status: 'rejected', cancelReason: r, cancelledBy: S.user.uid, updatedAt: serverTimestamp() }).then(() => notifyOrder(o.id)));
+    if (a === 'cancel') b.onclick = () => reasonSheet('إلغاء الطلب', 'إلغاء الطلب', (r) => updateDoc(doc(db, 'orders', o.id), { status: 'cancelled', cancelReason: r, cancelledBy: S.user.uid, updatedAt: serverTimestamp() }).then(() => notifyOrder(o.id)));
     if (a === 'paid') b.onclick = () => confirmSheet('هل وصل المبلغ فعلاً؟', 'تأكد من وصوله في تطبيق بنكك نفسه، وليس من صورة الإشعار فقط.', 'نعم، وصل', async () => {
       await updateDoc(doc(db, 'orders', o.id), { status: 'paid', updatedAt: serverTimestamp() }); notifyOrder(o.id);
     });
@@ -2142,24 +2174,34 @@ async function bindVerify() {
   try { const r = await getDoc(doc(db, 'verifyRequests', S.user.uid)); req = r.exists() ? r.data() : null; } catch (e) {}
   if (req && req.status === 'pending') { $('#verifyTxt').innerHTML = 'طلب التوثيق <strong>قيد المراجعة</strong>. سنُعلمك بالنتيجة.'; $('#verifyCta').remove(); btn.onclick = null; return; }
   if (req && req.status === 'rejected') $('#verifyTxt').innerHTML = `لم يُقبل طلبك السابق${req.decisionNote ? `: ${esc(req.decisionNote)}` : ''}. يمكنك التقديم مجدداً.`;
-  btn.onclick = () => openSheet(`
+  btn.onclick = () => {
+    const st = { id: null, selfie: null };
+    const slot = (k, title, hint, icon) => `<label class="opt" style="cursor:pointer" for="f_${k}"><span class="tile" id="pv_${k}" style="overflow:hidden">${ic(icon)}</span><span class="grow" style="display:flex;flex-direction:column"><b>${title}</b><span class="muted" id="st_${k}">${hint}</span></span>${ic('camera', 'style="color:var(--brand)"')}<input type="file" accept="image/*" id="f_${k}" hidden></label>`;
+    openSheet(`
     <div class="stack">
-      <div class="row"><h2 class="grow" style="font-size:19px">طلب شارة التوثيق</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
-      <p class="muted" style="margin:-6px 0 0;font-size:14px">سيتواصل معك فريق غنماية عبر واتساب للتحقق من هويتك ومكان مزرعتك أو زريبتك.</p>
-      <div class="card stack" style="gap:6px;background:var(--bg);box-shadow:none"><b>${esc(S.profile.storeName)}</b><span class="muted ltr" style="text-align:right">${esc(S.profile.whatsapp)}</span><span class="muted">${esc(S.profile.city)}، ${esc(S.profile.state)}</span></div>
-      <label class="field"><span>عرّفنا بنشاطك (اختياري)</span><textarea class="input" id="vNote" maxlength="500" style="height:90px;padding:10px 12px" placeholder="مثال: أربّي الضأن الحمري منذ 10 سنوات، ومزرعتي في الحلفايا."></textarea></label>
+      <div class="row"><h2 class="grow" style="font-size:19px">طلب شارة "تاجر موثّق"</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
+      <p class="muted" style="margin:-6px 0 0;font-size:14px">نتحقق من هويتك لنحمي المشترين. الصور <b>خاصة</b>: لا يراها إلا فريق المراجعة، ولا تظهر لأي مستخدم.</p>
+      ${slot('id', 'صورة الهوية', 'البطاقة القومية أو الجواز، واضحة وكاملة', 'badge')}
+      ${slot('selfie', 'سيلفي مع الهوية', 'وجهك والهوية بجانبه في نفس الصورة', 'user')}
+      <label class="field"><span>عرّفنا بنشاطك (اختياري)</span><textarea class="input" id="vNote" maxlength="500" style="height:80px;padding:10px 12px" placeholder="مثال: أربّي الضأن الحمري منذ 10 سنوات، ومزرعتي في الحلفايا."></textarea></label>
+      <div class="note note-warn">${ic('shield', 'style="width:20px;height:20px"')}<span>تأكد أن الاسم في الهوية مقروء وأن الصورة غير معدّلة. الطلبات المزوّرة تؤدي لإيقاف الحساب.</span></div>
       <button class="btn btn-primary" id="vSend">${ic('badge')}إرسال الطلب</button>
     </div>`, (sh) => {
-    $('#vSend', sh).onclick = (e) => busy(e.currentTarget, async () => {
-      const p = S.profile, note = $('#vNote', sh).value.trim().slice(0, 500);
-      try {
-        const ref = doc(db, 'verifyRequests', S.user.uid);
-        if (req) await updateDoc(ref, { note, status: 'pending', createdAt: serverTimestamp() });
-        else await setDoc(ref, { name: p.name, storeName: p.storeName, whatsapp: p.whatsapp, state: p.state, city: p.city, note, status: 'pending', createdAt: serverTimestamp() });
-        closeSheet(); toast('أُرسل طلب التوثيق', 'success'); renderShell();
-      } catch (err) { toast(errMsg(err), 'error'); }
+      ['id', 'selfie'].forEach(k => $(`#f_${k}`, sh).onchange = async (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        try { st[k] = await compress(f, 1600, 0.85); $(`#pv_${k}`, sh).innerHTML = `<img src="${URL.createObjectURL(st[k])}" alt="" style="width:100%;height:100%;object-fit:cover">`; $(`#st_${k}`, sh).textContent = 'جاهزة ✓'; }
+        catch (err) { toast(errMsg(err), 'error'); }
+      });
+      $('#vSend', sh).onclick = (e) => busy(e.currentTarget, async () => {
+        if (!st.id || !st.selfie) return toast('أرفق صورة الهوية والسيلفي', 'error');
+        try {
+          const a1 = await uploadImage(st.id, 'kyc'), a2 = await uploadImage(st.selfie, 'kyc');
+          await sellerApi('kycSubmit', { idPath: a1.filePath, selfiePath: a2.filePath, note: $('#vNote', sh).value.trim().slice(0, 500) });
+          closeSheet(); toast('أُرسل طلب التوثيق، سنُعلمك بالنتيجة', 'success'); renderShell();
+        } catch (err) { toast(errMsg(err), 'error'); }
+      });
     });
-  });
+  };
 }
 
 /* ========== الحساب الموقوف ========== */
@@ -2267,9 +2309,9 @@ function viewAccount() {
       ${p.verified ? `<div class="note note-ok">${ic('badge', 'style="width:20px;height:20px"')}<span class="grow">أنت <strong>تاجر موثّق</strong>. تظهر الشارة بجانب اسمك في كل إعلاناتك.</span></div>`
         : `<button class="note note-ok" id="verifyBtn" style="border:0;width:100%;text-align:right;align-items:center">${ic('badge', 'style="width:20px;height:20px"')}<span class="grow" id="verifyTxt">احصل على شارة <strong>تاجر موثّق</strong> لثقة أكبر.</span><span class="btn-link" style="padding:0" id="verifyCta">اطلب</span></button>`}
     </div>` : `
-    <div class="card seller-cta stack">
+    <div class="card seller-cta stack" id="sellerCta">
       <div class="row" style="gap:12px"><div class="tile">${ic('store')}</div>
-        <div class="grow"><h2>ابدأ البيع على غنماية</h2><span class="muted">اعرض مواشيك لآلاف المشترين، مجاناً.</span></div></div>
+        <div class="grow"><h2>ابدأ البيع على غنماية</h2><span class="muted" id="sellerCtaTxt">اعرض مواشيك لآلاف المشترين، مجاناً.</span></div></div>
       <button class="btn btn-accent" id="becomeSeller">فعّل حساب البائع</button>
     </div>`}
     <nav class="card menu" aria-label="إعدادات الحساب">
@@ -2284,7 +2326,14 @@ function viewAccount() {
   </div>`;
 }
 function bindAccount() {
-  const bs = $('#becomeSeller'); if (bs) bs.onclick = () => openSellerSheet();
+  const bs = $('#becomeSeller'); if (bs) {
+    bs.onclick = () => openSellerSheet();
+    sellerAppState().then(a => {
+      if (!a || !$('#sellerCtaTxt')) return;
+      if (a.status === 'pending') { $('#sellerCtaTxt').innerHTML = `طلبك <b>قيد المراجعة</b>. تأكد أنك أرسلت الرمز <bdi dir="ltr">${esc(a.code)}</bdi> عبر واتساب.`; bs.textContent = 'عرض الرمز وإرساله'; }
+      if (a.status === 'rejected') $('#sellerCtaTxt').textContent = `لم يُقبل طلبك${a.note ? `: ${a.note}` : ''}. أعد المحاولة.`;
+    });
+  }
   $('#logout').onclick = () => confirmSheet('تسجيل الخروج؟', '', 'خروج', () => logout());
   $('#editProfile').onclick = openProfileSheet;
   $('#walletCard').onclick = () => push('wallet');
@@ -2317,18 +2366,41 @@ function confirmSheet(title, text, okLabel, onOk) {
   });
 }
 
-function openSellerSheet(after) {
+// تفعيل البائع: طلب ⇒ رمز يُرسل من رقم البائع عبر واتساب ⇒ الإدارة تؤكد أن الرسالة من نفس الرقم
+async function sellerAppState() {
+  try { const s = await getDoc(doc(db, 'sellerApps', S.user.uid)); return s.exists() ? s.data() : null; } catch (e) { return null; }
+}
+const waLink = (to, text) => `https://wa.me/${String(to || '').replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
+const waText = (a) => `رمز تفعيل البائع في غنماية: ${a.code}\nالمتجر: ${a.storeName}`;
+function sellerCodeSheet(a, support) {
+  openSheet(`
+    <div class="stack">
+      <div class="row"><h2 class="grow" style="font-size:19px">أكّد رقمك عبر واتساب</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
+      <p class="muted" style="margin:-6px 0 0;font-size:14px">أرسل هذا الرمز <b>من رقمك</b> <bdi dir="ltr">${esc(a.whatsapp)}</bdi> إلى دعم غنماية. نتحقق أن الرسالة من نفس الرقم ثم نفعّل حسابك، عادة خلال ساعات.</p>
+      <div class="card" style="background:var(--bg);box-shadow:none;text-align:center;padding:18px"><span class="muted">رمز التفعيل</span><div class="num" dir="ltr" style="font-size:34px;font-weight:700;letter-spacing:8px;color:var(--brand)">${esc(a.code)}</div></div>
+      ${support ? `<a class="btn btn-primary" id="waSend" href="${esc(waLink(support, waText(a)))}" target="_blank" rel="noopener" style="text-decoration:none">${ic('wa')}أرسل الرمز عبر واتساب</a>`
+        : `<div class="note note-warn">${ic('help', 'style="width:20px;height:20px"')}<span>رقم الدعم غير مضبوط بعد. حاول لاحقاً.</span></div>`}
+      <div class="note note-ok">${ic('shield', 'style="width:20px;height:20px"')}<span>هذا يحمي المشترين من الحسابات الوهمية: كل بائع في غنماية له رقم حقيقي مؤكَّد.</span></div>
+    </div>`);
+}
+async function openSellerSheet(after) {
+  const app = await sellerAppState();
+  if (app && app.status === 'pending') {
+    const st = await getDoc(doc(db, 'settings', 'app')).catch(() => null);
+    return sellerCodeSheet(app, st && st.exists() ? st.data().supportWhatsapp : '');
+  }
   const p = S.profile;
   openSheet(`
     <div class="stack">
       <div class="row"><h2 class="grow" style="font-size:19px">تفعيل حساب البائع</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
-      <p class="muted" style="margin:-6px 0 0;font-size:14px">هذه البيانات تظهر للمشترين في إعلاناتك.</p>
+      <p class="muted" style="margin:-6px 0 0;font-size:14px">نؤكد رقم واتساب لكل بائع حمايةً للمشترين. اسم المتجر والرقم يظهران في إعلاناتك.</p>
+      ${app && app.status === 'rejected' ? `<div class="note note-warn">${ic('help', 'style="width:20px;height:20px"')}<span>لم يُقبل طلبك السابق${app.note ? `: ${esc(app.note)}` : ''}. يمكنك المحاولة مجدداً.</span></div>` : ''}
       <form id="sf" class="stack" novalidate>
-        <label class="field"><span>اسم المزرعة أو المتجر</span><input class="input" name="storeName" value="${esc(p.name)}" required></label>
-        <label class="field"><span>رقم واتساب</span><input class="input ltr" name="whatsapp" type="tel" inputmode="tel" placeholder="+2499XXXXXXXX" required></label>
+        <label class="field"><span>اسم المزرعة أو المتجر</span><input class="input" name="storeName" value="${esc((app && app.storeName) || p.name)}" required></label>
+        <label class="field"><span>رقم واتساب (سترسل منه رمز التأكيد)</span><input class="input ltr" name="whatsapp" type="tel" inputmode="tel" placeholder="+2499XXXXXXXX" value="${esc((app && app.whatsapp) || '')}" required></label>
         <label class="field"><span>حساب بنكك (اختياري، لا يظهر إلا لمن يطلب منك)</span><input class="input ltr" name="bankak" inputmode="numeric" placeholder="رقم الحساب"></label>
         <div class="note note-warn">${ic('shield', 'style="width:20px;height:20px"')}<span>لا تسلّم أي حيوان قبل التأكد من وصول المبلغ في تطبيق بنكك نفسه، فصور الإشعارات يمكن تزويرها.</span></div>
-        <button class="btn btn-primary" type="submit">تفعيل</button>
+        <button class="btn btn-primary" type="submit">متابعة</button>
       </form>
     </div>`, (sh) => {
     $('#sf', sh).onsubmit = (e) => {
@@ -2343,13 +2415,10 @@ function openSellerSheet(after) {
       if (bankak && !/^\d{6,20}$/.test(bankak)) return toast('رقم حساب بنكك غير صحيح', 'error');
       busy(f.querySelector('[type=submit]'), async () => {
         try {
-          const uid = S.user.uid;
-          await updateDoc(doc(db, 'users', uid), { isSeller: true, storeName, whatsapp, updatedAt: serverTimestamp() });
-          if (bankak) await setDoc(doc(db, 'users', uid, 'private', 'payout'), { bankak, updatedAt: serverTimestamp() });
-          Object.assign(S.profile, { isSeller: true, storeName, whatsapp });
-          S.sellers[uid] = S.profile;
-          closeSheet(); haptic(); toast('تم تفعيل حساب البائع', 'success');
-          after ? after() : renderShell();
+          const out = await sellerApi('apply', { storeName, whatsapp });
+          if (bankak) await setDoc(doc(db, 'users', S.user.uid, 'private', 'payout'), { bankak, updatedAt: serverTimestamp() }).catch(() => {});
+          haptic(); sellerCodeSheet({ code: out.code, whatsapp: out.whatsapp, storeName }, out.support);
+          if (S.tab === 'account' && !S.stack.length) setTimeout(() => { const c = $('#sellerCta'); if (c) bindAccount(); }, 0);
         } catch (err) { toast(errMsg(err), 'error'); }
       });
     };
