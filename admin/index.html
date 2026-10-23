@@ -285,6 +285,8 @@ async function reportDetail(g) {
       if (d === 'delete') batch.delete(doc(db, 'listings', listing.id));
       if (d === 'ban') batch.update(doc(db, 'users', r0.subjectUid), { banned: true, banReason: why, updatedAt: serverTimestamp() });
       await batch.commit();
+      if (d === 'warn') adminNotify('warn', r0.subjectUid, why);
+      if (d === 'hide') adminNotify('hide', r0.subjectUid, why);
       S.sel = null; await go();
     }, `تم: ${label}`);
   });
@@ -305,11 +307,11 @@ async function verify() {
     const batch = writeBatch(db);
     batch.update(doc(db, 'users', b.dataset.ok), { verified: true, updatedAt: serverTimestamp() });
     batch.update(doc(db, 'verifyRequests', b.dataset.ok), { status: 'approved', decidedAt: serverTimestamp() });
-    await batch.commit(); await go();
+    await batch.commit(); adminNotify('verify', b.dataset.ok); await go();
   }, 'تم التوثيق'));
   $$('[data-no]').forEach(b => b.onclick = () => {
     const note = prompt('سبب الرفض (يظهر للتاجر):', 'لم نتمكن من التحقق من المعلومات'); if (note === null) return;
-    run(b, async () => { await updateDoc(doc(db, 'verifyRequests', b.dataset.no), { status: 'rejected', decisionNote: note, decidedAt: serverTimestamp() }); await go(); }, 'تم الرفض');
+    run(b, async () => { await updateDoc(doc(db, 'verifyRequests', b.dataset.no), { status: 'rejected', decisionNote: note, decidedAt: serverTimestamp() }); adminNotify('verify', b.dataset.no); await go(); }, 'تم الرفض');
   });
 }
 
@@ -376,6 +378,10 @@ async function orders() {
 
 /* ---------- المالية ---------- */
 const usd = (c) => ((c || 0) / 100).toFixed(2);
+// إشعار للمستخدم بقرار الإدارة (لا يوقف العملية إن فشل)
+async function adminNotify(adminEvent, to, note = '') {
+  try { const t = await S.me.getIdToken(); await fetch('/api/notify', { method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ adminEvent, to, note }) }); } catch (e) {}
+}
 async function api(action, data) {
   const t = await S.me.getIdToken();
   const r = await fetch('/api/wallet', { method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...data }) });

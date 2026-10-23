@@ -9,7 +9,7 @@ export async function pushTo(db, uid, { title, body, data = {}, tag }) {
     const strData = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]));
     await getMessaging().send({
       token, notification: { title, body }, data: strData,
-      android: { priority: 'high', notification: { channelId: 'wallet', tag: tag || undefined, sound: 'default', defaultSound: true, defaultVibrateTimings: true, notificationPriority: 'PRIORITY_MAX', color: '#3F5A2E' } }
+      android: { priority: 'high', notification: { channelId: 'wallet', icon: 'ic_stat_goat', tag: tag || undefined, sound: 'default', defaultSound: true, defaultVibrateTimings: true, notificationPriority: 'PRIORITY_MAX', color: '#3F5A2E' } }
     });
     return true;
   } catch (e) {

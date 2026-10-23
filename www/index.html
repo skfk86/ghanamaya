@@ -368,7 +368,8 @@ h1{letter-spacing:-.2px}
 .wallet-hero{position:relative;overflow:hidden;color:#fff;border-radius:26px;padding:22px 20px 20px;display:flex;flex-direction:column;gap:18px;background:radial-gradient(120% 140% at 100% 0%,#5C7F43 0%,#3F5A2E 45%,#24361A 100%);box-shadow:0 16px 36px rgba(44,65,32,.35)}
 .wallet-hero::before{content:"";position:absolute;width:220px;height:220px;border-radius:50%;left:-70px;top:-90px;background:radial-gradient(circle,rgba(255,255,255,.14),transparent 70%)}
 .wallet-hero::after{content:"";position:absolute;width:160px;height:160px;border-radius:50%;right:-40px;bottom:-80px;border:24px solid rgba(255,255,255,.05)}
-.wallet-hero>*{position:relative}
+.wallet-hero::before,.wallet-hero::after{pointer-events:none;z-index:0}
+.wallet-hero>*{position:relative;z-index:1}
 .wallet-hero .bal{display:flex;align-items:baseline;gap:8px;direction:ltr;justify-content:flex-end}
 .wallet-hero .bal b{font-size:40px;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums}
 .wallet-hero .bal span{color:#CFE0BC;font-weight:700}

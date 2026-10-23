@@ -45,6 +45,14 @@ jobs:
       - name: Enable Google provider
         run: sed -i 's/^ext {/ext {\n    rgcfaIncludeGoogle = true/' android/variables.gradle
 
+      # أيقونة الإشعارات (ماعز) ولونها، وجعلها الافتراضية لإشعارات FCM
+      - name: Notification icon
+        run: |
+          cp -r android-res/. android/app/src/main/res/
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i '0,/<\/application>/s##        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_goat" />\n        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/notif_color" />\n    </application>#' $M
+          grep -n "default_notification" $M
+
       - name: Add google-services.json
         run: cp google-services.json android/app/google-services.json
 

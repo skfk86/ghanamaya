@@ -2,7 +2,7 @@
 // POST /api/notify  مع  Authorization: Bearer <Firebase ID token>  والجسم {"chatId":"...","messageId":"..."}
 // يتحقق أن المرسل طرف في المحادثة وأنه صاحب الرسالة، ثم يرسل FCM للطرف الآخر.
 import { getMessaging } from 'firebase-admin/messaging';
-import { cors, verifyUser, adminDb } from './_firebase.js';
+import { cors, verifyUser, verifyToken, adminDb } from './_firebase.js';
 
 const preview = (m) => m.kind === 'image' ? 'أرسل صورة'
   : m.kind === 'offer' ? `عرض سعر: ${Number(m.offer.price).toLocaleString('en-US')} ج.س`
@@ -12,11 +12,37 @@ export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
-  const uid = await verifyUser(req);
+  const tok = await verifyToken(req);
+  const uid = tok && tok.uid;
   if (!uid) return res.status(401).json({ error: 'سجّل الدخول أولاً' });
 
   const { chatId, messageId, event, orderId } = req.body || {};
   const db = adminDb();
+
+  // ===== إشعارات قرارات الإدارة (للأدمن فقط): التوثيق، التحذير، إيقاف الإعلان =====
+  if (req.body && req.body.adminEvent) {
+    if (tok.admin !== true) return res.status(403).json({ error: 'forbidden' });
+    const { adminEvent: kind, to, note = '' } = req.body;
+    if (typeof to !== 'string' || !to) return res.status(400).json({ error: 'to مطلوب' });
+    const why = String(note).slice(0, 140);
+    let title, body;
+    if (kind === 'verify') {
+      const v = await db.doc(`verifyRequests/${to}`).get();
+      if (!v.exists) return res.status(404).json({ error: 'not found' });
+      if (v.get('status') === 'approved') [title, body] = ['🎉 مبروك! أصبحت تاجراً موثّقاً', 'تظهر الآن شارة التوثيق بجانب اسمك في كل إعلاناتك، فيثق بك المشترون أكثر.'];
+      else if (v.get('status') === 'rejected') [title, body] = ['لم يُقبل طلب التوثيق', (v.get('decisionNote') || 'يمكنك تعديل بياناتك وإعادة التقديم') + '. يمكنك إعادة التقديم من حسابك.'];
+      else return res.status(409).json({ error: 'لم يُبت فيه بعد' });
+    } else if (kind === 'warn') [title, body] = ['⚠️ تنبيه من إدارة غنماية', why || 'وصلتنا بلاغات عن نشاطك. تكرارها قد يؤدي لإيقاف حسابك.'];
+    else if (kind === 'hide') [title, body] = ['أُوقف أحد إعلاناتك', why || 'خالف الإعلان شروط النشر. راجع إعلاناتك من حسابك.'];
+    else return res.status(400).json({ error: 'نوع غير معروف' });
+    const token = (await db.doc(`users/${to}`).get()).get('fcmToken');
+    if (!token) return res.status(200).json({ ok: true, sent: false });
+    try {
+      await getMessaging().send({ token, notification: { title, body }, data: { kind: 'admin', event: String(kind) },
+        android: { priority: 'high', notification: { channelId: 'orders', icon: 'ic_stat_goat', color: '#3F5A2E', sound: 'default', defaultSound: true, tag: `admin-${kind}` } } });
+      return res.status(200).json({ ok: true, sent: true });
+    } catch (e) { return res.status(200).json({ ok: true, sent: false }); }
+  }
 
   // ===== إشعار طلب: الطرف الآخر يُبلّغ بالحالة الحالية للطلب =====
   if (typeof orderId === 'string') {
@@ -41,7 +67,7 @@ export default async function handler(req, res) {
     try {
       await getMessaging().send({
         token, notification: { title, body }, data: { orderId },
-        android: { priority: 'high', notification: { channelId: 'orders', tag: orderId, sound: 'default', defaultSound: true, defaultVibrateTimings: true, notificationPriority: 'PRIORITY_MAX' } }
+        android: { priority: 'high', notification: { channelId: 'orders', icon: 'ic_stat_goat', color: '#3F5A2E', tag: orderId, sound: 'default', defaultSound: true, defaultVibrateTimings: true, notificationPriority: 'PRIORITY_MAX' } }
       });
     } catch (e) {}
     return res.status(200).json({ ok: true });
@@ -75,7 +101,7 @@ export default async function handler(req, res) {
       token,
       notification: { title: fromName, body },
       data: { chatId },
-      android: { priority: 'high', notification: { channelId: 'messages', tag: chatId, sound: 'default', defaultSound: true } }
+      android: { priority: 'high', notification: { channelId: 'messages', icon: 'ic_stat_goat', color: '#3F5A2E', tag: chatId, sound: 'default', defaultSound: true } }
     });
     return res.status(200).json({ ok: true, sent: true });
   } catch (e) {
