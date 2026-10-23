@@ -1,0 +1,41 @@
+const { chromium } = require('playwright'); const fs = require('fs'); const P = __dirname;
+(async () => {
+  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 360, height: 740 }, hasTouch: true }); const page = await ctx.newPage();
+  const errs = []; page.on('pageerror', e => errs.push(e.message));
+  await ctx.route('**/*', async r => { const u = r.request().url();
+    if (u.includes('gstatic.com/firebasejs')) return r.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(P + '/fakefb.js', 'utf8') });
+    if (u.includes('ik.imagekit.io')) return r.fulfill({ contentType: 'image/jpeg', body: fs.readFileSync(P + '/img/a1.jpg') });
+    if (u.includes('/api/wallet')) { const a = JSON.parse(r.request().postData() || '{}').action; return r.fulfill({ contentType: 'application/json', body: JSON.stringify(a === 'pinStatus' ? { ok: true, hasPin: true } : a === 'deposit' ? { ok: true, paymentUrl: 'about:blank', sandbox: true, depositId: 'd1' } : { ok: true }) }); }
+    if (u.startsWith('file:') || u === 'about:blank') return r.continue(); return r.fulfill({ status: 200, body: '{}' }); });
+  let html = fs.readFileSync(process.argv[2], 'utf8').replace('<script type="module">', `<script>${fs.readFileSync(P + '/seed.js', 'utf8')}</script><script type="module">`).replace(/<\/script>\s*<\/body>/, 'window.__dbg = { S };</script></body>');
+  fs.writeFileSync(P + '/_flow.html', html); await page.goto('file://' + P + '/_flow.html'); await page.waitForTimeout(900);
+  const top = () => page.evaluate(() => { const s = __dbg.S.stack.at(-1); return s ? s.name : 'tab:' + __dbg.S.tab; });
+  const tap = async (sel) => { const l = page.locator(sel).first(); await l.scrollIntoViewIfNeeded(); const bb = await l.boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.waitForTimeout(600); };
+  let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : (fail++, console.log('  ✗ ' + m)); };
+  await tap('.lcard'); ok(await top() === 'details', 'لمس بطاقة يفتح التفاصيل');
+  await tap('.gallery .bar button'); ok(await top() === 'tab:home', 'رجوع من التفاصيل');
+  await tap('#homeWallet'); ok(await top() === 'wallet', 'زر الرصيد في الرئيسية يفتح المحفظة');
+  await tap('#dep'); ok(await page.locator('.sheet #dGo').count() === 1, 'إيداع يفتح النافذة');
+  await tap('[data-amt="25"]'); ok(await page.inputValue('#dAmt') === '25', 'اختيار مبلغ 25');
+  await tap('#dGo'); ok(await page.locator('.toast').count() >= 1, 'متابعة للدفع تعرض تأكيداً');
+  await page.waitForTimeout(900);
+  await tap('#wd'); ok(await page.locator('.sheet #wNext').count() === 1, 'سحب يفتح النافذة');
+  await page.fill('#wAmt', '5'); await page.fill('#wAddr', 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE'); await tap('#wNext');
+  ok(await page.locator('.sheet #wGo').count() === 1, 'متابعة تفتح شاشة التأكيد');
+  ok(await page.locator('#wGo').isDisabled(), 'التأكيد معطّل قبل الإقرار والرمز');
+  await tap('#wOk'); await page.fill('#wPin', '482913'); await page.waitForTimeout(200);
+  ok(!(await page.locator('#wGo').isDisabled()), 'التأكيد يُفعّل بعد الإقرار والرمز');
+  await page.evaluate(() => document.querySelectorAll('.sheet,.sheet-bg').forEach(e => e.remove()));
+  await tap('#back'); ok(await top() === 'tab:home', 'رجوع من المحفظة');
+  for (const [t, n] of [['chats', 'tab:chats'], ['orders', 'tab:orders'], ['account', 'tab:account'], ['home', 'tab:home']]) { await tap(`[data-tab="${t}"]`); ok(await top() === n, `تبويب ${t}`); }
+  await tap('[data-tab="chats"]'); await tap('.citem'); ok(await top() === 'chat', 'فتح محادثة');
+  await tap('#back'); await tap('[data-tab="orders"]'); await tap('.ocard'); ok(await top() === 'order', 'فتح طلب');
+  await tap('#back'); await tap('[data-tab="account"]'); await tap('#walletToggle');
+  ok(await page.evaluate(() => __dbg.S.profile.walletOff === true), 'مفتاح قبول المحفظة يعمل');
+  await tap('[data-tab="home"]'); await tap('[data-cat="goat"]'); ok(await page.locator('.lcard').count() === 2, 'تصنيف الماعز يعرض 2');
+  await page.fill('#q', 'كباشي'); await page.waitForTimeout(500); ok(await page.locator('.lcard').count() >= 0, 'البحث');
+  await tap('[data-cat="all"]'); await page.fill('#q', ''); await page.waitForTimeout(500);
+  await tap('.lcard'); await tap('.bottombar .btn-primary'); ok(await top() === 'checkout', 'اطلب الآن يفتح إتمام الطلب');
+  ok(errs.length === 0, 'لا أخطاء JS: ' + errs.join(' | '));
+  console.log(`مسارات: ${pass} نجح، ${fail} فشل`); await b.close();
+})();

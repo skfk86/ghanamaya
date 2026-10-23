@@ -337,5 +337,22 @@ section('ImageKit و set-admin');
   res = mkRes(); await sa({ method: 'POST', headers: { 'x-setup-secret': '' }, body: { email: 'alice@x.com' } }, res); ok(res.code === 500, 'بعد حذف المتغير: الدالة معطّلة');
 }
 
+section('إشعارات قرارات الإدارة');
+{
+  const call = async (tok, body) => { const res = mkRes(); await notify({ method: 'POST', headers: { authorization: `Bearer ${tok}` }, body }, res); return res; };
+  STORE.set('verifyRequests/bob', { status: 'pending' });
+  let res = await call(A === 't-alice' ? B : B, { adminEvent: 'verify', to: 'bob' }); ok(res.code === 403, 'غير الأدمن لا يرسل إشعار إدارة');
+  res = await call(ADM, { adminEvent: 'verify', to: 'bob' }); ok(res.code === 409, 'لا إشعار قبل البت في التوثيق');
+  STORE.set('verifyRequests/bob', { status: 'approved' });
+  let n0 = SENT.length; res = await call(ADM, { adminEvent: 'verify', to: 'bob' });
+  ok(res.code === 200 && SENT.length === n0 + 1 && /موثّق/.test(SENT.at(-1).notification.title) && SENT.at(-1).token === 'fcm-bob', 'إشعار قبول التوثيق للتاجر');
+  STORE.set('verifyRequests/bob', { status: 'rejected', decisionNote: 'الرقم غير صحيح' });
+  res = await call(ADM, { adminEvent: 'verify', to: 'bob' }); ok(/الرقم غير صحيح/.test(SENT.at(-1).notification.body), 'إشعار الرفض يحمل السبب');
+  res = await call(ADM, { adminEvent: 'warn', to: 'bob', note: 'سعر وهمي' }); ok(/تنبيه/.test(SENT.at(-1).notification.title) && /سعر وهمي/.test(SENT.at(-1).notification.body), 'إشعار التحذير');
+  res = await call(ADM, { adminEvent: 'hide', to: 'bob' }); ok(/أُوقف/.test(SENT.at(-1).notification.title), 'إشعار إيقاف الإعلان');
+  res = await call(ADM, { adminEvent: 'nuke', to: 'bob' }); ok(res.code === 400, 'نوع غير معروف مرفوض');
+  ok(SENT.filter(m => m.android).every(m => m.android.notification.icon === 'ic_stat_goat'), 'كل الإشعارات بأيقونة الماعز');
+}
+
 console.log(`\n${pass} نجح، ${fail} فشل`);
 if (fail) { console.log('الفاشلة:\n- ' + fails.join('\n- ')); process.exit(1); }
