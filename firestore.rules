@@ -107,7 +107,8 @@ service cloud.firestore {
         && resource.data.sellerId == request.auth.uid
         && request.resource.data.sellerId == resource.data.sellerId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(listingFields())
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sellerId', 'createdAt'])
+        // تغيير الصور يمر بمراجعة الإدارة (/api/seller editImages)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sellerId', 'createdAt', 'images'])
         && validListing(request.resource.data)
         && (resource.data.status in ['hidden', 'pending']
               ? request.resource.data.status == resource.data.status

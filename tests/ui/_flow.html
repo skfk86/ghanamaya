@@ -1288,7 +1288,8 @@ async function renderEditor({ id } = {}) {
       const prog = $('#prog'), bar = $('#progBar'), txt = $('#progText');
       try {
         const firstBlob = st.photos[0] && st.photos[0].blob;
-        const dhash = !existing && firstBlob ? await imageHash(firstBlob) : '';
+        const dhash = firstBlob ? await imageHash(firstBlob) : '';
+        const oldUrls = existing ? JSON.stringify((existing.images || []).map(i => i.url)) : '';
         const pending = st.photos.filter(ph => ph.blob);
         if (pending.length) prog.classList.remove('hidden');
         let done = 0;
@@ -1305,13 +1306,16 @@ async function renderEditor({ id } = {}) {
         };
         let out = null;
         if (existing) {
-          await updateDoc(doc(db, 'listings', existing.id), data);
+          const { images, ...rest } = data;
+          await updateDoc(doc(db, 'listings', existing.id), rest);
+          // الصور تغيّرت؟ تمر بمراجعة الإدارة قبل الظهور
+          if (JSON.stringify(images.map(i => i.url)) !== oldUrls) out = await sellerApi('editImages', { id: existing.id, images, dhash });
         } else {
           const { updatedAt, ...clean } = data;
           out = await sellerApi('createListing', { data: clean, dhash });
         }
         S.listings = null; haptic();
-        if (out && out.status === 'pending') toast(`إعلانك قيد المراجعة (${out.reviewReason}). يُنشر بعد موافقة الإدارة، عادة خلال ساعات.`, 'success');
+        if (out && out.status === 'pending') toast(existing ? 'حُفظت التعديلات. الصور الجديدة تُراجع قبل ظهور الإعلان، عادة خلال ساعات.' : `إعلانك قيد المراجعة (${out.reviewReason}). يُنشر بعد موافقة الإدارة، عادة خلال ساعات.`, 'success');
         else toast(existing ? 'تم حفظ التعديلات' : 'نُشر إعلانك', 'success');
         S.stack = existing ? [] : []; S.tab = 'home';
         if (existing) push('mine'); else render();
@@ -1849,7 +1853,7 @@ function drawOrder(o) {
       ${o.note ? `<div class="card" style="font-size:14px"><span class="muted">ملاحظة المشتري: </span>${esc(o.note)}</div>` : ''}
       <div class="card">${timeline}</div>
       ${hint ? `<div class="note ${o.status === 'disputed' ? 'note-warn' : 'note-ok'}">${ic('help', 'style="width:20px;height:20px"')}<span>${hint}</span></div>` : ''}
-      ${wallet && o.escrow ? `<div class="card row" style="gap:12px"><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>${U(esc0.amount)}</b><span class="muted">${{ held: 'محجوز في التطبيق', released: 'حُوّل للبائع', refunded: 'أُعيد للمشتري' }[esc0.status] || ''}</span></span><span class="muted" style="font-size:12px"><bdi dir="ltr">1 USDT = ${Number(esc0.rate).toLocaleString('en-US')}</bdi> ج.س</span></div>` : ''}
+      ${wallet && o.escrow ? `<div class="card row" style="gap:12px"><span class="tile">${ic('wallet')}</span><span class="grow" style="display:flex;flex-direction:column"><b>${U(esc0.amount)}</b><span class="muted">${{ held: 'محجوز في التطبيق', released: isSeller ? 'وصل لمحفظتك' : 'حُوّل للبائع', refunded: isSeller ? 'أُعيد للمشتري' : 'أُعيد لمحفظتك' }[esc0.status] || ''}</span></span><span class="muted" style="font-size:12px"><bdi dir="ltr">1 USDT = ${Number(esc0.rate).toLocaleString('en-US')}</bdi> ج.س</span></div>` : ''}
       ${showBank ? `<div class="card stack" style="gap:10px">
         <h2 style="font-size:15px">حساب بنكك للبائع</h2>
         ${o.bankak ? `<div class="copy"><span class="grow ltr" style="text-align:left">${esc(o.bankak)}</span><button class="btn-link" id="copyBank">نسخ</button></div>` : `<span class="muted">لم يضف البائع رقم حساب. اطلبه منه في المحادثة.</span>`}

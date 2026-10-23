@@ -408,6 +408,18 @@ const LD = (o = {}) => ({ type: 'sheep', breed: 'حمري', sex: 'm', ageMonths:
   ok(r.status === 'pending' && /بائع آخر/.test(r.reviewReason), 'صورة مسروقة من بائع آخر ⇒ مراجعة');
   r = await sapi(ADM, 'listingDecide', { id: r.id, decision: 'reject', note: 'صور منسوخة' }); ok(g(`listings/${r.id || ''}`) === undefined || true, 'رفض');
 }
+section('تغيير صور إعلان قائم يمر بالمراجعة');
+{
+  const lid = [...STORE.entries()].find(([p, d]) => p.startsWith('listings/') && d.sellerId === 'eve' && d.status === 'active')[0].split('/')[1];
+  const created0 = g(`listings/${lid}`).createdAt.toMillis();
+  let r = await sapi(B, 'editImages', { id: lid, images: [{ url: 'https://ik.imagekit.io/7uwbsw4wl/listings/bob/x.webp' }] }); ok(r.code === 404, 'لا يغيّر صور إعلان غيره');
+  r = await sapi(E1, 'editImages', { id: lid, images: [{ url: 'https://evil.com/x.jpg' }] }); ok(r.code === 400, 'صور خارجية مرفوضة');
+  r = await sapi(E1, 'editImages', { id: lid, images: g(`listings/${lid}`).images }); ok(r.status === 'active', 'نفس الصور: لا مراجعة');
+  r = await sapi(E1, 'editImages', { id: lid, images: [{ url: 'https://ik.imagekit.io/7uwbsw4wl/listings/eve/new.webp' }], dhash: '1111111111111111' });
+  ok(r.status === 'pending' && g(`listings/${lid}`).prevStatus === 'active' && g(`listings/${lid}`).status === 'pending', 'صور جديدة ⇒ يختفي حتى المراجعة');
+  r = await sapi(ADM, 'listingDecide', { id: lid, decision: 'approve' });
+  ok(g(`listings/${lid}`).status === 'active' && g(`listings/${lid}`).prevStatus === undefined && g(`listings/${lid}`).createdAt.toMillis() === created0, 'الموافقة تعيده نشطاً بتاريخه الأصلي');
+}
 section('المحادثات: حد يومي');
 {
   const F = user('frank', { ageDays: 1 });

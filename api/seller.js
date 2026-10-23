@@ -151,6 +151,26 @@ export const ACTIONS = {
     return { id: ref.id, status: review ? 'pending' : 'active', reviewReason: review };
   },
 
+  /* ===== تغيير صور إعلان قائم ⇒ مراجعة قبل الظهور ===== */
+  async editImages({ db, uid, me, body }) {
+    const ref = db.doc(`listings/${String(body.id || '')}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('sellerId') !== uid) throw new UserError('غير موجود', 404);
+    if (s.get('status') === 'hidden') throw new UserError('الإعلان موقوف من الإدارة', 403);
+    const images = Array.isArray(body.images) ? body.images.slice(0, 6) : [];
+    if (!images.length || !images.every(i => i && typeof i.url === 'string' && i.url.startsWith(`${IK_ENDPOINT}listings/${uid}/`))) throw new UserError('الصور غير صالحة');
+    const same = JSON.stringify((s.get('images') || []).map(i => i.url)) === JSON.stringify(images.map(i => i.url));
+    if (same) return { status: s.get('status') };
+    const dhash = /^[0-9a-f]{16}$/.test(body.dhash || '') ? body.dhash : (s.get('dhash') || '');
+    const cur = s.get('status');
+    await ref.update({
+      images: images.map(i => ({ url: i.url, fileId: String(i.fileId || '') })), dhash,
+      status: 'pending', reviewReason: 'تغيير الصور', ...(cur !== 'pending' ? { prevStatus: cur } : {}),
+      updatedAt: FieldValue.serverTimestamp()
+    });
+    return { status: 'pending', reviewReason: 'تغيير الصور' };
+  },
+
   /* ===== الأدمن: مراجعة إعلان ===== */
   listingDecide: admin(async ({ db, body }) => {
     const ref = db.doc(`listings/${body.id}`);
@@ -158,7 +178,9 @@ export const ACTIONS = {
     if (!s.exists || s.get('status') !== 'pending') throw new UserError('الإعلان غير موجود أو تمت مراجعته', 409);
     const sellerId = s.get('sellerId');
     if (body.decision === 'approve') {
-      await ref.update({ status: 'active', reviewReason: FieldValue.delete(), approvedAt: FieldValue.serverTimestamp(), createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      // تغيير صور إعلان قائم: يعود لحالته السابقة دون تغيير تاريخ النشر
+      const back = s.get('prevStatus') === 'sold' ? 'sold' : 'active';
+      await ref.update({ status: back, reviewReason: FieldValue.delete(), prevStatus: FieldValue.delete(), approvedAt: FieldValue.serverTimestamp(), ...(s.get('prevStatus') ? {} : { createdAt: FieldValue.serverTimestamp() }), updatedAt: FieldValue.serverTimestamp() });
       await db.doc(`users/${sellerId}`).update({ firstListingOk: true });
       await pushTo(db, sellerId, { title: '✅ نُشر إعلانك', body: 'وافقت الإدارة على إعلانك وأصبح ظاهراً للمشترين.', data: { kind: 'listing' }, tag: `l-${body.id}` });
     } else if (body.decision === 'reject') {
