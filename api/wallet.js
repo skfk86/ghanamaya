@@ -3,6 +3,7 @@
 // متغيرات البيئة: OXAPAY_MERCHANT_KEY ، OXAPAY_SANDBOX=true (للتجربة)
 import { FieldValue } from 'firebase-admin/firestore';
 import { cors, verifyToken, adminDb } from './_firebase.js';
+import { applyStock } from './_stock.js';
 import { pinStatus, pinSet, withdrawGuard } from './_pin.js';
 import { scheduleWithdrawal, processDue, processWithdrawal, cancelWithdrawal, OPEN } from './_payout.js';
 import { pushTo, pushRelease, pushRefund, usd } from './_push.js';
@@ -134,7 +135,7 @@ const ACTIONS = {
       const fee = releaseEscrow(t, db, { orderRef: ref, order: o, buyerW, sellerW, platW, rate: set.commissionRate, by: 'buyer' });
       done = { o: { ...o, id: ref.id }, fee };
     });
-    if (done) await pushRelease(db, done.o, done.fee);
+    if (done) { await applyStock(db, done.o.id); await pushRelease(db, done.o, done.fee); }
     return { amount: done ? done.o.escrow.amount : 0 };
   },
 
@@ -225,6 +226,7 @@ const ACTIONS = {
         done = { o: { ...o, id: ref.id }, refund: true };
       } else throw new UserError('حدد الطرف');
     });
+    if (done && !done.refund) await applyStock(db, done.o.id);
     if (done) await (done.refund ? pushRefund(db, done.o) : pushRelease(db, done.o, done.fee));
     return {};
   }, { admin: true }),

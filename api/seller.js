@@ -11,6 +11,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { cors, verifyToken, adminDb } from './_firebase.js';
 import { pushTo, pushResult } from './_push.js';
 import { deleteAccount, deletionBlockers, phoneHash } from './_account.js';
+import { applyStock } from './_stock.js';
 
 const IK_ENDPOINT = 'https://ik.imagekit.io/7uwbsw4wl/';
 const DAY = 86400000;
@@ -173,6 +174,14 @@ export const ACTIONS = {
       updatedAt: FieldValue.serverTimestamp()
     });
     return { status: 'pending', reviewReason: 'تغيير الصور' };
+  },
+
+  /* ===== بعد اكتمال طلب نقدي/بنكك: خصم الكمية (يستدعيه أي طرف، والسيرفر يتحقق) ===== */
+  async applyStock({ db, uid, body }) {
+    const o = await db.doc(`orders/${String(body.orderId || '')}`).get();
+    if (!o.exists || !(o.get('participants') || []).includes(uid)) throw new UserError('غير مصرّح', 403);
+    const r = await applyStock(db, o.id);
+    return { soldOut: !!(r && r.soldOut), left: r ? r.left : null };
   },
 
   /* ===== الأدمن: مراجعة إعلان ===== */

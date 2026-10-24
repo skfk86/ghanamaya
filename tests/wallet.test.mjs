@@ -510,6 +510,26 @@ section('رصيد التجربة');
   ok(g(`orders/${oOpen}`).status === 'cancelled' && g(`orders/${oOpen}`).escrow.status === 'refunded', 'طلبات المحفظة المفتوحة أُلغيت');
 }
 
+section('خصم الكمية وتعليم المباع تلقائياً');
+{
+  STORE.set('listings/stk', { sellerId: 'bob', status: 'active', qty: 2, title: 'غنم' });
+  const mk = (id, q, pm = 'cash') => STORE.set(`orders/${id}`, { listingId: 'stk', buyerId: 'alice', sellerId: 'bob', participants: ['alice', 'bob'], title: 'غنم', qty: q, status: 'completed', paymentMethod: pm });
+  mk('so1', 1);
+  let r = await sapi(C, 'applyStock', { orderId: 'so1' }); ok(r.code === 403, 'غير طرف الطلب لا يخصم');
+  r = await sapi(A, 'applyStock', { orderId: 'so1' }); ok(g('listings/stk').qty === 1 && g('listings/stk').status === 'active', 'بيع رأس من 2 ⇒ يبقى 1');
+  r = await sapi(B, 'applyStock', { orderId: 'so1' }); ok(g('listings/stk').qty === 1, 'لا يُخصم مرتين لنفس الطلب');
+  STORE.set('orders/so2', { listingId: 'stk', buyerId: 'alice', sellerId: 'bob', participants: ['alice', 'bob'], title: 'غنم', qty: 1, status: 'accepted', paymentMethod: 'cash' });
+  r = await sapi(A, 'applyStock', { orderId: 'so2' }); ok(g('listings/stk').qty === 1, 'طلب غير مكتمل لا يخصم');
+  mk('so2', 1);
+  const n0 = SENT.length;
+  r = await sapi(A, 'applyStock', { orderId: 'so2' }); ok(r.soldOut === true && g('listings/stk').status === 'sold', 'البيع الثاني ⇒ الإعلان مباع تلقائياً');
+  ok(SENT.slice(n0).some(m => m.token === 'fcm-bob' && /بِيع كل/.test(m.notification.title)), 'إشعار للبائع بنفاد الكمية');
+  // مسار المحفظة: الإكمال من السيرفر يخصم مباشرة
+  STORE.set('listings/stk2', { sellerId: 'bob', status: 'active', qty: 1, title: 'تيس' });
+  const ow = order('alice', 'bob', 90000, { listingId: 'stk2', qty: 1 }); await deposit(A, 'alice', 20);
+  await api(A, 'hold', { orderId: ow }); await api(B, 'accept', { orderId: ow }); await api(A, 'complete', { orderId: ow });
+  ok(g('listings/stk2').status === 'sold' && g(`orders/${ow}`).stockApplied === true, 'إكمال طلب المحفظة يعلّم الإعلان مباعاً');
+}
 section('حذف الحساب');
 {
   const G = user('gina', { ageDays: 40 });

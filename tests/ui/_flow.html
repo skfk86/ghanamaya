@@ -1923,6 +1923,7 @@ function drawOrder(o) {
     });
     if (a === 'complete') b.onclick = () => confirmSheet('هل استلمت الحيوان؟', 'أكّد فقط بعد أن يصبح الحيوان معك.', 'نعم، استلمت', async () => {
       await updateDoc(doc(db, 'orders', o.id), { status: 'completed', updatedAt: serverTimestamp() }); notifyOrder(o.id);
+      sellerApi('applyStock', { orderId: o.id }).then(() => { S.listings = null; }).catch(() => {}); // خصم الكمية وتعليم المباع
     });
   });
   // إرفاق إشعار بنكك
