@@ -18,10 +18,13 @@ export class GoogleAuthProvider { static credential() { return {}; } }
 export const signInWithPopup = async () => {}, signInWithCredential = async () => {}, createUserWithEmailAndPassword = async () => {}, signInWithEmailAndPassword = async () => {}, sendPasswordResetEmail = async () => {}, updateProfile = async () => {}, signOut = async () => {};
 // ---- firestore ----
 export const getFirestore = () => ({});
+export const initializeFirestore = () => ({});
+export const persistentLocalCache = (o) => o;
+export const persistentSingleTabManager = () => ({});
 const path = (segs) => segs.filter(s => typeof s === 'string').join('/');
 export function doc(base, ...segs) { if (base && base.type === 'col' && !segs.length) return { type: 'doc', path: base.path + '/auto' + (++seq), id: 'auto' + seq }; const p = base && base.path ? [base.path, ...segs].join('/') : path(segs); return { type: 'doc', path: p, id: p.split('/').pop() }; }
 export function collection(base, ...segs) { const p = base && base.path ? [base.path, ...segs].join('/') : path(segs); return { type: 'col', path: p }; }
-export const where = (f, op, v) => ({ k: 'w', f, op, v }), orderBy = (f, d = 'asc') => ({ k: 'o', f, d }), limit = (n) => ({ k: 'l', n });
+export const where = (f, op, v) => ({ k: 'w', f, op, v }), orderBy = (f, d = 'asc') => ({ k: 'o', f, d }), limit = (n) => ({ k: 'l', n }), startAfter = (snap) => ({ k: 's', id: snap.id });
 export const query = (col, ...c) => ({ type: 'q', path: col.path, c });
 export const serverTimestamp = () => SRV;
 const gp = (o, f) => f.split('.').reduce((a, k) => a == null ? undefined : a[k], o);
@@ -33,6 +36,7 @@ function runQ(q) {
   for (const c of (q.c || [])) {
     if (c.k === 'w') rows = rows.filter(p => { const x = gp(store.get(p), c.f); return c.op === '==' ? x === c.v : c.op === 'in' ? c.v.includes(x) : c.op === 'array-contains' ? (x || []).includes(c.v) : true; });
     if (c.k === 'o') rows.sort((a, b) => (val(gp(store.get(a), c.f)) > val(gp(store.get(b), c.f)) ? 1 : -1) * (c.d === 'desc' ? -1 : 1));
+    if (c.k === 's') { const i = rows.findIndex(p => p.split('/').pop() === c.id); rows = rows.slice(i + 1); }
     if (c.k === 'l') rows = rows.slice(0, c.n);
   }
   const docs = rows.map(snapDoc);

@@ -1,1 +1,1 @@
-let apps=[]; export const getApps=()=>apps; export const initializeApp=(o)=>{apps.push(o);return o}; export const cert=(x)=>x;
+let apps=[]; export const getApps=()=>apps; export const getApp=()=>({ options: { credential: { getAccessToken: async () => ({ access_token: 't' }) } } }); export const initializeApp=(o)=>{apps.push(o);return o}; export const cert=(x)=>x;

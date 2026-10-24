@@ -64,8 +64,9 @@ const issues = []; let checked = 0;
           // داخل حاوية تمرير أفقية (مثل الشرائح): قرّبه للعرض
           e.scrollIntoView({ block: 'center', inline: 'center' });
           await new Promise(r => requestAnimationFrame(r));
+          if (!e.isConnected) continue; // أُعيد رسمه (مثل تحميل المزيد عند التمرير)
           const r = e.getBoundingClientRect();
-          if (r.right < 0 || r.left > vw) continue;
+          if (r.width === 0 || r.right < 0 || r.left > vw) continue;
           const x = Math.min(Math.max(r.left + r.width / 2, 1), vw - 1), y = r.top + r.height / 2;
           if (y < 0 || y > innerHeight) continue;
           out.n++;

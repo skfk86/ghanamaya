@@ -12,6 +12,7 @@ import { cors, verifyToken, adminDb } from './_firebase.js';
 import { pushTo, pushResult } from './_push.js';
 import { deleteAccount, deletionBlockers, phoneHash } from './_account.js';
 import { applyStock } from './_stock.js';
+import { ensureIndexes } from './_indexes.js';
 
 const IK_ENDPOINT = 'https://ik.imagekit.io/7uwbsw4wl/';
 const DAY = 86400000;
@@ -59,6 +60,8 @@ function normPhone(v) {
 }
 const admin = (f) => Object.assign(f, { admin: true });
 
+// تقسيم البصمة لـ 8 أجزاء (كل جزء 8 بت). صورتان بفرق ≤ 6 بتات تشتركان حتماً في جزأين على الأقل
+export const bands = (h) => /^[0-9a-f]{16}$/.test(h || '') ? Array.from({ length: 8 }, (_, i) => `${i}:${h.slice(i * 2, i * 2 + 2)}`) : [];
 // فرق البتات بين بصمتين (dHash 64 بت بصيغة hex)
 export function hamming(a, b) {
   if (!/^[0-9a-f]{16}$/.test(a || '') || !/^[0-9a-f]{16}$/.test(b || '')) return 64;
@@ -142,14 +145,15 @@ export const ACTIONS = {
     let review = '';
     if (me.get('firstListingOk') !== true) review = 'أول إعلان للبائع';
     if (dhash) {
-      const others = await db.collection('listings').where('status', 'in', ['active', 'pending', 'sold']).get();
-      if (others.docs.some(x => x.get('sellerId') !== uid && hamming(x.get('dhash'), dhash) <= 6)) review = 'صورة تشبه إعلاناً لبائع آخر';
+      // بحث سريع بالأجزاء (LSH): لا نقرأ كل الإعلانات، فقط التي تشترك في جزء من البصمة
+      const others = await db.collection('listings').where('dhashBands', 'array-contains-any', bands(dhash)).get();
+      if (others.docs.some(x => x.get('sellerId') !== uid && ['active', 'pending', 'sold'].includes(x.get('status')) && hamming(x.get('dhash'), dhash) <= 6)) review = 'صورة تشبه إعلاناً لبائع آخر';
     }
     const ref = db.collection('listings').doc();
     await ref.set({
       sellerId: uid, sellerName: me.get('storeName') || me.get('name'), type: d.type, breed: d.breed, sex: d.sex,
       ageMonths: d.ageMonths, weightKg: d.weightKg, price: d.price, qty: d.qty, state: d.state.trim(), city: d.city.trim(),
-      description, images: images.map(i => ({ url: i.url, fileId: String(i.fileId || '') })), dhash,
+      description, images: images.map(i => ({ url: i.url, fileId: String(i.fileId || '') })), dhash, dhashBands: bands(dhash),
       status: review ? 'pending' : 'active', ...(review ? { reviewReason: review } : {}),
       createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
     });
@@ -169,7 +173,7 @@ export const ACTIONS = {
     const dhash = /^[0-9a-f]{16}$/.test(body.dhash || '') ? body.dhash : (s.get('dhash') || '');
     const cur = s.get('status');
     await ref.update({
-      images: images.map(i => ({ url: i.url, fileId: String(i.fileId || '') })), dhash,
+      images: images.map(i => ({ url: i.url, fileId: String(i.fileId || '') })), dhash, dhashBands: bands(dhash),
       status: 'pending', reviewReason: 'تغيير الصور', ...(cur !== 'pending' ? { prevStatus: cur } : {}),
       updatedAt: FieldValue.serverTimestamp()
     });
@@ -276,6 +280,9 @@ export const ACTIONS = {
     const r = await pushResult(db, uid, { ...msg, data: { kind: 'verify' }, tag: 'verify', channel: 'orders' });
     return { notified: r.sent, reason: r.reason || '' };
   }),
+
+  /* ===== الأدمن: إنشاء فهارس قاعدة البيانات (مرة واحدة، وكل ما أُضيف فهرس جديد) ===== */
+  setupIndexes: admin(async () => ensureIndexes()),
 
   /* ===== الأدمن: حذف حساب مستخدم نهائياً ===== */
   adminDeleteUser: admin(async ({ db, uid: adminUid, body }) => {

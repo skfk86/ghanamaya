@@ -105,7 +105,8 @@ export async function processWithdrawal(db, set, ref) {
   const since = Date.now() - DAY;
   const [mine, all] = await Promise.all([
     db.collection('withdrawals').where('uid', '==', w.uid).get(),
-    db.collection('withdrawals').where('status', 'in', ['processing', 'sent']).get()
+    // آخر 24 ساعة فقط (لا نقرأ كل تاريخ السحوبات)
+    db.collection('withdrawals').where('autoAt', '>', Timestamp.fromMillis(since)).get()
   ]);
   const sum = (s) => s.docs.filter(d => d.id !== ref.id && ['processing', 'sent'].includes(d.get('status')) && ms(d.get('autoAt')) > since).reduce((a, d) => a + (d.get('amount') || 0), 0);
   if (sum(mine) + w.amount > set.autoUserDaily || sum(all) + w.amount > set.autoGlobalDaily) {

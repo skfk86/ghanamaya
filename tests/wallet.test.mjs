@@ -455,6 +455,10 @@ section('التوثيق بالهوية (صور خاصة)');
   const u = new URL(r.id); const exp = u.searchParams.get('ik-t'); const sig = (await import('node:crypto')).createHmac('sha1', 'IK').update('kyc/eve/id.webp' + exp).digest('hex');
   ok(u.pathname === '/7uwbsw4wl/kyc/eve/id.webp' && u.searchParams.get('ik-s') === sig && +exp - NOW / 1000 <= 600, 'رابط موقّع صالح 10 دقائق فقط');
   ok(seller.hamming('ffffffffffffffff', 'fffffffffffffff0') === 4 && seller.hamming('x', 'y') === 64, 'حساب فرق البصمات');
+  // كل بصمتين بفرق ≤ 6 بتات تشتركان في جزء واحد على الأقل (اختبار عشوائي)
+  let okLsh = true;
+  for (let i = 0; i < 2000 && okLsh; i++) { let a = 0n; for (let k = 0; k < 64; k++) if (Math.random() < .5) a |= 1n << BigInt(k); let b = a; const flips = new Set(); while (flips.size < 1 + (i % 6)) flips.add(Math.floor(Math.random() * 64)); for (const f of flips) b ^= 1n << BigInt(f); const ha = a.toString(16).padStart(16, '0'), hb = b.toString(16).padStart(16, '0'); const A1 = new Set(seller.bands(ha)); if (!seller.bands(hb).some(x => A1.has(x))) okLsh = false; }
+  ok(okLsh, 'البحث بالأجزاء لا يفوّت صورة مشابهة (2000 حالة عشوائية)');
   globalThis.fetch = realFetch;
 }
 
@@ -529,6 +533,35 @@ section('خصم الكمية وتعليم المباع تلقائياً');
   const ow = order('alice', 'bob', 90000, { listingId: 'stk2', qty: 1 }); await deposit(A, 'alice', 20);
   await api(A, 'hold', { orderId: ow }); await api(B, 'accept', { orderId: ow }); await api(A, 'complete', { orderId: ow });
   ok(g('listings/stk2').status === 'sold' && g(`orders/${ow}`).stockApplied === true, 'إكمال طلب المحفظة يعلّم الإعلان مباعاً');
+}
+section('صفحة المشاركة العامة والفهارس');
+{
+  const share = (await import('./api/share.js')).default;
+  const get = async (id) => { const res = mkRes(); await share({ query: { id } }, res); return res; };
+  STORE.set('listings/shr1', { sellerId: 'bob', status: 'active', type: 'sheep', breed: 'حمري', price: 300000, city: 'بحري', state: 'الخرطوم', ageMonths: 10, weightKg: 40, images: [{ url: 'https://ik.imagekit.io/7uwbsw4wl/listings/bob/a.webp' }] });
+  let r = await get('shr1');
+  ok(r.code === 200 && /og:title" content="خروف حمري — 300,000 ج.س"/.test(r.body) && /og:image" content="https:\/\/ik\.imagekit\.io/.test(r.body), 'معاينة واتساب: العنوان والسعر والصورة');
+  ok(/ghanamaya:\/\/l\/shr1/.test(r.body) && /play\.google\.com/.test(r.body), 'زر الفتح في التطبيق وزر التحميل');
+  STORE.set('listings/shr2', { ...g('listings/shr1'), status: 'hidden' });
+  r = await get('shr2'); ok(r.code === 404 && !/حمري/.test(r.body), 'الإعلان الموقوف لا يُعرض للعامة');
+  r = await get('<script>'); ok(!/<script>alert/.test(r.body) && r.code === 404, 'معرّف خبيث يُنظّف');
+  STORE.set('listings/shr3', { ...g('listings/shr1'), breed: '<img src=x onerror=alert(1)>' });
+  r = await get('shr3'); ok(!r.body.includes('<img src=x'), 'لا حقن HTML من بيانات الإعلان');
+  const ix = (await import('./api/_indexes.js')).wantedIndexes();
+  ok(ix.length === 15 && ix.filter(i => i.collectionGroup === 'listings').length === 12, '15 فهرساً مطلوباً (12 للسوق)');
+  const realF = globalThis.fetch; const posted = [];
+  globalThis.fetch = async (url, opt = {}) => {
+    if (String(url).includes('firestore.googleapis.com')) {
+      if (opt.method === 'POST') { posted.push(JSON.parse(opt.body)); return resp(200, {}); }
+      return resp(200, { indexes: String(url).includes('/listings/') ? [{ state: 'READY', fields: [{ fieldPath: 'status', order: 'ASCENDING' }, { fieldPath: 'createdAt', order: 'DESCENDING' }, { fieldPath: '__name__', order: 'DESCENDING' }] }] : [] });
+    }
+    return realF(url, opt);
+  };
+  process.env.FIREBASE_SERVICE_ACCOUNT = '{"project_id":"ghanamaya-4e639"}';
+  r = await sapi(E1, 'setupIndexes'); ok(r.code === 403, 'غير الأدمن لا ينشئ فهارس');
+  r = await sapi(ADM, 'setupIndexes');
+  ok(r.existing === 1 && r.created === 14 && posted.length === 14 && !r.failed.length, 'إنشاء الناقص فقط (14) وتجاهل الموجود');
+  globalThis.fetch = realF; process.env.FIREBASE_SERVICE_ACCOUNT = '{}';
 }
 section('حذف الحساب');
 {

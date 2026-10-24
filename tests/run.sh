@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 S=tests/.sandbox
 rm -rf "$S" && mkdir -p "$S/node_modules"
 cp -r api "$S/api"
+cp firestore.indexes.json "$S/"
 cp -r tests/fake-firebase-admin "$S/node_modules/firebase-admin"
 cp tests/wallet.test.mjs "$S/test.mjs"
 echo '{"type":"module"}' > "$S/package.json"

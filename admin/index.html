@@ -204,10 +204,22 @@ async function home() {
       <div class="card kpi"><span class="ki b">${ic('bag')}</span><span class="muted">الطلبات</span><b>${ordersAll}</b><span class="muted">${done} مكتمل · ${ordersAll ? Math.round(done / ordersAll * 100) : 0}%</span></div>
       <div class="card kpi"><span class="ki">${ic('wallet')}</span><span class="muted">عمولات المنصة</span><b style="color:var(--brand)" dir="ltr">${usd(plat)}</b><span class="muted">USDT</span></div>
     </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>${ic('shield')}جاهزية التوسع</h2>
+      <span class="muted">السوق والمحادثات والطلبات تُجلب بالصفحات، وتحتاج 15 فهرساً في قاعدة البيانات. اضغط مرة واحدة، والبناء يأخذ دقائق. حتى يجهز، يعمل السوق بالطريقة القديمة (آخر 150 إعلاناً).</span>
+      <div class="actions"><button class="btn primary" id="ixSetup">إعداد الفهارس</button><button class="btn" id="ixCheck">فحص</button><span class="muted" id="ixOut"></span></div></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>${ic('bag')}أحدث الطلبات</h2>
       ${recent.docs.length ? `<div class="scroll"><table><thead><tr><th>الطلب</th><th>المشتري ← البائع</th><th>المبلغ</th><th>الدفع</th><th>الحالة</th><th>منذ</th></tr></thead><tbody>${recent.docs.map(d => { const o = d.data(), st = ST[o.status] || [o.status, 't-gray']; return `<tr><td><b>${esc(o.title)}</b> × ${o.qty}</td><td>${esc(o.buyerName)} ← ${esc(o.sellerName)}</td><td><b>${Number(o.total || 0).toLocaleString('en-US')}</b> <span class="muted">ج.س</span></td><td>${PM[o.paymentMethod] || ''}</td><td><span class="tag ${st[1]}">${st[0]}</span></td><td class="muted">${ago(o.createdAt)}</td></tr>`; }).join('')}</tbody></table></div>` : '<span class="muted">لا توجد طلبات بعد.</span>'}
     </div>`;
   $$('[data-go]').forEach(b => b.onclick = () => { S.sec = b.dataset.go; S.sel = null; go(); });
+  const ixOut = (t) => { $('#ixOut').innerHTML = t; };
+  $('#ixCheck').onclick = (e) => run(e.currentTarget, async () => {
+    try { await getDocs(query(collection(db, 'listings'), where('status', '==', 'active'), where('type', '==', 'sheep'), where('state', '==', 'الخرطوم'), orderBy('price', 'desc'), limit(1))); ixOut('<b style="color:var(--brand)">الفهارس جاهزة ✓ السوق يعمل بالصفحات</b>'); }
+    catch (err) { const link = (String(err.message).match(/https:\/\/console\.firebase\.google\.com\S+/) || [])[0]; ixOut(err.code === 'failed-precondition' ? `غير جاهزة بعد (قيد البناء أو لم تُنشأ)${link ? ` · <a href="${esc(link)}" target="_blank">إنشاء يدوي</a>` : ''}` : esc(err.message)); }
+  });
+  $('#ixSetup').onclick = (e) => run(e.currentTarget, async () => {
+    const r = await sellerApi('setupIndexes', {});
+    ixOut(`أُنشئ ${r.created} · موجود ${r.existing} · قيد البناء ${r.building}${r.failed.length ? `<br><span style="color:var(--danger)">فشل: ${esc(r.failed[0])}</span>` : ''}`);
+  });
 }
 
 /* ---------- البلاغات ---------- */

@@ -37,7 +37,7 @@ class Query {
   async get() {
     const prefix = this.col + '/';
     let docs = [...STORE.entries()].filter(([p]) => p.startsWith(prefix) && !p.slice(prefix.length).includes('/'))
-      .filter(([, d]) => this.filters.every(([f, op, v]) => { const x = getPath(d, f); return op === '==' ? eq(x, v) : op === 'in' ? v.some(y => eq(x, y)) : op === 'array-contains' ? Array.isArray(x) && x.includes(v) : op === '<=' ? x <= v : op === '>=' ? x >= v : op === '<' ? x < v : op === '>' ? x > v : (() => { throw new Error('op ' + op); })(); }))
+      .filter(([, d]) => this.filters.every(([f, op, v]) => { let x = getPath(d, f); if (op === 'array-contains-any') return Array.isArray(x) && v.some(y => x.includes(y)); if (x instanceof Timestamp) x = x.toMillis(); if (v instanceof Timestamp) v = v.toMillis(); return op === '==' ? eq(x, v) : op === 'in' ? v.some(y => eq(x, y)) : op === 'array-contains' ? Array.isArray(x) && x.includes(v) : op === '<=' ? x <= v : op === '>=' ? x >= v : op === '<' ? x < v : op === '>' ? x > v : (() => { throw new Error('op ' + op); })(); }))
       .map(([p, d]) => new Snap(new DocRef(p), d));
     if (this.lim) docs = docs.slice(0, this.lim);
     return { docs, empty: !docs.length, size: docs.length, forEach: (f) => docs.forEach(f) };

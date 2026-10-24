@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.ghanamaya.app",
+      "sha256_cert_fingerprints": [
+        "D8:F6:20:98:46:98:96:48:DD:66:8F:AD:3C:37:47:3F:D0:E7:17:5C:13:7C:F4:F6:11:30:82:3E:85:93:8D:B3"
+      ]
+    }
+  }
+]

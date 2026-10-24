@@ -52,6 +52,9 @@ jobs:
           M=android/app/src/main/AndroidManifest.xml
           sed -i '0,/<\/application>/s##        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_goat" />\n        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/notif_color" />\n    </application>#' $M
           grep -n "default_notification" $M
+          # روابط المشاركة: https://ghanamaya.vercel.app/l/... و ghanamaya://l/... تفتح الإعلان في التطبيق
+          sed -i '0,/<\/activity>/s##            <intent-filter android:autoVerify="true">\n                <action android:name="android.intent.action.VIEW" />\n                <category android:name="android.intent.category.DEFAULT" />\n                <category android:name="android.intent.category.BROWSABLE" />\n                <data android:scheme="https" android:host="ghanamaya.vercel.app" android:pathPrefix="/l/" />\n            </intent-filter>\n            <intent-filter>\n                <action android:name="android.intent.action.VIEW" />\n                <category android:name="android.intent.category.DEFAULT" />\n                <category android:name="android.intent.category.BROWSABLE" />\n                <data android:scheme="ghanamaya" android:host="l" />\n            </intent-filter>\n        </activity>#' $M
+          grep -c "ghanamaya.vercel.app" $M
 
       - name: Add google-services.json
         run: cp google-services.json android/app/google-services.json

@@ -397,6 +397,7 @@ h1{letter-spacing:-.2px}
 [data-wdc],#pCh,#pRs{padding:10px 8px!important;margin:-10px -8px}
 .photo .x{width:36px;height:36px}
 .pin-in{font-size:24px;letter-spacing:10px;text-align:center;font-weight:700}
+.offline{position:fixed;top:calc(8px + var(--safe-t));left:50%;transform:translateX(-50%);z-index:95;background:var(--ink);color:var(--bg);font-size:13px;padding:7px 14px;border-radius:14px;display:flex;align-items:center;gap:6px;box-shadow:var(--shadow-lg)}
 /* احتفال أحداث المال */
 .celeb-bg{position:fixed;inset:0;z-index:90;background:rgba(20,24,16,.55);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:24px;animation:cfade .25s ease}
 .celeb{position:relative;width:100%;max-width:360px;background:var(--surface);border-radius:28px;padding:34px 22px 22px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.35);animation:cpop .5s cubic-bezier(.2,1.4,.4,1);overflow:hidden}
@@ -486,6 +487,7 @@ window.__SEED = {
     L('l6', { type: 'camel', breed: 'عنافي', sex: 'f', ageMonths: 60, weightKg: 450, price: 6500000, ago: 4 * D, i: 5, state: 'كسلا', city: 'كسلا' }),
     L('l7', { type: 'sheep', breed: 'زغاوي', sex: 'f', ageMonths: 12, weightKg: 44, price: 260000, ago: 5 * D, i: 2 }),
     L('l8', { type: 'sheep', breed: 'كباشي', sex: 'm', ageMonths: 20, weightKg: 70, price: 520000, ago: 6 * D, i: 0, status: 'sold' }),
+    ...Array.from({ length: 40 }, (_, i) => L('g' + i, { type: i % 2 ? 'goat' : 'sheep', breed: i % 2 ? 'بلدي' : 'حمري', sex: 'm', ageMonths: 6 + i, weightKg: 30 + i, price: 100000 + i * 5000, ago: (8 + i) * D, i: i % 6, state: i % 3 ? 'الخرطوم' : 'الجزيرة' })),
     ['wallets/u1', { balance: 12850, held: 5000 }],
     ['settings/wallet', { sdgPerUsdt: 9000, commissionRate: 0.03, releaseDays: 3, minWithdraw: 500, updatedAt: T(now - 3 * H) }],
     ['chats/l1_u1', { listingId: 'l1', buyerId: 'u1', sellerId: 'u2', participants: ['u1', 'u2'], buyerName: 'علي محمد', sellerName: 'مزرعة الرحمة', listingTitle: 'خروف كباشي', listingImage: img(0).url, listingPrice: 450000, lastMessage: 'عرض سعر: 420,000 ج.س', lastSenderId: 'u1', updatedAt: T(now - 20 * 60e3), readAt: {}, createdAt: T(now - 2 * H) }],
@@ -517,7 +519,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
-  collection, query, where, orderBy, limit, serverTimestamp, onSnapshot
+  collection, query, where, orderBy, limit, startAfter, serverTimestamp, onSnapshot,
+  initializeFirestore, persistentLocalCache, persistentSingleTabManager
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -531,7 +534,10 @@ const firebaseConfig = {
 };
 const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
-const db = getFirestore(fb);
+// تخزين محلي دائم: يعمل التطبيق بآخر بيانات محفوظة عند انقطاع الإنترنت، ويقلل القراءات
+let db;
+try { db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) }); }
+catch (e) { db = getFirestore(fb); }
 
 /* ========== إعدادات الخدمات ========== */
 const API_BASE = 'https://ghanamaya.vercel.app';             // مشروع Vercel (الدوال السيرفرية)
@@ -582,6 +588,15 @@ function ago(t) {
 }
 const isFeatured = (l) => l.featuredUntil && millis(l.featuredUntil) > Date.now();
 
+// شريط "لا يوجد اتصال": التطبيق يعرض آخر بيانات محفوظة ويرسل التعديلات عند عودة الإنترنت
+function netBanner() {
+  let el = document.getElementById('offline');
+  if (navigator.onLine) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'offline'; el.className = 'offline'; el.setAttribute('role', 'status'); el.textContent = 'لا يوجد اتصال · تعرض آخر بيانات محفوظة'; document.body.appendChild(el); }
+}
+window.addEventListener('online', () => { netBanner(); toast('عاد الاتصال', 'success'); });
+window.addEventListener('offline', netBanner);
+setTimeout(netBanner, 0);
 function toast(msg, type = '') {
   const t = document.createElement('div');
   t.className = 'toast ' + type; t.textContent = msg; t.setAttribute('role', 'status');
@@ -602,7 +617,8 @@ const ERR = {
   'auth/network-request-failed': 'لا يوجد اتصال بالإنترنت',
   'auth/popup-closed-by-user': 'أُلغي تسجيل الدخول',
   'permission-denied': 'ليس لديك صلاحية لهذا الإجراء',
-  'unavailable': 'الخدمة غير متاحة الآن، تحقق من الإنترنت'
+  'unavailable': 'لا يوجد اتصال بالإنترنت. سيُرسل عند عودة الاتصال',
+  'failed-precondition': 'الخدمة قيد التجهيز، حاول بعد قليل'
 };
 const errMsg = (e) => ERR[e && e.code] || (e && e.userMsg) || 'حدث خطأ، حاول مرة أخرى';
 
@@ -690,10 +706,45 @@ async function getSeller(uid) {
   S.sellers[uid] = p || { name: 'بائع' };
   return S.sellers[uid];
 }
+/* ---------- السوق بالصفحات: يجلب الإعلانات النشطة فقط، 24 في كل مرة، مع فلترة النوع والولاية والترتيب من الخادم ---------- */
+const PAGE = 24;
+function feedKey() {
+  const t = S.cat !== 'all' ? S.cat : (S.f.types.length === 1 ? S.f.types[0] : '');
+  return JSON.stringify([t, S.f.state || '', S.f.sort]);
+}
+async function loadPage(reset) {
+  const key = feedKey();
+  if (reset || !S.feed || S.feed.key !== key) S.feed = { key, items: [], cursor: null, done: false, loading: false };
+  const F = S.feed; if (F.done || F.loading) return;
+  F.loading = true;
+  try {
+    const [t, st, sort] = JSON.parse(key);
+    const c = [where('status', '==', 'active')];
+    if (t) c.push(where('type', '==', t));
+    if (st) c.push(where('state', '==', st));
+    c.push(sort === 0 ? orderBy('createdAt', 'desc') : orderBy('price', sort === 1 ? 'asc' : 'desc'));
+    if (F.cursor) c.push(startAfter(F.cursor));
+    c.push(limit(PAGE));
+    let docs;
+    try { docs = (await getDocs(query(collection(db, 'listings'), ...c))).docs; }
+    catch (e) {
+      // الفهرس غير جاهز بعد: نرجع للطريقة القديمة (آخر 150) حتى لا يتوقف السوق
+      if (e.code !== 'failed-precondition') throw e;
+      console.warn('feed index missing', e.message);
+      docs = (await getDocs(query(collection(db, 'listings'), orderBy('createdAt', 'desc'), limit(150)))).docs;
+      F.done = true;
+    }
+    if (docs.length) F.cursor = docs[docs.length - 1];
+    if (docs.length < PAGE) F.done = true;
+    const fresh = docs.map(d => ({ id: d.id, ...d.data() })).filter(l => !F.items.some(x => x.id === l.id));
+    F.items.push(...fresh);
+    S.listings = F.items;
+    await Promise.all([...new Set(fresh.map(l => l.sellerId))].map(getSeller));
+  } finally { F.loading = false; }
+}
 async function loadListings(force = false) {
   if (S.listings && !force) return S.listings;
-  const snap = await getDocs(query(collection(db, 'listings'), orderBy('createdAt', 'desc'), limit(150)));
-  S.listings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  await loadPage(true);
   return S.listings;
 }
 async function getListing(id) {
@@ -946,10 +997,12 @@ function viewHome() {
   <div id="feed">${S.listings ? feedHTML() : skeletons()}</div>`;
 }
 function feedHTML() {
-  const list = filtered();
-  if (!S.listings.length) return viewEmpty('store', 'لا توجد إعلانات بعد', 'كن أول من يعرض ماعزه أو ضأنه في غنماية.', `<button class="btn btn-accent" style="width:auto;padding:0 24px;height:48px" id="emptyAdd">أضف أول إعلان</button>`);
+  const list = filtered(), more = S.feed && !S.feed.done;
+  if (!S.listings.length && !more && !S.q && !activeFilterCount() && S.cat === 'all') return viewEmpty('store', 'لا توجد إعلانات بعد', 'كن أول من يعرض ماعزه أو ضأنه في غنماية.', `<button class="btn btn-accent" style="width:auto;padding:0 24px;height:48px" id="emptyAdd">أضف أول إعلان</button>`);
+  if (!list.length && more) return `<div style="display:flex;justify-content:center;padding:30px 0"><div class="spinner"></div></div><div id="moreFeed"></div>`;
   if (!list.length) return viewEmpty('search', 'لا نتائج', 'جرّب تغيير البحث أو الفلاتر.', `<button class="btn btn-ghost" style="width:auto;padding:0 24px;height:48px" id="clearAll">مسح الفلاتر</button>`);
-  return `<div class="section-h"><h2>${S.q || activeFilterCount() || S.cat !== 'all' ? 'النتائج' : 'أحدث الإعلانات'}</h2><span class="muted">${list.length} إعلان · <button class="link-ic" id="refresh" aria-label="تحديث">${ic('refresh')}تحديث</button></span></div><div class="grid">${list.map(cardHTML).join('')}</div>`;
+  return `<div class="section-h"><h2>${S.q || activeFilterCount() || S.cat !== 'all' ? 'النتائج' : 'أحدث الإعلانات'}</h2><span class="muted">${list.length}${more ? '+' : ''} إعلان · <button class="link-ic" id="refresh" aria-label="تحديث">${ic('refresh')}تحديث</button></span></div><div class="grid">${list.map(cardHTML).join('')}</div>
+    ${more ? `<div id="moreFeed" style="display:flex;justify-content:center;padding:18px 0"><button class="btn btn-ghost" id="moreBtn" style="width:auto;padding:0 22px;height:44px">عرض المزيد</button></div>` : ''}`;
 }
 function refreshFeed() {
   const feed = $('#feed'); if (!feed) return;
@@ -957,24 +1010,31 @@ function refreshFeed() {
   const ea = $('#emptyAdd'); if (ea) ea.onclick = onAdd;
   const ca = $('#clearAll'); if (ca) ca.onclick = () => { resetFilters(); S.q = ''; S.cat = 'all'; renderShell(); };
   const rf = $('#refresh'); if (rf) rf.onclick = (e) => { const i = e.currentTarget.querySelector('.icon'); if (i) { i.style.transition = 'transform .6s'; i.style.transform = 'rotate(360deg)'; } fetchFeed(true); };
+  // تحميل تلقائي عند الوصول لنهاية القائمة
+  const more = $('#moreFeed');
+  if (more) {
+    const loadMore = async () => { const btn = $('#moreBtn'); if (btn) btn.innerHTML = '<span class="spinner" style="width:20px;height:20px;border-width:2.5px"></span>'; const y = window.scrollY, before = filtered().length; await loadPage(); for (let i = 0; i < 3 && !S.feed.done && filtered().length === before; i++) await loadPage(); refreshFeed(); window.scrollTo(0, y); };
+    const b = $('#moreBtn'); if (b) b.onclick = loadMore;
+    if ('IntersectionObserver' in window) { const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { io.disconnect(); loadMore(); } }, { rootMargin: '400px' }); io.observe(more); }
+  }
 }
 function resetFilters() { S.f = { types: [], breeds: [], min: '', max: '', age: -1, sort: 0, verified: false, state: '' }; }
 async function fetchFeed(force) {
   try {
-    await loadListings(force);
-    // ملفات البائعين (للتوثيق) تُجلب مرة واحدة
-    await Promise.all([...new Set(S.listings.map(l => l.sellerId))].map(getSeller));
+    if (force || !S.feed || S.feed.key !== feedKey()) await loadPage(true);
+    // الفلاتر التي تُطبق على الجهاز (السعر، السلالة، البحث...) قد تقلل النتائج: نجلب صفحات إضافية حتى 12 نتيجة
+    for (let i = 0; i < 4 && !S.feed.done && filtered().length < 12; i++) await loadPage();
     if (S.tab === 'home' && !S.stack.length) refreshFeed();
   } catch (e) {
     const feed = $('#feed'); if (feed) feed.innerHTML = viewEmpty('help', 'تعذّر تحميل الإعلانات', errMsg(e));
   }
 }
 function bindHome() {
-  $$('[data-cat]').forEach(b => b.onclick = () => { S.cat = b.dataset.cat; $$('[data-cat]').forEach(x => x.classList.toggle('on', x === b)); refreshFeed(); });
-  let t; $('#q').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.q = e.target.value; refreshFeed(); }, 250); };
+  $$('[data-cat]').forEach(b => b.onclick = () => { S.cat = b.dataset.cat; $$('[data-cat]').forEach(x => x.classList.toggle('on', x === b)); if (S.feed && S.feed.key === feedKey()) refreshFeed(); else { $('#feed').innerHTML = skeletons(); fetchFeed(); } });
+  let t; $('#q').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { S.q = e.target.value; refreshFeed(); if (S.q && S.feed && !S.feed.done && filtered().length < 12) fetchFeed(); }, 250); };
   $('#openFilters').onclick = openFilters;
   $('#homeWallet').onclick = () => push('wallet');
-  if (S.listings) refreshFeed(); else fetchFeed();
+  if (S.feed && S.feed.key === feedKey()) refreshFeed(); else fetchFeed();
 }
 
 /* ---------- الفلاتر ---------- */
@@ -1009,7 +1069,7 @@ function openFilters() {
     $('#fState', sh).onchange = (e) => { f.state = e.target.value; count(sh); };
     count(sh);
   };
-  const count = (sh) => { const keep = S.f; S.f = f; const n = S.listings ? filtered().length : 0; S.f = keep; $('#fApply', sh).textContent = `عرض ${n} إعلان`; };
+  const count = (sh) => { const keep = S.f; S.f = f; const same = S.feed && S.feed.key === feedKey(); const n = S.listings ? filtered().length : 0; S.f = keep; $('#fApply', sh).textContent = same ? `عرض ${n}${S.feed.done ? '' : '+'} إعلان` : 'عرض النتائج'; };
   openSheet(`
     <div class="row" style="margin-bottom:8px"><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button>
       <h2 class="grow" style="text-align:center">الفلاتر</h2><button class="btn-link" id="fReset">مسح الكل</button></div>
@@ -1084,7 +1144,7 @@ async function renderDetails({ id }) {
   $('#sellerBox').onclick = () => push('seller', { uid: l.sellerId });
   getRating(l.sellerId).then(r => { const el = $('#sellerRating'); if (el && r.count) el.innerHTML = `${starText(r)} · ${esc(seller.city || '')}`; });
   $('#share').onclick = async () => {
-    const text = `${titleOf(l)} — ${money(l.price)} في ${l.city}\nعلى تطبيق غنماية`;
+    const text = `${titleOf(l)} — ${money(l.price)} في ${l.city}\nشاهده واطلبه بأمان على غنماية:\nhttps://ghanamaya.vercel.app/l/${l.id}`;
     try { if (P.Share) await P.Share.share({ title: 'غنماية', text }); else if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(text); toast('نُسخ النص'); } } catch (e) {}
   };
   const rep = $('#report'); if (rep) rep.onclick = () => openReport('listing', l.id, l.sellerId);
@@ -1316,7 +1376,7 @@ async function renderEditor({ id } = {}) {
           const { updatedAt, ...clean } = data;
           out = await sellerApi('createListing', { data: clean, dhash });
         }
-        S.listings = null; haptic();
+        (S.listings = null, S.feed = null); haptic();
         if (out && out.status === 'pending') toast(existing ? 'حُفظت التعديلات. الصور الجديدة تُراجع قبل ظهور الإعلان، عادة خلال ساعات.' : `إعلانك قيد المراجعة (${out.reviewReason}). يُنشر بعد موافقة الإدارة، عادة خلال ساعات.`, 'success');
         else toast(existing ? 'تم حفظ التعديلات' : 'نُشر إعلانك', 'success');
         S.stack = existing ? [] : []; S.tab = 'home';
@@ -1370,13 +1430,13 @@ async function renderMine({ tab = 'active' } = {}) {
   $$('[data-open]').forEach(b => b.onclick = () => push('details', { id: b.dataset.open }));
   $$('[data-edit]').forEach(b => b.onclick = () => push('edit', { id: b.dataset.edit }));
   const setStatus = (id, status, btn, msg) => busy(btn, async () => {
-    try { await updateDoc(doc(db, 'listings', id), { status, updatedAt: serverTimestamp() }); S.listings = null; toast(msg, 'success'); render(); }
+    try { await updateDoc(doc(db, 'listings', id), { status, updatedAt: serverTimestamp() }); (S.listings = null, S.feed = null); toast(msg, 'success'); render(); }
     catch (e) { toast(errMsg(e), 'error'); }
   });
   $$('[data-sold]').forEach(b => b.onclick = () => setStatus(b.dataset.sold, 'sold', b, 'تم تعليمه كمباع'));
   $$('[data-relist]').forEach(b => b.onclick = () => setStatus(b.dataset.relist, 'active', b, 'أُعيد نشر الإعلان'));
   $$('[data-del]').forEach(b => b.onclick = () => confirmSheet('حذف الإعلان؟', 'لا يمكن التراجع عن الحذف.', 'حذف', async () => {
-    await deleteDoc(doc(db, 'listings', b.dataset.del)); S.listings = null; toast('حُذف الإعلان'); render();
+    await deleteDoc(doc(db, 'listings', b.dataset.del)); (S.listings = null, S.feed = null); toast('حُذف الإعلان'); render();
   }));
 }
 
@@ -1411,11 +1471,16 @@ function shortTime(t) {
 
 function startChatsListener(uid) {
   if (chatsUnsub) chatsUnsub();
-  chatsUnsub = onSnapshot(query(collection(db, 'chats'), where('participants', 'array-contains', uid)), (snap) => {
+  const onData = (snap) => {
     S.chats = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => millis(b.updatedAt) - millis(a.updatedAt));
     updateChatBadge();
     if (S.tab === 'chats' && !S.stack.length && $('#clist')) { $('#clist').outerHTML = chatListHTML(); bindChats(); }
-  }, () => {});
+  };
+  const base = [collection(db, 'chats'), where('participants', 'array-contains', uid)];
+  // آخر 100 محادثة فقط؛ إن لم يجهز الفهرس بعد نرجع للاستعلام الكامل
+  chatsUnsub = onSnapshot(query(...base, orderBy('updatedAt', 'desc'), limit(100)), onData, (e) => {
+    if (e.code === 'failed-precondition') chatsUnsub = onSnapshot(query(...base), onData, () => {});
+  });
 }
 function updateChatBadge() {
   const el = $('#chatCount'); if (!el) return;
@@ -1750,7 +1815,8 @@ function viewOrders() {
 async function bindOrders() {
   $$('[data-seg]').forEach(b => b.onclick = () => { S.ordSeg = b.dataset.seg; renderShell(); });
   try {
-    const snap = await getDocs(query(collection(db, 'orders'), where('participants', 'array-contains', S.user.uid)));
+    const ob = [collection(db, 'orders'), where('participants', 'array-contains', S.user.uid)];
+    const snap = await getDocs(query(...ob, orderBy('createdAt', 'desc'), limit(100))).catch(e => { if (e.code === 'failed-precondition') return getDocs(query(...ob)); throw e; });
     const all = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => millis(b.updatedAt) - millis(a.updatedAt));
     const seg = S.profile.isSeller ? (S.ordSeg || 'buy') : 'buy';
     const list = all.filter(o => seg === 'buy' ? o.buyerId === S.user.uid : o.sellerId === S.user.uid);
@@ -1926,7 +1992,7 @@ function drawOrder(o) {
     });
     if (a === 'complete') b.onclick = () => confirmSheet('هل استلمت الحيوان؟', 'أكّد فقط بعد أن يصبح الحيوان معك.', 'نعم، استلمت', async () => {
       await updateDoc(doc(db, 'orders', o.id), { status: 'completed', updatedAt: serverTimestamp() }); notifyOrder(o.id);
-      sellerApi('applyStock', { orderId: o.id }).then(() => { S.listings = null; }).catch(() => {}); // خصم الكمية وتعليم المباع
+      sellerApi('applyStock', { orderId: o.id }).then(() => { (S.listings = null, S.feed = null); }).catch(() => {}); // خصم الكمية وتعليم المباع
     });
   });
   // إرفاق إشعار بنكك
@@ -2022,7 +2088,7 @@ async function renderWallet() {
   walletApi('tick').catch(() => {}); // ينفّذ السحوبات التي حلّ موعدها
   try {
     const [txSnap, depSnap, wdSnap] = await Promise.all([
-      getDocs(query(collection(db, 'transactions'), where('uid', '==', S.user.uid))),
+      getDocs(query(collection(db, 'transactions'), where('uid', '==', S.user.uid), orderBy('createdAt', 'desc'), limit(60))).catch(e => { if (e.code === 'failed-precondition') return getDocs(query(collection(db, 'transactions'), where('uid', '==', S.user.uid))); throw e; }),
       getDocs(query(collection(db, 'deposits'), where('uid', '==', S.user.uid))),
       getDocs(query(collection(db, 'withdrawals'), where('uid', '==', S.user.uid)))
     ]);
@@ -2209,7 +2275,7 @@ function openReport(targetType, targetId, subjectUid) {
           <div class="empty" style="padding:0"><div class="circle">${ic('shield')}</div></div>
           <h2>شكراً، وصلنا بلاغك</h2><p class="muted" style="margin:0;font-size:14px">سيراجعه فريقنا قريباً${st.block ? '، وتم حظر المستخدم' : ''}.</p>
           <button class="btn btn-primary" data-close>حسناً</button></div>`);
-        if (st.block) { S.listings = null; }
+        if (st.block) { (S.listings = null, S.feed = null); }
       } catch (err) { toast(errMsg(err), 'error'); }
     });
   });
@@ -2537,7 +2603,16 @@ function onAdd() {
 }
 
 /* ========== زر الرجوع في أندرويد ========== */
+// روابط المشاركة تفتح الإعلان: https://ghanamaya.vercel.app/l/{id} أو ghanamaya://l/{id}
+function openDeepLink(url) {
+  const m = String(url || '').match(/(?:\/l\/|ghanamaya:\/\/l\/)([A-Za-z0-9_-]{4,60})/);
+  if (!m) return;
+  if (!S.user || !S.profile) { S.pendingOpen = m[1]; return; }
+  S.stack = [{ name: 'details', params: { id: m[1] } }]; render();
+}
 if (isNative && P.App) {
+  P.App.addListener('appUrlOpen', (e) => openDeepLink(e.url));
+  P.App.getLaunchUrl && P.App.getLaunchUrl().then(r => r && r.url && openDeepLink(r.url)).catch(() => {});
   P.App.addListener('backButton', () => {
     if (closeSheet) return closeSheet();
     if (S.stack.length) return pop();
@@ -2549,7 +2624,7 @@ if (isNative && P.App) {
 /* ========== التشغيل ========== */
 renderLoading();
 onAuthStateChanged(auth, async (user) => {
-  S.user = user; S.stack = []; S.listings = null; S.favs = new Set(); S.chats = []; S.blocked = new Set();
+  S.user = user; S.stack = []; (S.listings = null, S.feed = null); S.favs = new Set(); S.chats = []; S.blocked = new Set();
   if (chatsUnsub) { chatsUnsub(); chatsUnsub = null; }
   if (walletUnsub) { walletUnsub(); walletUnsub = null; }
   if (setUnsub) { setUnsub(); setUnsub = null; }
@@ -2567,6 +2642,7 @@ onAuthStateChanged(auth, async (user) => {
     startChatsListener(user.uid);
     startWallet(user.uid);
     renderShell();
+    if (S.pendingOpen) { const id = S.pendingOpen; S.pendingOpen = null; S.stack = [{ name: 'details', params: { id } }]; render(); }
     setupPush();
   } catch (err) {
     app.innerHTML = `<div class="screen">${viewEmpty('help', 'تعذّر الاتصال', errMsg(err))}<div class="pad"><button class="btn btn-primary" onclick="location.reload()">إعادة المحاولة</button></div></div>`;

@@ -17,6 +17,7 @@ window.__SEED = {
     L('l6', { type: 'camel', breed: 'عنافي', sex: 'f', ageMonths: 60, weightKg: 450, price: 6500000, ago: 4 * D, i: 5, state: 'كسلا', city: 'كسلا' }),
     L('l7', { type: 'sheep', breed: 'زغاوي', sex: 'f', ageMonths: 12, weightKg: 44, price: 260000, ago: 5 * D, i: 2 }),
     L('l8', { type: 'sheep', breed: 'كباشي', sex: 'm', ageMonths: 20, weightKg: 70, price: 520000, ago: 6 * D, i: 0, status: 'sold' }),
+    ...Array.from({ length: 40 }, (_, i) => L('g' + i, { type: i % 2 ? 'goat' : 'sheep', breed: i % 2 ? 'بلدي' : 'حمري', sex: 'm', ageMonths: 6 + i, weightKg: 30 + i, price: 100000 + i * 5000, ago: (8 + i) * D, i: i % 6, state: i % 3 ? 'الخرطوم' : 'الجزيرة' })),
     ['wallets/u1', { balance: 12850, held: 5000 }],
     ['settings/wallet', { sdgPerUsdt: 9000, commissionRate: 0.03, releaseDays: 3, minWithdraw: 500, updatedAt: T(now - 3 * H) }],
     ['chats/l1_u1', { listingId: 'l1', buyerId: 'u1', sellerId: 'u2', participants: ['u1', 'u2'], buyerName: 'علي محمد', sellerName: 'مزرعة الرحمة', listingTitle: 'خروف كباشي', listingImage: img(0).url, listingPrice: 450000, lastMessage: 'عرض سعر: 420,000 ج.س', lastSenderId: 'u1', updatedAt: T(now - 20 * 60e3), readAt: {}, createdAt: T(now - 2 * H) }],
