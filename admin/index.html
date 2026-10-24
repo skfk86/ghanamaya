@@ -362,8 +362,14 @@ async function users() {
       <td>${esc(u.city)}، ${esc(u.state)}</td><td dir="ltr" style="text-align:right">${esc(u.whatsapp || '')}</td>
       <td><div style="display:flex;gap:4px;flex-wrap:wrap">${u.isSeller ? '<span class="tag t-blue">بائع</span>' : '<span class="tag t-gray">مشترٍ</span>'}${u.verified ? '<span class="tag t-green">موثّق</span>' : ''}${u.banned ? '<span class="tag t-red">موقوف</span>' : ''}${u.warnings ? `<span class="tag t-orange">${u.warnings} تحذير</span>` : ''}</div></td>
       <td class="muted">${ago(u.createdAt)}</td>
-      <td><div class="actions">${u.isSeller ? `<button class="btn" data-v="${u.uid}">${u.verified ? 'إلغاء التوثيق' : 'توثيق'}</button>` : ''}<button class="btn ${u.banned ? '' : 'danger'}" data-b="${u.uid}">${u.banned ? 'رفع الإيقاف' : 'إيقاف'}</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="empty">لا نتائج</td></tr>';
+      <td><div class="actions">${u.isSeller ? `<button class="btn" data-v="${u.uid}">${u.verified ? 'إلغاء التوثيق' : 'توثيق'}</button>` : ''}<button class="btn ${u.banned ? '' : 'danger'}" data-b="${u.uid}">${u.banned ? 'رفع الإيقاف' : 'إيقاف'}</button><button class="btn" data-del="${u.uid}" title="حذف نهائي">حذف</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="empty">لا نتائج</td></tr>';
     $$('[data-v]').forEach(b => b.onclick = () => run(b, async () => { const u = all.find(x => x.uid === b.dataset.v); const r = await sellerApi('verifyDecide', { uid: u.uid, decision: u.verified ? 'revoke' : 'approve' }); u.verified = !u.verified; draw($('#q').value); toast(r.notified ? 'تم · أُرسل إشعار ✓' : `تم · لم يُرسل إشعار: ${r.reason}`); }));
+    $$('#rows [data-del]').forEach(b => b.onclick = () => {
+      const u = all.find(x => x.uid === b.dataset.del);
+      const reason = prompt(`حذف حساب "${u.storeName || u.name}" نهائياً؟ اكتب السبب (يُحفظ في السجل):`, ''); if (reason === null) return;
+      if (prompt('لا يمكن التراجع. اكتب: حذف') !== 'حذف') return;
+      run(b, async () => { await sellerApi('adminDeleteUser', { uid: u.uid, reason }); all.splice(all.indexOf(u), 1); draw($('#q').value); }, 'حُذف الحساب نهائياً');
+    });
     $$('[data-b]').forEach(b => b.onclick = () => {
       const u = all.find(x => x.uid === b.dataset.b);
       const why = u.banned ? '' : prompt('سبب الإيقاف (يظهر للمستخدم):', ''); if (why === null) return;

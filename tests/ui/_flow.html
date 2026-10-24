@@ -2367,6 +2367,7 @@ function viewAccount() {
     </nav>
     <span class="muted" style="text-align:center">${esc(u.email || '')}</span>
     <button class="btn-danger-link" id="logout" style="align-self:center">تسجيل الخروج</button>
+    <button class="btn-link" id="delAcc" style="align-self:center;color:var(--muted);font-weight:500;font-size:13px">حذف الحساب نهائياً</button>
   </div>`;
 }
 function bindAccount() {
@@ -2380,6 +2381,7 @@ function bindAccount() {
   }
   $('#logout').onclick = () => confirmSheet('تسجيل الخروج؟', '', 'خروج', () => logout());
   $('#editProfile').onclick = openProfileSheet;
+  $('#delAcc').onclick = deleteAccountSheet;
   $('#walletCard').onclick = () => push('wallet');
   const wt = $('#walletToggle'); if (wt) wt.onclick = async () => {
     const on = S.profile.walletOn !== true;
@@ -2467,6 +2469,34 @@ async function openSellerSheet(after) {
         } catch (err) { toast(errMsg(err), 'error'); }
       });
     };
+  });
+}
+
+// حذف الحساب نهائياً (مطلب Google Play): يتطلب دخولاً حديثاً وكتابة "حذف"
+function deleteAccountSheet() {
+  openSheet(`
+    <div class="stack">
+      <div class="row"><h2 class="grow" style="font-size:19px;color:var(--danger)">حذف الحساب نهائياً</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
+      <div class="note note-warn" style="flex-direction:column;gap:4px"><b>سيُحذف نهائياً ولا يمكن استرجاعه:</b><span>ملفك، وإعلاناتك وصورها، والمفضلة، ورمز المحفظة، وصور التوثيق، وحساب الدخول.</span></div>
+      <div class="note note-ok" style="flex-direction:column;gap:4px"><b>يبقى بدون اسمك (سجل للطرف الآخر):</b><span>الطلبات والمعاملات المالية والتقييمات والمحادثات، ويظهر فيها "مستخدم محذوف".</span></div>
+      <span class="muted">لا يمكن الحذف إن كان في محفظتك رصيد أو لديك طلب أو سحب جارٍ.</span>
+      <label class="field"><span>لماذا تغادر؟ (اختياري)</span><select class="input" id="dReason"><option value="">—</option><option>لم أعد أحتاج التطبيق</option><option>لم أجد ما أريد</option><option>مشكلة في التطبيق</option><option>أفضّل طريقة أخرى للبيع والشراء</option><option>سبب آخر</option></select></label>
+      <label class="field"><span>للتأكيد اكتب: <b>حذف</b></span><input class="input" id="dConfirm" autocomplete="off"></label>
+      <button class="btn" id="dGo" style="background:var(--danger);color:#fff" disabled>حذف حسابي نهائياً</button>
+    </div>`, (sh) => {
+    const go = $('#dGo', sh);
+    $('#dConfirm', sh).oninput = (e) => { go.disabled = e.target.value.trim() !== 'حذف'; };
+    go.onclick = (e) => busy(e.currentTarget, async () => {
+      try {
+        await sellerApi('deleteMe', { confirm: 'حذف', reason: $('#dReason', sh).value });
+        closeSheet(); toast('حُذف حسابك. شكراً لاستخدامك غنماية', 'success');
+        setTimeout(() => logout(), 1200);
+      } catch (err) {
+        const msg = errMsg(err);
+        if (/سجّل خروجاً/.test(msg)) confirmSheet('تحقق سريع', 'للأمان نحتاج تسجيل دخول جديد قبل الحذف. سجّل خروجاً ثم ادخل وافتح حسابي ← حذف الحساب خلال 5 دقائق.', 'تسجيل الخروج الآن', () => logout());
+        else toast(msg, 'error');
+      }
+    });
   });
 }
 

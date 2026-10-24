@@ -10,6 +10,7 @@ import { createHmac, randomInt } from 'node:crypto';
 import { FieldValue } from 'firebase-admin/firestore';
 import { cors, verifyToken, adminDb } from './_firebase.js';
 import { pushTo, pushResult } from './_push.js';
+import { deleteAccount, deletionBlockers, phoneHash } from './_account.js';
 
 const IK_ENDPOINT = 'https://ik.imagekit.io/7uwbsw4wl/';
 const DAY = 86400000;
@@ -34,6 +35,8 @@ export default async function handler(req, res) {
   const uid = tok.uid, isAdmin = tok.admin === true, body = req.body || {}, db = adminDb();
   try {
     const me = await db.doc(`users/${uid}`).get();
+    // حذف الحساب متاح حتى لمن لم يكمل ملفه أو المُوقَف
+    if (body.action === 'deleteMe') return res.status(200).json({ ok: true, ...(await deleteMe({ db, uid, tok, body })) });
     if (!me.exists) throw new UserError('أكمل ملفك أولاً', 403);
     if (me.get('banned') === true && !isAdmin) throw new UserError('حسابك موقوف', 403);
     const fn = ACTIONS[body.action];
@@ -71,6 +74,7 @@ export const ACTIONS = {
     if (!str(storeName, 2, 60)) throw new UserError('اكتب اسم المتجر');
     if (!whatsapp) throw new UserError('رقم واتساب غير صحيح');
     // الرقم مستخدم لبائع آخر؟
+    if ((await db.doc(`blockedPhones/${phoneHash(whatsapp)}`).get()).exists) throw new UserError('هذا الرقم موقوف من الإدارة', 403);
     const used = await db.collection('users').where('whatsapp', '==', whatsapp).get();
     if (used.docs.some(d => d.id !== uid)) throw new UserError('هذا الرقم مسجّل لحساب بائع آخر', 409);
     const ref = db.doc(`sellerApps/${uid}`);
@@ -264,6 +268,16 @@ export const ACTIONS = {
     return { notified: r.sent, reason: r.reason || '' };
   }),
 
+  /* ===== الأدمن: حذف حساب مستخدم نهائياً ===== */
+  adminDeleteUser: admin(async ({ db, uid: adminUid, body }) => {
+    const target = String(body.uid || '');
+    if (!target || target === adminUid) throw new UserError('لا يمكنك حذف حسابك من هنا');
+    const blockers = await deletionBlockers(db, target);
+    if (blockers.length && body.force !== true) throw new UserError('لا يمكن الحذف الآن: ' + blockers.join('، '), 409);
+    if (blockers.length) throw new UserError('الحساب فيه مال أو طلبات جارية: احسمها أولاً من المالية والطلبات', 409);
+    return deleteAccount(db, target, { by: 'admin', reason: body.reason });
+  }),
+
   /* ===== الأدمن: روابط مؤقتة لصور التوثيق (10 دقائق) ===== */
   kycUrls: admin(async ({ db, body }) => {
     const s = await db.doc(`verifyRequests/${String(body.uid || '')}`).get();
@@ -271,6 +285,15 @@ export const ACTIONS = {
     return { id: signedUrl(s.get('idPath')), selfie: signedUrl(s.get('selfiePath')) };
   })
 };
+
+// حذف المستخدم لحسابه: يتطلب دخولاً حديثاً (خلال 5 دقائق) حتى لا يحذفه من سرق جلسة مفتوحة
+async function deleteMe({ db, uid, tok, body }) {
+  if (body.confirm !== 'حذف') throw new UserError('اكتب كلمة "حذف" للتأكيد');
+  if (!tok.auth_time || Date.now() / 1000 - tok.auth_time > 300) throw new UserError('للأمان: سجّل خروجاً ثم دخولاً، ثم احذف الحساب خلال 5 دقائق', 401);
+  const blockers = await deletionBlockers(db, uid);
+  if (blockers.length) throw new UserError(blockers.join('، '), 409);
+  return deleteAccount(db, uid, { by: 'user', reason: body.reason });
+}
 
 // رابط موقّع لملف خاص في ImageKit: HMAC-SHA1(المفتاح الخاص، المسار + وقت الانتهاء)
 export function signedUrl(path, seconds = 600) {

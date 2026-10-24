@@ -487,5 +487,36 @@ section('رصيد التجربة');
   ok(g(`orders/${oOpen}`).status === 'cancelled' && g(`orders/${oOpen}`).escrow.status === 'refunded', 'طلبات المحفظة المفتوحة أُلغيت');
 }
 
+section('حذف الحساب');
+{
+  const G = user('gina', { ageDays: 40 });
+  STORE.set('users/gina', { ...g('users/gina'), whatsapp: '+249933333333' });
+  STORE.set('users/gina/favorites/l1', { createdAt: Timestamp.fromMillis(NOW) });
+  STORE.set('listings/gl1', { sellerId: 'gina', status: 'active', images: [] });
+  STORE.set('orders/go1', { buyerId: 'gina', sellerId: 'bob', participants: ['gina', 'bob'], buyerName: 'gina', sellerName: 'bob', status: 'completed', paymentMethod: 'cash' });
+  STORE.set('reviews/go1', { buyerId: 'gina', buyerName: 'gina', sellerId: 'bob', stars: 5 });
+  let r = await sapi(G, 'deleteMe', { confirm: 'نعم' }); ok(r.code === 400, 'يجب كتابة "حذف"');
+  r = await sapi(G, 'deleteMe', { confirm: 'حذف' }); ok(r.code === 401, 'يتطلب دخولاً حديثاً');
+  TOKENS[G].auth_time = Math.floor(NOW / 1000) - 30;
+  STORE.set('wallets/gina', { balance: 500, held: 0 });
+  r = await sapi(G, 'deleteMe', { confirm: 'حذف' }); ok(r.code === 409 && /اسحبها/.test(r.error), 'رصيد في المحفظة يمنع الحذف');
+  STORE.set('wallets/gina', { balance: 0, held: 0 });
+  STORE.set('orders/go2', { buyerId: 'gina', sellerId: 'bob', participants: ['gina', 'bob'], status: 'accepted', paymentMethod: 'cash' });
+  r = await sapi(G, 'deleteMe', { confirm: 'حذف' }); ok(r.code === 409 && /طلب جارٍ/.test(r.error), 'طلب جارٍ يمنع الحذف');
+  STORE.set('orders/go2', { ...g('orders/go2'), status: 'completed' });
+  r = await sapi(G, 'deleteMe', { confirm: 'حذف', reason: 'لم أعد أحتاج' });
+  ok(r.code === 200 && !g('users/gina') && !g('users/gina/favorites/l1') && !g('listings/gl1') && !g('wallets/gina'), 'حُذف الملف والإعلانات والمفضلة والمحفظة');
+  ok(g('orders/go1').buyerName === 'مستخدم محذوف' && g('reviews/go1').buyerName === 'مستخدم محذوف', 'السجلات تبقى بدون الاسم');
+  ok((globalThis.__DELETED || []).includes('gina') && !TOKENS[G], 'حُذف حساب الدخول');
+  // الأدمن
+  const H2 = user('hank', { ageDays: 40 }); STORE.set('users/hank', { ...g('users/hank'), whatsapp: '+249944444444', banned: true });
+  r = await sapi(E1, 'adminDeleteUser', { uid: 'hank' }); ok(r.code === 403, 'غير الأدمن لا يحذف');
+  r = await sapi(ADM, 'adminDeleteUser', { uid: 'admin' }); ok(r.code === 400, 'الأدمن لا يحذف نفسه من هنا');
+  r = await sapi(ADM, 'adminDeleteUser', { uid: 'hank', reason: 'احتيال' }); ok(r.code === 200 && !g('users/hank'), 'الأدمن يحذف حساباً');
+  const NEWU = user('ivan'); STORE.set('users/ivan', { ...g('users/ivan'), isSeller: false });
+  r = await sapi(NEWU, 'apply', { storeName: 'جديد', whatsapp: '0944444444' }); ok(r.code === 403 && /موقوف/.test(r.error), 'رقم المحذوف من الأدمن لا يعود للبيع');
+  r = await sapi(NEWU, 'apply', { storeName: 'جديد', whatsapp: '0933333333' }); ok(r.whatsapp === '+249933333333', 'رقم من حذف حسابه بنفسه يمكن استخدامه');
+}
+
 console.log(`\n${pass} نجح، ${fail} فشل`);
 if (fail) { console.log('الفاشلة:\n- ' + fails.join('\n- ')); process.exit(1); }

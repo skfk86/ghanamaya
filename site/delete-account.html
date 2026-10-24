@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>حذف الحساب — غنماية</title>
+<style>
+:root{--brand:#3F5A2E;--bg:#F7F3EC;--surface:#fff;--ink:#1F1D1A;--muted:#6B655C;--danger:#9A2E1C}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#151412;--surface:#201E1B;--ink:#F2EEE7;--muted:#A39C91;--brand:#8DB06F}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,'IBM Plex Sans Arabic',sans-serif;line-height:1.8}
+main{max-width:640px;margin:0 auto;padding:32px 16px}
+.card{background:var(--surface);border-radius:20px;padding:20px;margin:16px 0}
+h1{font-size:24px;margin:0 0 4px}h2{font-size:17px;margin:0 0 8px}
+.muted{color:var(--muted)}ol,ul{padding-inline-start:22px;margin:0}
+a.btn{display:inline-block;background:var(--brand);color:#fff;text-decoration:none;padding:10px 18px;border-radius:14px;font-weight:700}
+</style>
+</head>
+<body><main>
+<h1>حذف حسابك في غنماية</h1>
+<p class="muted">Ghanamaya account deletion — سوق المواشي في السودان</p>
+<div class="card"><h2>من داخل التطبيق (فوري)</h2>
+<ol><li>افتح غنماية وسجّل الدخول.</li><li>اذهب إلى <b>حسابي</b> ← <b>حذف الحساب نهائياً</b>.</li><li>اكتب كلمة <b>حذف</b> للتأكيد. قد يُطلب منك تسجيل دخول جديد للأمان.</li></ol></div>
+<div class="card"><h2>بدون التطبيق</h2>
+<p>أرسل طلب الحذف من <b>نفس البريد أو رقم واتساب المسجّل</b> في حسابك عبر: <span id="contact">صفحة الدعم داخل التطبيق</span>. ننفّذ الطلب خلال 7 أيام بعد التحقق أنك صاحب الحساب.</p></div>
+<div class="card"><h2>ماذا يُحذف؟</h2>
+<ul><li>ملفك الشخصي، واسم متجرك ورقمك.</li><li>إعلاناتك وكل صورها.</li><li>المفضلة، وقائمة الحظر، ورمز المحفظة.</li><li>صور الهوية والسيلفي الخاصة بالتوثيق.</li><li>حساب تسجيل الدخول.</li></ul></div>
+<div class="card"><h2>ماذا يبقى؟ ولماذا؟</h2>
+<p>سجلات الطلبات والمعاملات المالية والتقييمات والمحادثات تبقى <b>بدون اسمك</b> (تظهر "مستخدم محذوف")، لأنها تخص الطرف الآخر أيضاً ونحتاجها لحل النزاعات والسجلات المالية. إن كان رقمك موقوفاً لمخالفة، نحتفظ ببصمة مشفّرة منه فقط لمنع إعادة التسجيل.</p>
+<p class="muted">لا يمكن حذف حساب فيه رصيد في المحفظة أو طلب أو سحب جارٍ: اسحب رصيدك وأكمل طلباتك أولاً.</p></div>
+</main>
+<script>
+// وسيلة التواصل: عدّل هنا (رقم واتساب الدعم بصيغة دولية بدون +، أو بريد)
+const SUPPORT_WHATSAPP = '';
+const SUPPORT_EMAIL = '';
+const c = document.getElementById('contact');
+if (SUPPORT_WHATSAPP) c.innerHTML = `<a class="btn" href="https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent('أطلب حذف حسابي في غنماية')}">واتساب الدعم</a>`;
+else if (SUPPORT_EMAIL) c.innerHTML = `<a href="mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('طلب حذف حساب غنماية')}">${SUPPORT_EMAIL}</a>`;
+</script>
+</body></html>
