@@ -59,6 +59,9 @@ const ACTIONS = {
     const set = await walletSettings(db);
     const cents = Math.round(Number(body.amount) * 100);
     if (!(cents >= 100) || cents > set.maxDeposit) throw new UserError(`المبلغ بين 1 و ${fmt(set.maxDeposit)} USDT`);
+    // حد الفواتير: 5 فواتير معلّقة في الساعة لكل مستخدم (يمنع إغراق OxaPay بطلبات)
+    const recent = await db.collection('deposits').where('uid', '==', uid).get();
+    if (recent.docs.filter(d => d.get('status') === 'pending' && d.get('createdAt') && d.get('createdAt').toMillis() > Date.now() - 3600e3).length >= 5) throw new UserError('أنشأت فواتير كثيرة. أكمل إحداها أو انتظر ساعة', 429);
     const ref = db.collection('deposits').doc();
     const sandbox = process.env.OXAPAY_SANDBOX === 'true';
     const r = await fetch('https://api.oxapay.com/v1/payment/invoice', {

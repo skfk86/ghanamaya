@@ -75,6 +75,12 @@ export default async function handler(req, res) {
       const d = s.data();
       if (String(d.trackId) !== String(p.track_id)) return;   // لا يطابق الفاتورة التي أنشأناها
       if (d.status === 'paid') return;                          // أُضيف مسبقاً
+      // فاتورة تجريبية لا تُضاف أبداً بعد الإطلاق (صفحات الدفع التجريبية تسمح بمحاكاة الدفع)
+      if (d.sandbox && process.env.OXAPAY_SANDBOX !== 'true') { t.update(ref, { status: 'rejected_sandbox' }); return; }
+      // المبلغ والعملة يطابقان الفاتورة التي أنشأناها
+      if (status === 'Paid' && p.amount != null && (String(p.currency || 'USDT').toUpperCase() !== 'USDT' || Number(p.amount) + 1e-6 < d.amount / 100)) {
+        console.error('oxapay: amount mismatch', depositId, p.amount, p.currency); t.update(ref, { status: 'mismatch', got: { amount: Number(p.amount) || 0, currency: String(p.currency || '') } }); return;
+      }
       if (status === 'Paid') {
         const w = await readWallet(t, db, d.uid);
         w.balance += d.amount;

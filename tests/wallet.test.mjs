@@ -471,6 +471,27 @@ section('قرارات التوثيق من السيرفر مع نتيجة الإ�
   r = await sapi(ADM, 'verifyDecide', { uid: 'eve', decision: 'reject', note: 'الصورة غير واضحة' });
   ok(g('verifyRequests/eve').status === 'rejected' && /غير واضحة/.test(SENT.at(-1).notification.body), 'الرفض مع السبب في الإشعار');
 }
+section('حمايات الإيداع بعد الإطلاق');
+{
+  process.env.OXAPAY_SANDBOX = 'true';
+  const r1 = await api(A, 'deposit', { amount: 10 }); const d1 = g(`deposits/${r1.depositId}`);
+  process.env.OXAPAY_SANDBOX = '';
+  const b0 = bal('alice');
+  await webhook({ order_id: r1.depositId, track_id: d1.trackId, status: 'Paid', amount: 10, currency: 'USDT' });
+  ok(bal('alice') === b0 && g(`deposits/${r1.depositId}`).status === 'rejected_sandbox', 'فاتورة تجريبية قديمة لا تُضاف بعد الإطلاق');
+  const r2 = await api(A, 'deposit', { amount: 20 }); const d2 = g(`deposits/${r2.depositId}`);
+  await webhook({ order_id: r2.depositId, track_id: d2.trackId, status: 'Paid', amount: 5, currency: 'USDT' });
+  ok(bal('alice') === b0 && g(`deposits/${r2.depositId}`).status === 'mismatch', 'مبلغ أقل من الفاتورة لا يُضاف');
+  const r3 = await api(A, 'deposit', { amount: 20 }); const d3 = g(`deposits/${r3.depositId}`);
+  await webhook({ order_id: r3.depositId, track_id: d3.trackId, status: 'Paid', amount: 20, currency: 'USDT' });
+  ok(bal('alice') === b0 + 2000, 'إيداع حقيقي مطابق يُضاف');
+  for (const [k, d] of STORE) if (k.startsWith('deposits/') && d.uid === 'alice' && d.status === 'pending') STORE.set(k, { ...d, status: 'expired' });
+  for (let i = 0; i < 5; i++) await api(A, 'deposit', { amount: 10 });
+  const r4 = await api(A, 'deposit', { amount: 10 }); ok(r4.code === 429, 'حد 5 فواتير معلّقة في الساعة');
+  for (const [k, d] of STORE) if (k.startsWith('deposits/') && d.uid === 'alice' && d.status === 'pending') STORE.set(k, { ...d, status: 'expired' });
+  for (const [k, d] of STORE) if (k.startsWith('deposits/') && d.status === 'paid') STORE.set(k, { ...d, sandbox: true });
+  process.env.OXAPAY_SANDBOX = 'true';
+}
 section('رصيد التجربة');
 {
   process.env.OXAPAY_SANDBOX = ''; process.env.OXAPAY_PAYOUT_KEY = 'PKEY'; payoutMode = 'ok';
