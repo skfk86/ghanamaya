@@ -503,7 +503,7 @@ async function finance() {
       <button class="btn primary" id="sSave" style="align-self:flex-start">حفظ الإعدادات</button>
       <span class="muted">حدّث سعر الصرف دورياً. الطلبات تحفظ السعر وقت إنشائها.</span></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px;border:1.5px dashed var(--danger)"><h2 style="color:var(--danger)">مسح بيانات التجربة</h2>
-      <span class="muted">يحذف كل الأرصدة والمعاملات والإيداعات والسحوبات ورموز المحفظة، ويلغي طلبات المحفظة المفتوحة. استخدمه <b>قبل الإطلاق الحقيقي</b> مباشرة، ثم احذف OXAPAY_SANDBOX من Vercel. يعمل فقط في وضع التجربة.</span>
+      <span class="muted">يحذف كل الأرصدة والمعاملات والإيداعات والسحوبات ورموز المحفظة، ويلغي طلبات المحفظة المفتوحة. استخدمه <b>قبل أول إيداع حقيقي</b>. بعد وصول أي إيداع حقيقي يُرفض المسح لحماية أموال المستخدمين.</span>
       <button class="btn danger" id="resetSb" style="align-self:flex-start">مسح بيانات التجربة</button></div>`;
   $('#resetSb').onclick = (e) => { if (prompt('لا يمكن التراجع. اكتب: مسح') !== 'مسح') return; run(e.currentTarget, async () => { const r = await api('resetSandbox', {}); toast(`مُسح ${r.cleared} عنصراً`); await go(); }); };
   $$('[data-sent]').forEach(b => b.onclick = () => { const h = prompt('رقم المعاملة (TX hash):'); if (!h) return; run(b, async () => { await api('withdrawDecide', { id: b.dataset.sent, decision: 'sent', txHash: h }); await go(); }, 'سُجّل الإرسال'); });

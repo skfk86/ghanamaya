@@ -191,7 +191,11 @@ const ACTIONS = {
 
   /* ===== الأدمن: مسح بيانات التجربة (يعمل فقط في وضع التجربة) ===== */
   resetSandbox: Object.assign(async ({ db }) => {
-    if (process.env.OXAPAY_SANDBOX !== 'true') throw new UserError('متاح فقط في وضع التجربة (OXAPAY_SANDBOX=true)', 403);
+    // مسموح في وضع التجربة، أو بعد الإطلاق ما دام لا يوجد أي إيداع حقيقي بعد (حتى لا تُمسح أموال حقيقية)
+    if (process.env.OXAPAY_SANDBOX !== 'true') {
+      const deps = await db.collection('deposits').get();
+      if (deps.docs.some(d => d.get('sandbox') !== true && ['paid', 'paying'].includes(d.get('status')))) throw new UserError('يوجد إيداع حقيقي: لا يمكن المسح بعد الإطلاق', 403);
+    }
     let n = 0;
     const wipe = async (col) => { const s = await db.collection(col).get(); for (const d of s.docs) { await d.ref.delete(); n++; } };
     // طلبات محفظة مفتوحة: تُلغى (المال تجريبي)
