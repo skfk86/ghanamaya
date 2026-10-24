@@ -682,6 +682,8 @@ async function toggleFav(id, btn) {
 }
 
 /* ---------- الفلترة (على الجهاز) ---------- */
+// توحيد الكتابة العربية للبحث: أ/إ/آ ⇐ ا، ة ⇐ ه، ى ⇐ ي، وحذف التشكيل والتطويل
+const normAr = (t) => String(t || '').replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').toLowerCase();
 function filtered() {
   const f = S.f, q = S.q.trim();
   let out = (S.listings || []).filter(l => l.status === 'active' && !S.blocked.has(l.sellerId));
@@ -693,7 +695,7 @@ function filtered() {
   if (f.age >= 0) out = out.filter(l => l.ageMonths >= AGES[f.age].min && l.ageMonths <= AGES[f.age].max);
   if (f.state) out = out.filter(l => l.state === f.state);
   if (f.verified) out = out.filter(l => S.sellers[l.sellerId] && S.sellers[l.sellerId].verified);
-  if (q) out = out.filter(l => [titleOf(l), l.breed, l.city, l.state, l.description, typeOf(l.type).label].join(' ').includes(q));
+  if (q) { const nq = normAr(q); out = out.filter(l => normAr([titleOf(l), l.breed, l.city, l.state, l.description, typeOf(l.type).label, l.sellerName].join(' ')).includes(nq)); }
   const cmp = [(a, b) => millis(b.createdAt) - millis(a.createdAt), (a, b) => a.price - b.price, (a, b) => b.price - a.price][f.sort];
   return out.sort((a, b) => (isFeatured(b) - isFeatured(a)) || cmp(a, b));
 }
@@ -1550,8 +1552,9 @@ async function renderChat({ id }) {
     $$('[data-buy]', box).forEach(b => b.onclick = () => { const m = msgs.find(x => x.id === b.dataset.buy); push('checkout', { id: chat.listingId, price: m.offer.price, qty: m.offer.qty, offerRef: { chatId: chat.id, msgId: m.id } }); });
   };
   const markRead = () => updateDoc(doc(db, 'chats', chat.id), { [`readAt.${S.user.uid}`]: serverTimestamp() }).catch(() => {});
-  screenUnsub = onSnapshot(query(collection(db, 'chats', chat.id, 'messages'), orderBy('createdAt', 'asc'), limit(300)), (snap) => {
-    msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  // آخر 300 رسالة (الأحدث)، ثم نرتبها تصاعدياً للعرض
+  screenUnsub = onSnapshot(query(collection(db, 'chats', chat.id, 'messages'), orderBy('createdAt', 'desc'), limit(300)), (snap) => {
+    msgs = snap.docs.map(d => ({ id: d.id, ...d.data() })).reverse();
     draw();
     if (msgs.length && msgs[msgs.length - 1].senderId !== S.user.uid) markRead();
   }, (e) => { box.innerHTML = viewEmpty('help', 'تعذّر تحميل المحادثة', errMsg(e)); });
