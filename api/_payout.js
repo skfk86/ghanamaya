@@ -34,6 +34,11 @@ async function ledgerOk(db, uid) {
 async function assess(db, set, { uid, me, cents, address, id }) {
   const led = await ledgerOk(db, uid);
   if (!led.ok) return { freeze: `خلل في الدفتر: المتوقع ${fmt(led.expected)} والفعلي ${fmt(led.actual)}` };
+  // في التشغيل الحقيقي: رصيد من إيداعات تجريبية لا يُسحب أبداً
+  if (!sandbox()) {
+    const sb = await db.collection('transactions').where('uid', '==', uid).get();
+    if (sb.docs.some(d => d.get('sandbox') === true)) return { freeze: 'الحساب فيه رصيد من إيداعات تجريبية: امسح بيانات التجربة' };
+  }
 
   const since = Date.now() - DAY;
   const [deps, mine, sameAddr] = await Promise.all([

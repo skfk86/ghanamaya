@@ -31,7 +31,9 @@ const { chromium } = require('playwright'); const fs = require('fs'); const P = 
   await tap('[data-tab="chats"]'); await tap('.citem'); ok(await top() === 'chat', 'فتح محادثة');
   await tap('#back'); await tap('[data-tab="orders"]'); await tap('.ocard'); ok(await top() === 'order', 'فتح طلب');
   await tap('#back'); await tap('[data-tab="account"]'); await tap('#walletToggle');
-  ok(await page.evaluate(() => __dbg.S.profile.walletOff === true), 'مفتاح قبول المحفظة يعمل');
+  ok(await page.locator('.sheet #okBtn').count() === 1, 'تفعيل المحفظة يطلب تأكيداً');
+  await tap('.sheet #okBtn');
+  ok(await page.evaluate(() => __dbg.S.profile.walletOn === true), 'مفتاح قبول المحفظة يعمل (مُعطّل افتراضياً)');
   await tap('[data-tab="home"]'); await tap('[data-cat="goat"]'); ok(await page.locator('.lcard').count() === 2, 'تصنيف الماعز يعرض 2');
   await page.fill('#q', 'كباشي'); await page.waitForTimeout(500); ok(await page.locator('.lcard').count() >= 0, 'البحث');
   await tap('[data-cat="all"]'); await page.fill('#q', ''); await page.waitForTimeout(500);

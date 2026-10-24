@@ -9,7 +9,7 @@
 import { createHmac, randomInt } from 'node:crypto';
 import { FieldValue } from 'firebase-admin/firestore';
 import { cors, verifyToken, adminDb } from './_firebase.js';
-import { pushTo } from './_push.js';
+import { pushTo, pushResult } from './_push.js';
 
 const IK_ENDPOINT = 'https://ik.imagekit.io/7uwbsw4wl/';
 const DAY = 86400000;
@@ -238,6 +238,31 @@ export const ACTIONS = {
     });
     return {};
   },
+
+  /* ===== الأدمن: قرار شارة التوثيق (من السيرفر، مع إشعار ونتيجته) ===== */
+  verifyDecide: admin(async ({ db, body }) => {
+    const uid = String(body.uid || ''), note = String(body.note || '').slice(0, 200);
+    const u = await db.doc(`users/${uid}`).get();
+    if (!u.exists) throw new UserError('المستخدم غير موجود', 404);
+    const vref = db.doc(`verifyRequests/${uid}`), v = await vref.get();
+    const batch = db.batch();
+    let msg;
+    if (body.decision === 'approve') {
+      batch.update(u.ref, { verified: true, updatedAt: FieldValue.serverTimestamp() });
+      if (v.exists) batch.update(vref, { status: 'approved', decidedAt: FieldValue.serverTimestamp() });
+      msg = { title: '🎉 مبروك! أصبحت تاجراً موثّقاً', body: 'تظهر الآن شارة التوثيق بجانب اسمك في كل إعلاناتك، وارتفع حد إعلاناتك.' };
+    } else if (body.decision === 'reject') {
+      if (!v.exists) throw new UserError('لا يوجد طلب', 404);
+      batch.update(vref, { status: 'rejected', decisionNote: note || 'لم نتمكن من التحقق', decidedAt: FieldValue.serverTimestamp() });
+      msg = { title: 'لم يُقبل طلب التوثيق', body: `${note || 'لم نتمكن من التحقق'}. يمكنك إعادة التقديم من حسابك.` };
+    } else if (body.decision === 'revoke') {
+      batch.update(u.ref, { verified: false, updatedAt: FieldValue.serverTimestamp() });
+      msg = { title: 'أُزيلت شارة التوثيق', body: note || 'للاستفسار تواصل مع دعم غنماية.' };
+    } else throw new UserError('قرار غير صالح');
+    await batch.commit();
+    const r = await pushResult(db, uid, { ...msg, data: { kind: 'verify' }, tag: 'verify', channel: 'orders' });
+    return { notified: r.sent, reason: r.reason || '' };
+  }),
 
   /* ===== الأدمن: روابط مؤقتة لصور التوثيق (10 دقائق) ===== */
   kycUrls: admin(async ({ db, body }) => {

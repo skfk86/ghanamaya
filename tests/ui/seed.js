@@ -7,7 +7,7 @@ window.__SEED = {
   claims: { admin: true },
   docs: Object.fromEntries([
     ['users/u1', { name: 'علي محمد', state: 'الخرطوم', city: 'بحري', isSeller: true, storeName: 'حوش علي للمواشي', whatsapp: '+249912345678', verified: true, rating: 4.8, ratingCount: 23, createdAt: T(now - 90 * D) }],
-    ['users/u2', { name: 'عثمان', state: 'الخرطوم', city: 'أم درمان', isSeller: true, storeName: 'مزرعة الرحمة', whatsapp: '+249911111111', verified: true, rating: 4.6, ratingCount: 41, createdAt: T(now - 200 * D) }],
+    ['users/u2', { walletOn: true, name: 'عثمان', state: 'الخرطوم', city: 'أم درمان', isSeller: true, storeName: 'مزرعة الرحمة', whatsapp: '+249911111111', verified: true, rating: 4.6, ratingCount: 41, createdAt: T(now - 200 * D) }],
     ['users/u3', { name: 'محمد أحمد', state: 'الجزيرة', city: 'ود مدني', isSeller: false, createdAt: T(now - 20 * D) }],
     L('l1', { type: 'sheep', breed: 'كباشي', sex: 'm', ageMonths: 14, weightKg: 62, price: 450000, ago: 2 * H, i: 0, featuredUntil: T(now + 3 * D) }),
     L('l2', { type: 'sheep', breed: 'حمري', sex: 'm', ageMonths: 10, weightKg: 48, price: 320000, ago: 5 * H, i: 1, city: 'شرق النيل' }),

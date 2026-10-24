@@ -44,7 +44,7 @@ const deposited = () => [...STORE.entries()].filter(([p, d]) => p.startsWith('de
 
 function user(uid, extra = {}) {
   TOKENS['t-' + uid] = { uid, email: uid + '@x.com', auth_time: Math.floor(NOW / 1000) - 3600, ...(extra.admin ? { admin: true } : {}) };
-  STORE.set(`users/${uid}`, { name: uid, state: 'الخرطوم', city: 'بحري', isSeller: true, storeName: 'S' + uid, fcmToken: 'fcm-' + uid, createdAt: Timestamp.fromMillis(NOW - (extra.ageDays ?? 30) * DAY), verified: !!extra.verified, ...extra.profile });
+  STORE.set(`users/${uid}`, { name: uid, state: 'الخرطوم', city: 'بحري', isSeller: true, walletOn: true, storeName: 'S' + uid, fcmToken: 'fcm-' + uid, createdAt: Timestamp.fromMillis(NOW - (extra.ageDays ?? 30) * DAY), verified: !!extra.verified, ...extra.profile });
   return 't-' + uid;
 }
 function sign(obj, key) { const raw = JSON.stringify(obj); return { raw, sig: createHmac('sha512', key).update(raw).digest('hex') }; }
@@ -127,9 +127,11 @@ section('رصيد غير كافٍ، رفض، إلغاء، نزاع');
   r = await api(ADM, 'resolve', { orderId: o3, to: 'buyer' }); ok(r.code === 200 && bal('alice') === 5000 && held('alice') === 0, 'الأدمن يحسم للمشتري');
   const o4 = order('alice', 'bob', 90000); await api(A, 'hold', { orderId: o4 }); await api(B, 'accept', { orderId: o4 }); await api(A, 'dispute', { orderId: o4, reason: 'تأخير التسليم' });
   const bb = bal('bob'); r = await api(ADM, 'resolve', { orderId: o4, to: 'seller' }); ok(r.code === 200 && bal('bob') === bb + 970, 'الأدمن يحسم للبائع مع العمولة');
-  STORE.set('users/bob', { ...g('users/bob'), walletOff: true });
+  STORE.set('users/bob', { ...g('users/bob'), walletOn: false });
   const o5 = order('alice', 'bob', 90000); r = await api(A, 'hold', { orderId: o5 }); ok(r.code === 409 && held('alice') === 0, 'البائع أوقف المحفظة ⇒ السيرفر يرفض');
-  STORE.set('users/bob', { ...g('users/bob'), walletOff: false });
+  const o5b = order('alice', 'carol', 90000); STORE.set('users/carol', { ...g('users/carol'), walletOn: undefined }); r = await api(A, 'hold', { orderId: o5b }); ok(r.code === 409, 'المحفظة معطّلة افتراضياً لمن لم يفعّلها');
+  STORE.set('users/carol', { ...g('users/carol'), walletOn: true });
+  STORE.set('users/bob', { ...g('users/bob'), walletOn: true });
   const o6 = order('alice', 'bob', 90000, { paymentMethod: 'bankak' }); r = await api(A, 'hold', { orderId: o6 }); ok(r.code === 400, 'طلب بنكك لا يُحجز');
   STORE.set('users/mallory', { ...g('users/mallory'), banned: true }); r = await api(M, 'deposit', { amount: 10 }); ok(r.code === 403, 'الموقوف لا يستخدم المحفظة');
 }
@@ -244,6 +246,8 @@ section('الحدود اليومية، الحد الأقصى للطلبات');
 /* =================== 5. السحب الحقيقي (بدون sandbox) =================== */
 section('السحب الحقيقي عبر OxaPay Payout + webhook');
 process.env.OXAPAY_SANDBOX = ''; process.env.OXAPAY_PAYOUT_KEY = 'PKEY';
+// نحاكي أن إيداعات alice حقيقية (في الواقع: بعد مسح بيانات التجربة)
+for (const [k, d] of STORE) if (k.startsWith('transactions/') && d.uid === 'alice' && d.sandbox) STORE.set(k, { ...d, sandbox: false });
 {
   let r = await api(A, 'withdraw', { amount: 10, address: ADDR_A, pin: '482913' });
   const w = g(`withdrawals/${r.withdrawalId}`);
@@ -452,6 +456,35 @@ section('التوثيق بالهوية (صور خاصة)');
   ok(u.pathname === '/7uwbsw4wl/kyc/eve/id.webp' && u.searchParams.get('ik-s') === sig && +exp - NOW / 1000 <= 600, 'رابط موقّع صالح 10 دقائق فقط');
   ok(seller.hamming('ffffffffffffffff', 'fffffffffffffff0') === 4 && seller.hamming('x', 'y') === 64, 'حساب فرق البصمات');
   globalThis.fetch = realFetch;
+}
+
+section('قرارات التوثيق من السيرفر مع نتيجة الإشعار');
+{
+  STORE.set('verifyRequests/eve', { status: 'pending' }); STORE.set('users/eve', { ...g('users/eve'), verified: false });
+  let r = await sapi(E1, 'verifyDecide', { uid: 'eve', decision: 'approve' }); ok(r.code === 403, 'غير الأدمن لا يوثّق');
+  r = await sapi(ADM, 'verifyDecide', { uid: 'eve', decision: 'approve' });
+  ok(r.notified === true && g('users/eve').verified === true && g('verifyRequests/eve').status === 'approved', 'التوثيق + إشعار وصل');
+  STORE.set('users/eve', { ...g('users/eve'), fcmToken: '' });
+  r = await sapi(ADM, 'verifyDecide', { uid: 'eve', decision: 'revoke', note: 'x' });
+  ok(r.notified === false && /الإشعارات/.test(r.reason) && g('users/eve').verified === false, 'إلغاء الشارة + سبب عدم وصول الإشعار');
+  STORE.set('verifyRequests/eve', { status: 'pending' }); STORE.set('users/eve', { ...g('users/eve'), fcmToken: 'fcm-eve' });
+  r = await sapi(ADM, 'verifyDecide', { uid: 'eve', decision: 'reject', note: 'الصورة غير واضحة' });
+  ok(g('verifyRequests/eve').status === 'rejected' && /غير واضحة/.test(SENT.at(-1).notification.body), 'الرفض مع السبب في الإشعار');
+}
+section('رصيد التجربة');
+{
+  process.env.OXAPAY_SANDBOX = ''; process.env.OXAPAY_PAYOUT_KEY = 'PKEY'; payoutMode = 'ok';
+  STORE.set('settings/wallet', { ...g('settings/wallet'), autoWithdraw: true, payoutFailures: [] });
+  NOW += 3 * DAY;
+  const r0 = await api(B, 'withdraw', { amount: 5, address: ADDR_B, pin: '334455' });
+  ok(r0.status === 'frozen' && /تجريبية/.test(g(`withdrawals/${r0.withdrawalId}`).reviewReason), 'في التشغيل الحقيقي: رصيد التجربة لا يُسحب');
+  let r = await api(ADM, 'resetSandbox'); ok(r.code === 403, 'المسح ممنوع خارج وضع التجربة');
+  process.env.OXAPAY_SANDBOX = 'true';
+  r = await api(A, 'resetSandbox'); ok(r.code === 403, 'غير الأدمن لا يمسح');
+  const oOpen = order('alice', 'bob', 90000); await deposit(A, 'alice', 20); await api(A, 'hold', { orderId: oOpen });
+  r = await api(ADM, 'resetSandbox');
+  ok(r.code === 200 && ![...STORE.keys()].some(k => /^(wallets|transactions|deposits|withdrawals|walletPins)\//.test(k)), 'مسح كل بيانات المحفظة التجريبية');
+  ok(g(`orders/${oOpen}`).status === 'cancelled' && g(`orders/${oOpen}`).escrow.status === 'refunded', 'طلبات المحفظة المفتوحة أُلغيت');
 }
 
 console.log(`\n${pass} نجح، ${fail} فشل`);

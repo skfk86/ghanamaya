@@ -128,7 +128,7 @@ const ik = (u, w = 200) => u ? `${u}?tr=w-${w},q-70` : '';
 const TYPES = { goat: 'ماعز', sheep: 'ضأن', cattle: 'عجل', camel: 'جمل' };
 const ltitle = (l) => `${TYPES[l.type] || ''} ${l.breed || ''}`.trim();
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.append(t); requestAnimationFrame(() => t.classList.add('show')); setTimeout(() => t.remove(), 2800); }
-async function run(btn, fn, ok) { btn.disabled = true; try { await fn(); if (ok) toast(ok); } catch (e) { toast(e.code === 'permission-denied' ? 'لا صلاحية' : 'حدث خطأ'); console.error(e); } finally { btn.disabled = false; } }
+async function run(btn, fn, ok) { btn.disabled = true; try { await fn(); if (ok) toast(ok); } catch (e) { toast(e.code === 'permission-denied' ? 'لا صلاحية' : (e.message || 'حدث خطأ')); console.error(e); } finally { btn.disabled = false; } }
 
 const S = { me: null, sec: 'home', counts: {}, sel: null, filter: 'open' };
 const SECTIONS = [['home', 'نظرة عامة', 'home'], ['sellers', 'تفعيل البائعين', 'user'], ['reports', 'البلاغات', 'flag'], ['verify', 'التوثيق', 'badge'], ['listings', 'الإعلانات', 'store'], ['users', 'المستخدمون', 'user'], ['orders', 'الطلبات', 'bag'], ['finance', 'المالية', 'wallet']];
@@ -313,15 +313,14 @@ async function verify() {
     $(`#kyc-${b.dataset.kyc}`).innerHTML = [u.id, u.selfie].filter(Boolean).map(x => `<img src="${esc(x)}" alt="" data-full="${esc(x)}">`).join('');
     $$(`#kyc-${b.dataset.kyc} img`).forEach(i => i.onclick = () => window.open(i.dataset.full, '_blank'));
   }, 'الروابط صالحة 10 دقائق'));
+  // نتيجة الإشعار تظهر للأدمن حتى يعرف إن وصل التاجر أم لا
+  const notifyToast = (r, done) => toast(r.notified ? `${done} · أُرسل إشعار للتاجر ✓` : `${done} · لم يُرسل إشعار: ${r.reason || 'غير معروف'}`);
   $$('[data-ok]').forEach(b => b.onclick = () => run(b, async () => {
-    const batch = writeBatch(db);
-    batch.update(doc(db, 'users', b.dataset.ok), { verified: true, updatedAt: serverTimestamp() });
-    batch.update(doc(db, 'verifyRequests', b.dataset.ok), { status: 'approved', decidedAt: serverTimestamp() });
-    await batch.commit(); adminNotify('verify', b.dataset.ok); await go();
-  }, 'تم التوثيق'));
+    const r = await sellerApi('verifyDecide', { uid: b.dataset.ok, decision: 'approve' }); notifyToast(r, 'تم التوثيق'); await go();
+  }));
   $$('[data-no]').forEach(b => b.onclick = () => {
     const note = prompt('سبب الرفض (يظهر للتاجر):', 'لم نتمكن من التحقق من المعلومات'); if (note === null) return;
-    run(b, async () => { await updateDoc(doc(db, 'verifyRequests', b.dataset.no), { status: 'rejected', decisionNote: note, decidedAt: serverTimestamp() }); adminNotify('verify', b.dataset.no); await go(); }, 'تم الرفض');
+    run(b, async () => { const r = await sellerApi('verifyDecide', { uid: b.dataset.no, decision: 'reject', note }); notifyToast(r, 'تم الرفض'); await go(); });
   });
 }
 
@@ -364,7 +363,7 @@ async function users() {
       <td><div style="display:flex;gap:4px;flex-wrap:wrap">${u.isSeller ? '<span class="tag t-blue">بائع</span>' : '<span class="tag t-gray">مشترٍ</span>'}${u.verified ? '<span class="tag t-green">موثّق</span>' : ''}${u.banned ? '<span class="tag t-red">موقوف</span>' : ''}${u.warnings ? `<span class="tag t-orange">${u.warnings} تحذير</span>` : ''}</div></td>
       <td class="muted">${ago(u.createdAt)}</td>
       <td><div class="actions">${u.isSeller ? `<button class="btn" data-v="${u.uid}">${u.verified ? 'إلغاء التوثيق' : 'توثيق'}</button>` : ''}<button class="btn ${u.banned ? '' : 'danger'}" data-b="${u.uid}">${u.banned ? 'رفع الإيقاف' : 'إيقاف'}</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="empty">لا نتائج</td></tr>';
-    $$('[data-v]').forEach(b => b.onclick = () => run(b, async () => { const u = all.find(x => x.uid === b.dataset.v); await updateDoc(doc(db, 'users', u.uid), { verified: !u.verified, updatedAt: serverTimestamp() }); u.verified = !u.verified; draw($('#q').value); }, 'تم'));
+    $$('[data-v]').forEach(b => b.onclick = () => run(b, async () => { const u = all.find(x => x.uid === b.dataset.v); const r = await sellerApi('verifyDecide', { uid: u.uid, decision: u.verified ? 'revoke' : 'approve' }); u.verified = !u.verified; draw($('#q').value); toast(r.notified ? 'تم · أُرسل إشعار ✓' : `تم · لم يُرسل إشعار: ${r.reason}`); }));
     $$('[data-b]').forEach(b => b.onclick = () => {
       const u = all.find(x => x.uid === b.dataset.b);
       const why = u.banned ? '' : prompt('سبب الإيقاف (يظهر للمستخدم):', ''); if (why === null) return;
@@ -496,7 +495,11 @@ async function finance() {
       </div>
       <span class="muted">كل سحب تلقائي. فترة أمان (يُبلَّغ المستخدم ويستطيع الإلغاء): حساب جديد 48 س، إيداع حديث أو عنوان جديد أو مبلغ كبير 24 س، غير موثّق 12 س. ما يتجاوز الحدود اليومية يُؤجَّل 24 س. التجميد فقط عند خلل في الدفتر أو عنوان مشترك أو فشل OxaPay. 3 إخفاقات في يوم توقف السحب تلقائياً. في وضع التجربة الإرسال محاكاة.</span>
       <button class="btn primary" id="sSave" style="align-self:flex-start">حفظ الإعدادات</button>
-      <span class="muted">حدّث سعر الصرف دورياً. الطلبات تحفظ السعر وقت إنشائها.</span></div>`;
+      <span class="muted">حدّث سعر الصرف دورياً. الطلبات تحفظ السعر وقت إنشائها.</span></div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px;border:1.5px dashed var(--danger)"><h2 style="color:var(--danger)">مسح بيانات التجربة</h2>
+      <span class="muted">يحذف كل الأرصدة والمعاملات والإيداعات والسحوبات ورموز المحفظة، ويلغي طلبات المحفظة المفتوحة. استخدمه <b>قبل الإطلاق الحقيقي</b> مباشرة، ثم احذف OXAPAY_SANDBOX من Vercel. يعمل فقط في وضع التجربة.</span>
+      <button class="btn danger" id="resetSb" style="align-self:flex-start">مسح بيانات التجربة</button></div>`;
+  $('#resetSb').onclick = (e) => { if (prompt('لا يمكن التراجع. اكتب: مسح') !== 'مسح') return; run(e.currentTarget, async () => { const r = await api('resetSandbox', {}); toast(`مُسح ${r.cleared} عنصراً`); await go(); }); };
   $$('[data-sent]').forEach(b => b.onclick = () => { const h = prompt('رقم المعاملة (TX hash):'); if (!h) return; run(b, async () => { await api('withdrawDecide', { id: b.dataset.sent, decision: 'sent', txHash: h }); await go(); }, 'سُجّل الإرسال'); });
   $$('[data-now]').forEach(b => b.onclick = () => { if (!confirm('إرسال هذا السحب الآن عبر OxaPay؟')) return; run(b, async () => { await api('withdrawDecide', { id: b.dataset.now, decision: 'now' }); await go(); }, 'أُرسل للتنفيذ'); });
   $$('[data-frz]').forEach(b => b.onclick = () => { const n = prompt('سبب التجميد:', ''); if (n === null) return; run(b, async () => { await api('withdrawDecide', { id: b.dataset.frz, decision: 'freeze', note: n }); await go(); }, 'جُمّد'); });

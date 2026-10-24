@@ -91,7 +91,7 @@ const ACTIONS = {
       const { ref, o } = await loadOrder(t, db, body.orderId, uid, 'buyer', ['pending']);
       if (o.escrow) throw new UserError('المبلغ محجوز مسبقاً', 409);
       const sel = await t.get(db.collection('users').doc(o.sellerId));
-      if (sel.exists && sel.data().walletOff) throw new UserError('البائع لا يقبل الدفع بالمحفظة', 409);
+      if (!sel.exists || sel.data().walletOn !== true) throw new UserError('هذا البائع لا يقبل الدفع بالعملات الرقمية', 409);
       const amount = Math.ceil(o.total / set.sdgPerUsdt * 100);
       const w = await readWallet(t, db, uid);
       if (w.balance < amount) throw new UserError(`رصيدك غير كافٍ. المطلوب ${fmt(amount)} USDT`, 402);
@@ -188,6 +188,20 @@ const ACTIONS = {
     const set = await walletSettings(db);
     return { processed: await processDue(db, set, 3) };
   },
+
+  /* ===== الأدمن: مسح بيانات التجربة (يعمل فقط في وضع التجربة) ===== */
+  resetSandbox: Object.assign(async ({ db }) => {
+    if (process.env.OXAPAY_SANDBOX !== 'true') throw new UserError('متاح فقط في وضع التجربة (OXAPAY_SANDBOX=true)', 403);
+    let n = 0;
+    const wipe = async (col) => { const s = await db.collection(col).get(); for (const d of s.docs) { await d.ref.delete(); n++; } };
+    // طلبات محفظة مفتوحة: تُلغى (المال تجريبي)
+    const open = await db.collection('orders').where('paymentMethod', '==', 'wallet').get();
+    for (const d of open.docs) if (['pending', 'accepted', 'disputed'].includes(d.get('status'))) {
+      await d.ref.update({ status: 'cancelled', cancelReason: 'مسح بيانات التجربة', 'escrow.status': 'refunded', refundedBy: 'admin', updatedAt: FieldValue.serverTimestamp() }); n++;
+    }
+    for (const c of ['wallets', 'transactions', 'deposits', 'withdrawals', 'walletPins']) await wipe(c);
+    return { cleared: n };
+  }, { admin: true }),
 
   /* ===== الأدمن: حسم نزاع ===== */
   resolve: Object.assign(async ({ db, body }) => {

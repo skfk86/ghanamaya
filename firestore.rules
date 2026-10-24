@@ -16,11 +16,11 @@ service cloud.firestore {
     // الحقول التي يحق للمستخدم كتابتها في ملفه
     function userFields() {
       return ['name', 'photo', 'state', 'city', 'isSeller',
-              'walletOff', 'fcmToken', 'createdAt', 'updatedAt'];
+              'walletOn', 'fcmToken', 'createdAt', 'updatedAt'];
     }
     // التفعيل كبائع، واسم المتجر، ورقم واتساب: من السيرفر فقط بعد تأكيد الرقم (/api/seller)
     function ownerEditable() {
-      return ['name', 'photo', 'state', 'city', 'walletOff', 'fcmToken', 'updatedAt'];
+      return ['name', 'photo', 'state', 'city', 'walletOn', 'fcmToken', 'updatedAt'];
     }
     function validUser(d) {
       return str(d.name, 2, 60)
@@ -30,7 +30,7 @@ service cloud.firestore {
         && (!('isSeller' in d) || d.isSeller is bool)
         && (!('storeName' in d) || str(d.storeName, 2, 60))
         && (!('whatsapp' in d) || d.whatsapp.matches('^\\+?[0-9]{9,15}$'))
-        && (!('walletOff' in d) || d.walletOff is bool)
+        && (!('walletOn' in d) || d.walletOn is bool)
         && (!('fcmToken' in d) || str(d.fcmToken, 0, 400));
     }
     // البائع لا يستطيع إلغاء البيع من التطبيق بعد التفعيل (يتم عبر الدعم)
