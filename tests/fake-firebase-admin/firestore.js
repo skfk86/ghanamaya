@@ -28,17 +28,20 @@ function applyUpdate(path, d) {
   STORE.set(path, cur);
 }
 class Query {
-  constructor(col, filters = [], lim = 0, cnt = false) { this.col = col; this.filters = filters; this.lim = lim; this.cnt = cnt; }
-  where(f, op, v) { return new Query(this.col, [...this.filters, [f, op, v]], this.lim); }
-  limit(n) { return new Query(this.col, this.filters, n); }
+  constructor(col, filters = [], lim = 0, cnt = false, ord = null, after = null) { this.col = col; this.filters = filters; this.lim = lim; this.cnt = cnt; this.ord = ord; this.after = after; }
+  where(f, op, v) { return new Query(this.col, [...this.filters, [f, op, v]], this.lim, false, this.ord, this.after); }
+  limit(n) { return new Query(this.col, this.filters, n, false, this.ord, this.after); }
   select() { return this; }
-  orderBy() { return this; }
+  orderBy(f, d = 'asc') { return new Query(this.col, this.filters, this.lim, false, [f, d], this.after); }
+  startAfter(x) { return new Query(this.col, this.filters, this.lim, false, this.ord, x); }
   count() { const q = this; return { get: async () => { const s = await q.get(); return { data: () => ({ count: s.size }) }; } }; }
   async get() {
     const prefix = this.col + '/';
     let docs = [...STORE.entries()].filter(([p]) => p.startsWith(prefix) && !p.slice(prefix.length).includes('/'))
       .filter(([, d]) => this.filters.every(([f, op, v]) => { let x = getPath(d, f); if (op === 'array-contains-any') return Array.isArray(x) && v.some(y => x.includes(y)); if (x instanceof Timestamp) x = x.toMillis(); if (v instanceof Timestamp) v = v.toMillis(); return op === '==' ? eq(x, v) : op === 'in' ? v.some(y => eq(x, y)) : op === 'array-contains' ? Array.isArray(x) && x.includes(v) : op === '<=' ? x <= v : op === '>=' ? x >= v : op === '<' ? x < v : op === '>' ? x > v : (() => { throw new Error('op ' + op); })(); }))
       .map(([p, d]) => new Snap(new DocRef(p), d));
+    if (this.ord) { const [f, d] = this.ord; const v = (s) => { const x = s.get(f); return x instanceof Timestamp ? x.toMillis() : x; }; docs.sort((a, b) => ((v(a) > v(b)) - (v(a) < v(b))) * (d === 'desc' ? -1 : 1) || (a.id < b.id ? -1 : 1)); }
+    if (this.after) { const i = this.after instanceof Snap ? docs.findIndex(d => d.id === this.after.id) : -1; docs = docs.slice(i + 1); }
     if (this.lim) docs = docs.slice(0, this.lim);
     return { docs, empty: !docs.length, size: docs.length, forEach: (f) => docs.forEach(f) };
   }
@@ -48,6 +51,7 @@ class ColRef extends Query { constructor(path) { super(path); this.path = path; 
 export const TX_STATS = globalThis.__TXS ||= { runs: 0 };
 const db = {
   doc: (p) => new DocRef(p), collection: (p) => new ColRef(p),
+  async getAll(...refs) { return Promise.all(refs.map(r => r.get())); },
   async runTransaction(fn) {
     TX_STATS.runs++;
     const writes = []; let wrote = false;

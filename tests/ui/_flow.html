@@ -570,7 +570,8 @@ const ic = (n, attrs = '') => `<svg class="icon" ${attrs}><use href="#i-${n}"/><
 const esc = (s = '') => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const initial = (n) => (n || '؟').trim().charAt(0);
 const money = (n) => Number(n || 0).toLocaleString('en-US') + ' ج.س';
-const ik = (url, w = 400) => url ? `${url}?tr=w-${w},q-70,f-auto` : '';
+// صور ImageKit بالحجم والجودة المناسبين للعرض فقط (أكبر بند في استهلاك البيانات)
+const ik = (url, w = 400, q = 60) => url ? `${url}?tr=w-${w},q-${q},f-auto` : '';
 // أقل من سنتين بالأشهر (هكذا يتعامل السوق)، وبعدها بالسنوات
 const ageText = (m) => {
   if (m < 24) return `${m} ${m >= 3 && m <= 10 ? 'أشهر' : 'شهر'}`;
@@ -630,7 +631,7 @@ async function busy(btn, fn) {
 
 /* ========== الحالة والتنقل ========== */
 const S = {
-  user: null, profile: null, tab: 'home', loginMode: 'in',
+  user: null, profile: null, tab: 'home', loginMode: 'in', sellerLite: {},
   stack: [],                 // شاشات فوق التبويبات: {name, params}
   listings: null,            // آخر الإعلانات من السوق
   favs: new Set(),
@@ -712,13 +713,32 @@ function feedKey() {
   const t = S.cat !== 'all' ? S.cat : (S.f.types.length === 1 ? S.f.types[0] : '');
   return JSON.stringify([t, S.f.state || '', S.f.sort]);
 }
+// السوق من الذاكرة المؤقتة (CDN) أولاً: لا يستهلك قراءات من قاعدة البيانات لكل مستخدم
+const tsOf = (n) => n == null ? null : { seconds: Math.floor(n / 1000), toMillis: () => n };
+async function loadPageCdn(F, t, st, sort) {
+  const u = `${API_BASE}/api/feed?t=${encodeURIComponent(t)}&st=${encodeURIComponent(st)}&sort=${sort}${F.next ? `&after=${encodeURIComponent(F.next)}` : ''}`;
+  const r = await fetch(u, { cache: 'default' });
+  if (!r.ok) throw new Error('cdn ' + r.status);
+  const out = await r.json();
+  Object.assign(S.sellerLite, out.sellers || {});
+  return { items: (out.items || []).map(l => ({ ...l, createdAt: tsOf(l.createdAt), featuredUntil: tsOf(l.featuredUntil) })), next: out.next || '' };
+}
 async function loadPage(reset) {
   const key = feedKey();
-  if (reset || !S.feed || S.feed.key !== key) S.feed = { key, items: [], cursor: null, done: false, loading: false };
+  if (reset || !S.feed || S.feed.key !== key) S.feed = { key, items: [], cursor: null, next: '', done: false, loading: false, direct: !navigator.onLine };
   const F = S.feed; if (F.done || F.loading) return;
   F.loading = true;
   try {
     const [t, st, sort] = JSON.parse(key);
+    if (!F.direct) {
+      try {
+        const page = await loadPageCdn(F, t, st, sort);
+        const fresh = page.items.filter(l => !F.items.some(x => x.id === l.id));
+        F.items.push(...fresh); S.listings = F.items;
+        F.next = page.next; if (!page.next) F.done = true;
+        return;
+      } catch (e) { console.warn('feed cdn → direct', e.message); F.direct = true; } // بدون إنترنت أو خطأ: من Firestore (مع التخزين المحلي)
+    }
     const c = [where('status', '==', 'active')];
     if (t) c.push(where('type', '==', t));
     if (st) c.push(where('state', '==', st));
@@ -739,7 +759,7 @@ async function loadPage(reset) {
     const fresh = docs.map(d => ({ id: d.id, ...d.data() })).filter(l => !F.items.some(x => x.id === l.id));
     F.items.push(...fresh);
     S.listings = F.items;
-    await Promise.all([...new Set(fresh.map(l => l.sellerId))].map(getSeller));
+    await Promise.all([...new Set(fresh.map(l => l.sellerId))].filter(id => !S.sellerLite[id]).map(getSeller));
   } finally { F.loading = false; }
 }
 async function loadListings(force = false) {
@@ -785,7 +805,7 @@ function filtered() {
   if (f.max !== '') out = out.filter(l => l.price <= +f.max);
   if (f.age >= 0) out = out.filter(l => l.ageMonths >= AGES[f.age].min && l.ageMonths <= AGES[f.age].max);
   if (f.state) out = out.filter(l => l.state === f.state);
-  if (f.verified) out = out.filter(l => S.sellers[l.sellerId] && S.sellers[l.sellerId].verified);
+  if (f.verified) out = out.filter(l => (S.sellers[l.sellerId] || S.sellerLite[l.sellerId] || {}).verified);
   if (q) { const nq = normAr(q); out = out.filter(l => normAr([titleOf(l), l.breed, l.city, l.state, l.description, typeOf(l.type).label, l.sellerName].join(' ')).includes(nq)); }
   const cmp = [(a, b) => millis(b.createdAt) - millis(a.createdAt), (a, b) => a.price - b.price, (a, b) => b.price - a.price][f.sort];
   return out.sort((a, b) => (isFeatured(b) - isFeatured(a)) || cmp(a, b));
@@ -949,7 +969,7 @@ function viewEmpty(icon, title, text, action = '') {
 
 /* ---------- بطاقة إعلان ---------- */
 function cardHTML(l) {
-  const img = l.images && l.images[0] ? `<img src="${esc(ik(l.images[0].url, 400))}" alt="" loading="lazy">` : '';
+  const img = l.images && l.images[0] ? `<img src="${esc(ik(l.images[0].url, 320, 50))}" alt="" loading="lazy">` : '';
   const fav = S.favs.has(l.id);
   return `
   <div class="lcard" data-open="${l.id}" role="link" tabindex="0" aria-label="${esc(titleOf(l))}">
@@ -1094,7 +1114,7 @@ async function renderDetails({ id }) {
   app.innerHTML = `
   <div class="screen">
     <div class="gallery">
-      <div class="track" id="track">${imgs.map((im, i) => `<img src="${esc(ik(im.url, 900))}" alt="صورة ${i + 1}" ${i ? 'loading="lazy"' : ''}>`).join('')}</div>
+      <div class="track" id="track">${imgs.map((im, i) => `<img src="${esc(ik(im.url, 900, 65))}" alt="صورة ${i + 1}" ${i ? 'loading="lazy"' : ''}>`).join('')}</div>
       <div class="bar">
         <button class="icon-btn" id="back" aria-label="رجوع">${ic('back')}</button>
         <div class="row" style="gap:8px">

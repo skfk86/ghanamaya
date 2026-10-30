@@ -11,6 +11,7 @@ const issues = []; let checked = 0;
     await ctx.route('**/*', async r => { const u = r.request().url();
       if (u.includes('gstatic.com/firebasejs')) return r.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(P + '/fakefb.js', 'utf8') });
       if (u.includes('ik.imagekit.io')) return r.fulfill({ contentType: 'image/jpeg', body: fs.readFileSync(P + '/img/a1.jpg') });
+      if (u.includes('/api/feed')) return r.fulfill({ status: 503, body: '{}' }); // يختبر الرجوع لـ Firestore
       if (u.includes('/api/')) { const a = JSON.parse(r.request().postData() || '{}').action; return r.fulfill({ contentType: 'application/json', body: JSON.stringify(a === 'pinStatus' ? { ok: true, hasPin: true } : { ok: true }) }); }
       if (u.startsWith('file:')) return r.continue(); return r.fulfill({ status: 404, body: '' }); });
     let html = fs.readFileSync(htmlPath, 'utf8').replace('<script type="module">', `<script>${fs.readFileSync(P + '/seed.js', 'utf8')}</script><script type="module">`)

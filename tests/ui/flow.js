@@ -5,6 +5,15 @@ const { chromium } = require('playwright'); const fs = require('fs'); const P = 
   await ctx.route('**/*', async r => { const u = r.request().url();
     if (u.includes('gstatic.com/firebasejs')) return r.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(P + '/fakefb.js', 'utf8') });
     if (u.includes('ik.imagekit.io')) return r.fulfill({ contentType: 'image/jpeg', body: fs.readFileSync(P + '/img/a1.jpg') });
+    if (u.includes('/api/feed')) { // محاكاة CDN من بيانات التجربة
+      const w = {}; new Function('window', fs.readFileSync(P + '/seed.js', 'utf8'))(w);
+      const qs = new URL(u).searchParams, t = qs.get('t'), st = qs.get('st'), after = qs.get('after');
+      let items = Object.entries(w.__SEED.docs).filter(([k, d]) => /^listings\/[^/]+$/.test(k) && d.status === 'active' && (!t || d.type === t) && (!st || d.state === st)).map(([k, d]) => ({ ...d, id: k.split('/')[1], createdAt: d.createdAt.__ts, featuredUntil: d.featuredUntil ? d.featuredUntil.__ts : null }));
+      items.sort((a, b) => b.createdAt - a.createdAt || (a.id < b.id ? -1 : 1));
+      if (after) items = items.slice(items.findIndex(i => i.id === after.split('~')[1]) + 1);
+      const page = items.slice(0, 24); globalThis.__cdnHits = (globalThis.__cdnHits || 0) + 1;
+      return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ items: page, sellers: { u2: { storeName: 'مزرعة الرحمة', verified: true } }, next: items.length > 24 ? `${page[23].createdAt}~${page[23].id}` : '' }) });
+    }
     if (u.includes('/api/wallet')) { const a = JSON.parse(r.request().postData() || '{}').action; return r.fulfill({ contentType: 'application/json', body: JSON.stringify(a === 'pinStatus' ? { ok: true, hasPin: true } : a === 'deposit' ? { ok: true, paymentUrl: 'about:blank', sandbox: true, depositId: 'd1' } : { ok: true }) }); }
     if (u.startsWith('file:') || u === 'about:blank') return r.continue(); return r.fulfill({ status: 200, body: '{}' }); });
   let html = fs.readFileSync(process.argv[2], 'utf8').replace('<script type="module">', `<script>${fs.readFileSync(P + '/seed.js', 'utf8')}</script><script type="module">`).replace(/<\/script>\s*<\/body>/, 'window.__dbg = { S };</script></body>');
@@ -47,6 +56,7 @@ const { chromium } = require('playwright'); const fs = require('fs'); const P = 
   const n2 = await page.locator('.lcard').count();
   ok(n2 > 24, `التمرير يحمّل المزيد تلقائياً (${n2})`);
   ok(await page.evaluate(() => __dbg.S.listings.every(l => l.status === 'active')), 'السوق يجلب النشط فقط');
+  ok((globalThis.__cdnHits || 0) >= 2, `السوق يأتي من الذاكرة المؤقتة (${globalThis.__cdnHits} طلب)`);
   await tap('[data-cat="goat"]'); await page.waitForTimeout(600);
   ok(await page.evaluate(() => __dbg.S.listings.every(l => l.type === 'goat')), 'تصنيف الماعز من الخادم');
   await tap('[data-cat="all"]'); await page.waitForTimeout(600);

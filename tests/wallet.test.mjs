@@ -563,6 +563,24 @@ section('صفحة المشاركة العامة والفهارس');
   ok(r.existing === 1 && r.created === 14 && posted.length === 14 && !r.failed.length, 'إنشاء الناقص فقط (14) وتجاهل الموجود');
   globalThis.fetch = realF; process.env.FIREBASE_SERVICE_ACCOUNT = '{}';
 }
+section('السوق من الذاكرة المؤقتة');
+{
+  const feed = (await import('./api/feed.js')).default;
+  const get = async (q) => { const res = mkRes(); await feed({ method: 'GET', query: q }, res); return res; };
+  for (const [k] of [...STORE]) if (k.startsWith('listings/')) STORE.delete(k);
+  for (let i = 0; i < 30; i++) STORE.set(`listings/f${String(i).padStart(2, '0')}`, { sellerId: i % 2 ? 'bob' : 'eve', status: i % 10 === 9 ? 'hidden' : 'active', type: i % 3 ? 'sheep' : 'goat', breed: 'حمري', state: i % 2 ? 'الخرطوم' : 'الجزيرة', city: 'x', price: 100000 + i * 1000, createdAt: Timestamp.fromMillis(NOW - i * 60000), images: [{ url: 'u', fileId: 'secret' }], dhash: 'ffff', dhashBands: ['0:ff'] });
+  let r = await get({});
+  ok(r.code === 200 && r.body.items.length === 24 && r.body.items.every(i => i.status === 'active'), 'صفحة 24 إعلاناً نشطاً');
+  ok(r.body.items.every(i => i.dhash === undefined && i.images[0].fileId === undefined), 'لا تُكشف البصمات ولا معرّفات الملفات');
+  ok(/s-maxage=60/.test(r.headers['Cache-Control']), 'قابلة للتخزين المؤقت في CDN دقيقة');
+  ok(r.body.sellers.bob && r.body.sellers.bob.storeName && r.body.sellers.bob.fcmToken === undefined, 'بيانات البائع مختصرة بلا أسرار');
+  const ids1 = r.body.items.map(i => i.id);
+  const r2 = await get({ after: r.body.next });
+  ok(r2.body.items.length === 3 && !r2.body.items.some(i => ids1.includes(i.id)) && r2.body.next === '', 'الصفحة الثانية تكمل بلا تكرار');
+  r = await get({ t: 'goat' }); ok(r.body.items.length > 0 && r.body.items.every(i => i.type === 'goat'), 'فلتر النوع');
+  r = await get({ st: 'الخرطوم', sort: '1' }); ok(r.body.items.every(i => i.state === 'الخرطوم') && r.body.items.every((x, i, a) => !i || a[i - 1].price <= x.price), 'فلتر الولاية والترتيب بالسعر');
+  r = await get({ t: '<script>' }); ok(r.code === 200, 'قيم غريبة تُتجاهل');
+}
 section('حذف الحساب');
 {
   const G = user('gina', { ageDays: 40 });
