@@ -8,3 +8,4 @@ cp site/delete-account.html public/delete-account/index.html
 cp site/assetlinks.json public/.well-known/assetlinks.json
 cp site/play-icon-512.png public/play-icon-512.png
 cp -r site/shots public/shots
+mkdir -p public/sale && cp site/sale.html public/sale/index.html
