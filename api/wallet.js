@@ -11,7 +11,7 @@ import { PLATFORM, fmt, walletSettings, readWallet, writeWallet, logTx, releaseE
 
 const BASE = 'https://ghanamaya.vercel.app';
 class UserError extends Error { constructor(msg, code = 400) { super(msg); this.code = code; } }
-const TRC20 = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
+const BEP20 = /^0x[0-9a-fA-F]{40}$/;
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -156,7 +156,7 @@ const ACTIONS = {
     const cents = Math.round(Number(body.amount) * 100);
     const address = String(body.address || '').trim();
     if (!(cents >= set.minWithdraw)) throw new UserError(`أقل مبلغ للسحب ${fmt(set.minWithdraw)} USDT`);
-    if (!TRC20.test(address)) throw new UserError('عنوان TRC20 غير صحيح (يبدأ بحرف T)');
+    if (!BEP20.test(address)) throw new UserError('عنوان BEP20 غير صحيح (يبدأ بـ 0x)');
     try { await withdrawGuard(db, uid, String(body.pin || '')); } catch (e) { if (e.user) throw new UserError(e.message, e.code); throw e; }
     const mine = await db.collection('withdrawals').where('uid', '==', uid).get();
     if (mine.docs.some(d => OPEN.includes(d.get('status')))) throw new UserError('لديك طلب سحب جارٍ، انتظر اكتماله أو ألغه', 409);
@@ -167,7 +167,7 @@ const ACTIONS = {
       w.balance -= cents;
       writeWallet(t, w, {});
       const wref = db.collection('withdrawals').doc();
-      t.set(wref, { uid, amount: cents, address, network: 'TRC20', status: 'pending', createdAt: FieldValue.serverTimestamp() });
+      t.set(wref, { uid, amount: cents, address, network: 'BEP20', status: 'pending', createdAt: FieldValue.serverTimestamp() });
       logTx(t, db, uid, 'withdraw', -cents, { withdrawalId: wref.id, note: address });
       return wref.id;
     });
@@ -259,7 +259,7 @@ const ACTIONS = {
     if (body.decision === 'now') { const set = await walletSettings(db); if (!set.autoWithdraw) throw new UserError('السحب التلقائي متوقف: فعّله أولاً أو أرسل يدوياً'); await processWithdrawal(db, set, db.doc(`withdrawals/${body.id}`)); return {}; }
     if (body.decision === 'freeze') return {};
     if (w) await pushTo(db, w.uid, body.decision === 'sent'
-      ? { title: '✅ تم تحويل سحبك بنجاح', body: `${usd(w.amount)} USDT في طريقها لمحفظتك (TRC20). تصل خلال دقائق`, data: { kind: 'withdraw_sent', amount: w.amount }, tag: `wd-${body.id}` }
+      ? { title: '✅ تم تحويل سحبك بنجاح', body: `${usd(w.amount)} USDT في طريقها لمحفظتك (BEP20). تصل خلال دقائق`, data: { kind: 'withdraw_sent', amount: w.amount }, tag: `wd-${body.id}` }
       : { title: 'أُعيد مبلغ السحب لرصيدك', body: `+${usd(w.amount)} USDT عادت لمحفظتك.${body.note ? ' السبب: ' + String(body.note).slice(0, 80) : ''}`, data: { kind: 'withdraw_rejected', amount: w.amount }, tag: `wd-${body.id}` });
     return {};
   }, { admin: true })

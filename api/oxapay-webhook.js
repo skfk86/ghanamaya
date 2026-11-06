@@ -46,7 +46,7 @@ async function payoutHook(req, res, p) {
       }
     });
   } catch (e) { console.error('payout webhook', e); return res.status(500).send('retry'); }
-  if (notify) await pushTo(db, notify.uid, { title: '✅ تم تحويل سحبك بنجاح', body: `${usd(notify.amount)} USDT وصلت لمحفظتك على شبكة TRC20`, data: { kind: 'withdraw_sent', amount: notify.amount }, tag: `wd-${ref.id}` });
+  if (notify) await pushTo(db, notify.uid, { title: '✅ تم تحويل سحبك بنجاح', body: `${usd(notify.amount)} USDT وصلت لمحفظتك على شبكة BEP20`, data: { kind: 'withdraw_sent', amount: notify.amount }, tag: `wd-${ref.id}` });
   return res.status(200).send('ok');
 }
 

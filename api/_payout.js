@@ -140,7 +140,7 @@ export async function processWithdrawal(db, set, ref) {
       method: 'POST',
       headers: { 'payout_api_key': process.env.OXAPAY_PAYOUT_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        address: w.address, currency: 'USDT', network: process.env.OXAPAY_PAYOUT_NETWORK || 'TRON',
+        address: w.address, currency: 'USDT', network: process.env.OXAPAY_PAYOUT_NETWORK || 'BEP20',
         amount: Number(fmt(w.amount)), callback_url: 'https://ghanamaya.vercel.app/api/oxapay-webhook', description: `ghanamaya ${ref.id}`
       }),
       signal: AbortSignal.timeout(15000)

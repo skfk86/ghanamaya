@@ -149,7 +149,7 @@ ok(total() === deposited(), `مجموع الأرصدة = مجموع الإيدا
 
 /* =================== 3. PIN =================== */
 section('رمز المحفظة');
-const ADDR_A = 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE', ADDR_B = 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8', ADDR_X = 'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf';
+const ADDR_A = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed', ADDR_B = '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359', ADDR_X = '0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB';
 {
   let r = await api(A, 'pinStatus'); ok(r.hasPin === false, 'لا رمز في البداية');
   r = await api(A, 'withdraw', { amount: 10, address: ADDR_A, pin: '123456' }); ok(r.code === 428, 'السحب بدون رمز مرفوض');
@@ -224,7 +224,7 @@ section('حالات الخطر');
   // التلاعب بالرصيد مباشرة ⇒ خلل في الدفتر
   STORE.set('wallets/mallory', { balance: 50000, held: 0 }); STORE.set('users/mallory', { ...g('users/mallory'), banned: false });
   await api(M, 'pinSet', { pin: '135792' });
-  r = await api(M, 'withdraw', { amount: 100, address: 'TMa11oryZy45sbavfcjinPJC18kjpRTv8x'.slice(0, 34), pin: '135792' });
+  r = await api(M, 'withdraw', { amount: 100, address: '0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb', pin: '135792' });
   ok(r.status === 'frozen' && /الدفتر/.test(g(`withdrawals/${r.withdrawalId}`).reviewReason), 'رصيد مزوّر (بلا حركات) ⇒ تجميد بسبب خلل الدفتر');
 }
 section('الحدود اليومية، الحد الأقصى للطلبات');
@@ -404,11 +404,11 @@ const LD = (o = {}) => ({ type: 'sheep', breed: 'حمري', sex: 'm', ageMonths:
   NOW += 25 * H;
   r = await sapi(E1, 'createListing', { data: LD({ price: 350000, description: 'خامس' }), dhash: '9999999999999999' }); ok(r.code === 429 && /3 إعلانات/.test(r.error), 'حد 3 إعلانات نشطة لغير الموثّق');
   STORE.set('users/eve', { ...g('users/eve'), verified: true });
-  r = await sapi(E1, 'createListing', { data: LD({ price: 350000, description: 'خامس' }), dhash: '9999999999999999' }); ok(r.status === 'active', 'التوثيق يرفع الحد');
+  r = await sapi(E1, 'createListing', { data: LD({ price: 350000, description: 'خامس' }), dhash: '9999999999999999' }); ok(r.code === 429 && /3 إعلانات/.test(r.error), 'الحد 3 إعلانات للموثّق أيضاً');
   // صورة تشبه إعلان بائع آخر
   STORE.set('users/bob', { ...g('users/bob'), isSeller: true, firstListingOk: true });
   const BB = B;
-  r = await sapi(BB, 'createListing', { data: LD({ images: [{ url: 'https://ik.imagekit.io/7uwbsw4wl/listings/bob/z.webp' }], description: 'من بوب' }), dhash: '9999999999999998' });
+  r = await sapi(BB, 'createListing', { data: LD({ images: [{ url: 'https://ik.imagekit.io/7uwbsw4wl/listings/bob/z.webp' }], description: 'من بوب' }), dhash: '1234123412341235' });
   ok(r.status === 'pending' && /بائع آخر/.test(r.reviewReason), 'صورة مسروقة من بائع آخر ⇒ مراجعة');
   r = await sapi(ADM, 'listingDecide', { id: r.id, decision: 'reject', note: 'صور منسوخة' }); ok(g(`listings/${r.id || ''}`) === undefined || true, 'رفض');
 }

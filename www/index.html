@@ -2040,7 +2040,7 @@ const TX = {
 function drawWalletTop() {
   const w = S.wallet || { balance: 0, held: 0 }, el = $('#wTop'); if (!el) return;
   el.innerHTML = `
-    <div class="row" style="justify-content:space-between"><span style="font-size:13px;color:#CFE0BC">الرصيد المتاح</span><span class="badge" style="background:rgba(255,255,255,.14);color:#fff">${ic('shield', 'style="width:12px;height:12px;vertical-align:-2px"')} محمي · TRC20</span></div>
+    <div class="row" style="justify-content:space-between"><span style="font-size:13px;color:#CFE0BC">الرصيد المتاح</span><span class="badge" style="background:rgba(255,255,255,.14);color:#fff">${ic('shield', 'style="width:12px;height:12px;vertical-align:-2px"')} محمي · BEP20</span></div>
     <div class="bal"><b>${usdt(w.balance)}</b><span>USDT</span></div>
     ${S.walletSet && S.walletSet.sdgPerUsdt ? `<div style="font-size:12.5px;color:#CFE0BC;margin-top:-10px">≈ ${money(Math.round(w.balance / 100 * S.walletSet.sdgPerUsdt))}</div>` : ''}
     ${w.held ? `<div class="held">${ic('clock', 'style="width:16px;height:16px;color:#CFE0BC"')}<span class="grow" style="color:#CFE0BC">محجوز في طلبات جارية</span><b class="num" dir="ltr">${usdt(w.held)}</b></div>` : ''}
@@ -2156,8 +2156,8 @@ async function withdrawSheet() {
     <div class="stack">
       <div class="row"><h2 class="grow" style="font-size:19px">سحب إلى محفظتك</h2><button class="icon-btn" data-close aria-label="إغلاق" style="box-shadow:none;background:var(--bg)">${ic('close')}</button></div>
       <label class="field"><span>المبلغ (USDT) · المتاح ${usdt(bal)}</span><div class="row"><input class="input" id="wAmt" inputmode="decimal" placeholder="0.00" value="${esc(form.amount)}" style="font-size:18px;font-weight:700"><button class="btn btn-ghost" id="wMax" style="width:auto;height:50px;padding:0 14px">الكل</button></div></label>
-      <label class="field"><span>عنوان محفظتك (شبكة TRC20 فقط)</span><input class="input ltr" id="wAddr" placeholder="T..." value="${esc(form.address)}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
-      <div class="note note-warn">${ic('shield', 'style="width:20px;height:20px"')}<span>انسخ العنوان من محفظتك ولا تكتبه يدوياً. الإرسال لعنوان خاطئ أو شبكة غير <strong>TRC20</strong> لا يمكن استرداده.</span></div>
+      <label class="field"><span>عنوان محفظتك (شبكة BEP20 ‏— BSC فقط)</span><input class="input ltr" id="wAddr" placeholder="0x..." value="${esc(form.address)}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
+      <div class="note note-warn">${ic('shield', 'style="width:20px;height:20px"')}<span>انسخ العنوان من محفظتك ولا تكتبه يدوياً. الإرسال لعنوان خاطئ أو شبكة غير <strong>BEP20 (BSC)</strong> لا يمكن استرداده.</span></div>
       <button class="btn btn-primary" id="wNext">متابعة</button>
       <div class="row" style="justify-content:center;gap:18px"><button class="btn-link" id="pCh" style="padding:0">تغيير الرمز</button><button class="btn-link" id="pRs" style="padding:0">نسيت الرمز؟</button></div>
     </div>`, (sh) => {
@@ -2169,7 +2169,7 @@ async function withdrawSheet() {
       form.amount = $('#wAmt', sh).value; form.address = address;
       if (!(amount > 0)) return toast('اكتب المبلغ', 'error');
       if (Math.round(amount * 100) > bal) return toast('المبلغ أكبر من رصيدك', 'error');
-      if (!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address)) return toast('عنوان TRC20 غير صحيح (34 حرفاً يبدأ بـ T)', 'error');
+      if (!/^0x[0-9a-fA-F]{40}$/.test(address)) return toast('عنوان BEP20 غير صحيح (42 حرفاً يبدأ بـ 0x)', 'error');
       step2(amount, address);
     };
   });
@@ -2179,12 +2179,12 @@ async function withdrawSheet() {
       <div class="row"><button class="icon-btn" id="wBack" aria-label="رجوع" style="box-shadow:none;background:var(--bg)">${ic('back')}</button><h2 class="grow" style="font-size:19px">تأكيد السحب</h2></div>
       <div class="card stack" style="gap:12px;background:var(--bg);box-shadow:none">
         <div class="sum"><span class="muted">المبلغ</span><b style="font-size:22px;direction:ltr">${U(Math.round(amount * 100))}</b></div>
-        <div class="sum"><span class="muted">الشبكة</span><b>TRON (TRC20)</b></div>
+        <div class="sum"><span class="muted">الشبكة</span><b>BNB Smart Chain (BEP20)</b></div>
         <div class="stack" style="gap:6px"><span class="muted">إلى العنوان</span>
           <div class="ltr" style="font-family:monospace;font-size:17px;line-height:1.9;letter-spacing:.5px;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left">${addrBlocks(address)}</div>
           <span class="muted" style="font-size:12px">قارن أول 4 وآخر 4 أحرف (الملوّنة) مع عنوان محفظتك.</span></div>
       </div>
-      <label class="row" style="gap:10px;align-items:flex-start;font-size:14px;cursor:pointer"><input type="checkbox" id="wOk" style="width:22px;height:22px;flex-shrink:0;margin-top:2px;accent-color:var(--brand)"><span>تأكدت أن هذا عنوان محفظتي على شبكة TRC20، وأعلم أن الإرسال لعنوان خاطئ لا يُسترد.</span></label>
+      <label class="row" style="gap:10px;align-items:flex-start;font-size:14px;cursor:pointer"><input type="checkbox" id="wOk" style="width:22px;height:22px;flex-shrink:0;margin-top:2px;accent-color:var(--brand)"><span>تأكدت أن هذا عنوان محفظتي على شبكة BEP20، وأعلم أن الإرسال لعنوان خاطئ لا يُسترد.</span></label>
       ${pinInput('wPin', 'رمز المحفظة')}
       <button class="btn btn-primary" id="wGo" disabled>تأكيد السحب</button>
     </div>`, (sh) => {
@@ -2310,7 +2310,7 @@ const CELEB = {
   sale: { t: 'مبروك! وصلتك أموال البيع', s: 'أُضيف المبلغ لرصيدك بعد خصم العمولة.', ic: 'cash', sign: '+' },
   purchase: { t: 'اكتملت عملية الشراء', s: 'مبروك! شكراً لثقتك بغنماية.', ic: 'check', sign: '' },
   refund: { t: 'أُعيد المبلغ لمحفظتك', s: 'المبلغ عاد كاملاً لرصيدك المتاح.', ic: 'refresh', sign: '+', warn: true },
-  withdraw_sent: { t: 'تم تحويل سحبك', s: 'المبلغ في طريقه لمحفظتك على شبكة TRC20، ويصل خلال دقائق.', ic: 'send', sign: '' },
+  withdraw_sent: { t: 'تم تحويل سحبك', s: 'المبلغ في طريقه لمحفظتك على شبكة BEP20 (BSC)، ويصل خلال دقائق.', ic: 'send', sign: '' },
   withdraw_rejected: { t: 'أُعيد مبلغ السحب', s: 'لم يُنفّذ السحب، وعاد المبلغ لرصيدك.', ic: 'refresh', sign: '+', warn: true }
 };
 let lastCeleb = 0;

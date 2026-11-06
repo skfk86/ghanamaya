@@ -23,7 +23,7 @@ const str = (v, min, max) => typeof v === 'string' && v.trim().length >= min && 
 // الحدود: البائع الجديد مقيّد، وتتسع مع التوثيق
 export const LIMITS = {
   unverified: { active: 3, perDay: 2 },
-  verified: { active: 30, perDay: 10 },
+  verified: { active: 3, perDay: 3 },
   chatsPerDay: { newUser: 8, normal: 25 },  // محادثات جديدة يومياً
   newUserDays: 7
 };
@@ -131,7 +131,7 @@ export const ACTIONS = {
     const lim = verified ? LIMITS.verified : LIMITS.unverified;
     const mine = await db.collection('listings').where('sellerId', '==', uid).get();
     const live = mine.docs.filter(x => ['active', 'pending'].includes(x.get('status')));
-    if (live.length >= lim.active) throw new UserError(verified ? `وصلت للحد الأقصى (${lim.active} إعلاناً نشطاً). علّم المباع أو احذف القديم.` : `البائع غير الموثّق يُسمح له بـ ${lim.active} إعلانات نشطة. وثّق حسابك لترفع الحد.`, 429);
+    if (live.length >= lim.active) throw new UserError(`الحد الأقصى ${lim.active} إعلانات نشطة لكل بائع. علّم المباع أو احذف القديم لتنشر جديداً.`, 429);
     const today = mine.docs.filter(x => ms(x.get('createdAt')) > Date.now() - DAY).length;
     if (today >= lim.perDay) throw new UserError(`الحد ${lim.perDay} إعلانات جديدة في اليوم. حاول غداً.`, 429);
 

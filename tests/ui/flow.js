@@ -29,7 +29,7 @@ const { chromium } = require('playwright'); const fs = require('fs'); const P = 
   await tap('#dGo'); ok(await page.locator('.toast').count() >= 1, 'متابعة للدفع تعرض تأكيداً');
   await page.waitForTimeout(900);
   await tap('#wd'); ok(await page.locator('.sheet #wNext').count() === 1, 'سحب يفتح النافذة');
-  await page.fill('#wAmt', '5'); await page.fill('#wAddr', 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE'); await tap('#wNext');
+  await page.fill('#wAmt', '5'); await page.fill('#wAddr', '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed'); await tap('#wNext');
   ok(await page.locator('.sheet #wGo').count() === 1, 'متابعة تفتح شاشة التأكيد');
   ok(await page.locator('#wGo').isDisabled(), 'التأكيد معطّل قبل الإقرار والرمز');
   await tap('#wOk'); await page.fill('#wPin', '482913'); await page.waitForTimeout(200);

@@ -33,7 +33,7 @@ window.__SEED = {
     ['transactions/t1', { uid: 'u1', type: 'deposit', amount: 10000, createdAt: T(now - 3 * D) }],
     ['transactions/t2', { uid: 'u1', type: 'sale', amount: 7850, note: 'ماعز شامي', createdAt: T(now - 2 * D) }],
     ['transactions/t3', { uid: 'u1', type: 'hold', amount: -5000, note: 'خروف كباشي', createdAt: T(now - 5 * H) }],
-    ['withdrawals/w1', { uid: 'u1', amount: 2000, address: 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE', status: 'scheduled', releaseAt: T(now + 18 * H), reviewReason: 'عنوان سحب جديد', createdAt: T(now - 6 * H) }],
+    ['withdrawals/w1', { uid: 'u1', amount: 2000, address: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed', status: 'scheduled', releaseAt: T(now + 18 * H), reviewReason: 'عنوان سحب جديد', createdAt: T(now - 6 * H) }],
     ['reviews/o3', { sellerId: 'u2', buyerId: 'u1', buyerName: 'علي محمد', stars: 5, comment: 'بائع أمين والخروف زي الوصف تماماً', title: 'ماعز نوبي', createdAt: T(now - 5 * D) }],
     ['reports/r1', { targetType: 'listing', targetId: 'l7', reporterId: 'u3', subjectUid: 'u2', reason: 'fraud', reasonLabel: 'احتيال أو طلب تحويل قبل المعاينة', priority: 1, status: 'open', title: 'زغاوي · بحري', createdAt: T(now - 2 * H) }],
     ['verifyRequests/u3', { name: 'محمد أحمد', storeName: 'زريبة ود مدني', whatsapp: '+249922222222', state: 'الجزيرة', city: 'ود مدني', note: 'أبيع ضأن منذ 10 سنوات', status: 'pending', createdAt: T(now - 4 * H) }]

@@ -478,7 +478,7 @@ async function finance() {
       <span>يجب أن يكون رصيد OxaPay ≥ <b>${usd(bal + held + pendingWd + plat)} USDT</b> (أرصدة + محجوز + سحوبات معلّقة + عمولات).</span>
       <span class="muted">قارنه برصيدك في لوحة OxaPay. أي نقص يعني خللاً: أوقف السحوبات حتى تراجعه.</span></div>
     <div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>${ic('wallet')}طلبات السحب (${wds.length})</h2>
-      ${wds.length ? `<div class="scroll"><table><thead><tr><th>المستخدم</th><th>المبلغ</th><th>العنوان (TRC20)</th><th>منذ</th><th>الحالة</th><th></th></tr></thead><tbody>${wds.map(w => `<tr>
+      ${wds.length ? `<div class="scroll"><table><thead><tr><th>المستخدم</th><th>المبلغ</th><th>العنوان (BEP20)</th><th>منذ</th><th>الحالة</th><th></th></tr></thead><tbody>${wds.map(w => `<tr>
         <td><b>${esc((users[w.uid] || {}).storeName || (users[w.uid] || {}).name || w.uid)}</b>${(users[w.uid] || {}).verified ? ' <span class="tag t-green">موثّق</span>' : ''}</td>
         <td><b>${usd(w.amount)}</b></td><td dir="ltr" style="font-family:monospace;font-size:12px">${esc(w.address)}</td><td class="muted">${ago(w.createdAt)}</td>
         <td>${w.status === 'processing' ? `<span class="tag t-green">يُرسل: ${esc(w.payoutStatus || 'Processing')}</span>`
