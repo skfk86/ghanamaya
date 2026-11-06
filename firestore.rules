@@ -70,6 +70,10 @@ service cloud.firestore {
       }
     }
 
+    // ===== المتابعة: تُكتب من السيرفر فقط (/api/seller follow) حتى لا يُزوَّر عدد المتابعين =====
+    match /users/{uid}/following/{sellerId} { allow read: if isMe(uid); }
+    match /users/{uid}/followers/{followerId} { allow read: if isMe(uid); }
+
     // ===== المفضلة: لكل مستخدم قائمته الخاصة =====
     match /users/{uid}/favorites/{listingId} {
       allow read, delete: if isMe(uid);
@@ -82,7 +86,7 @@ service cloud.firestore {
     }
     function listingFields() {
       return ['sellerId', 'sellerName', 'type', 'breed', 'sex', 'ageMonths', 'weightKg', 'price', 'qty',
-              'state', 'city', 'description', 'images', 'status', 'createdAt', 'updatedAt'];
+              'state', 'city', 'description', 'images', 'status', 'createdAt', 'updatedAt', 'negotiable', 'meetPoint'];
     }
     function validListing(d) {
       return d.type in ['goat', 'sheep', 'cattle', 'camel']
@@ -95,6 +99,8 @@ service cloud.firestore {
         && str(d.state, 2, 40) && str(d.city, 2, 60)
         && str(d.sellerName, 2, 60)
         && d.description is string && d.description.size() <= 1000
+        && (!('negotiable' in d) || d.negotiable is bool)
+        && (!('meetPoint' in d) || (d.meetPoint is string && d.meetPoint.size() <= 80))
         && d.images is list && d.images.size() >= 1 && d.images.size() <= 6
         && d.images[0].url.matches('^https://ik\\.imagekit\\.io/7uwbsw4wl/.*');
     }
@@ -159,7 +165,8 @@ service cloud.firestore {
           && (
             (request.resource.data.kind == 'text' && str(request.resource.data.text, 1, 1000))
             || (request.resource.data.kind == 'image' && request.resource.data.imageUrl.matches('^https://ik\\.imagekit\\.io/7uwbsw4wl/.*'))
-            || (request.resource.data.kind == 'offer'
+            // عروض السعر فقط في الإعلانات القابلة للتفاوض
+            || (request.resource.data.kind == 'offer' && chatDoc(chatId).get('negotiable', true) != false
                 && request.resource.data.offer.price is int && request.resource.data.offer.price > 0
                 && request.resource.data.offer.qty is int && request.resource.data.offer.qty >= 1 && request.resource.data.offer.qty <= 999
                 && request.resource.data.offer.status == 'pending'

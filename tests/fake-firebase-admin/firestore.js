@@ -4,9 +4,10 @@ let clock = () => Date.now();
 export class Timestamp { constructor(ms) { this._ms = ms; } toMillis() { return this._ms; } toDate() { return new Date(this._ms); } static fromMillis(ms) { return new Timestamp(ms); } static now() { return new Timestamp(clock()); } }
 const SERVER = Symbol('serverTimestamp');
 const DEL = Symbol('delete');
-export const FieldValue = { serverTimestamp: () => SERVER, delete: () => DEL };
+class Inc { constructor(n) { this.n = n; } }
+export const FieldValue = { serverTimestamp: () => SERVER, delete: () => DEL, increment: (n) => new Inc(n) };
 const clone = (v) => v instanceof Timestamp ? v : Array.isArray(v) ? v.map(clone) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, clone(x)])) : v;
-const resolve = (v) => v === SERVER ? Timestamp.now() : v instanceof Timestamp ? v : Array.isArray(v) ? v.map(resolve) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, resolve(x)])) : v;
+const resolve = (v) => v instanceof Inc ? v.n : v === SERVER ? Timestamp.now() : v instanceof Timestamp ? v : Array.isArray(v) ? v.map(resolve) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, resolve(x)])) : v;
 const getPath = (o, f) => f.split('.').reduce((a, k) => a == null ? undefined : a[k], o);
 let auto = 0;
 class Snap { constructor(ref, data) { this.ref = ref; this.id = ref.id; this._d = data; this.exists = data !== undefined; } data() { return this._d === undefined ? undefined : clone(this._d); } get(f) { return clone(getPath(this._d || {}, f)); } }
@@ -25,7 +26,7 @@ function deepMerge(a, b) { const out = clone(a); for (const [k, v] of Object.ent
 function applyUpdate(path, d) {
   if (!STORE.has(path)) throw Object.assign(new Error(`NOT_FOUND ${path}`), { code: 5 });
   const cur = clone(STORE.get(path));
-  for (const [k, v] of Object.entries(d)) { const parts = k.split('.'); let o = cur; for (const p of parts.slice(0, -1)) o = (o[p] ||= {}); if (v === DEL) delete o[parts.at(-1)]; else o[parts.at(-1)] = resolve(v); }
+  for (const [k, v] of Object.entries(d)) { const parts = k.split('.'); let o = cur; for (const p of parts.slice(0, -1)) o = (o[p] ||= {}); if (v === DEL) delete o[parts.at(-1)]; else if (v instanceof Inc) o[parts.at(-1)] = (Number(o[parts.at(-1)]) || 0) + v.n; else o[parts.at(-1)] = resolve(v); }
   STORE.set(path, cur);
 }
 class Query {

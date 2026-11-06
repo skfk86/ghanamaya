@@ -13,6 +13,7 @@ import { pushTo, pushResult } from './_push.js';
 import { deleteAccount, deletionBlockers, phoneHash } from './_account.js';
 import { applyStock } from './_stock.js';
 import { ensureIndexes } from './_indexes.js';
+import { setFollow, alertFollowers, MAX_FOLLOWING } from './_follow.js';
 
 const IK_ENDPOINT = 'https://ik.imagekit.io/7uwbsw4wl/';
 const DAY = 86400000;
@@ -124,6 +125,7 @@ export const ACTIONS = {
     if (!Number.isInteger(d.qty) || d.qty < 1 || d.qty > 999) throw new UserError('الكمية غير صحيحة');
     if (!str(d.state, 2, 40) || !str(d.city, 2, 60)) throw new UserError('حدد الموقع');
     const description = String(d.description || '').trim().slice(0, 1000);
+    const meetPoint = String(d.meetPoint || '').trim().slice(0, 80), negotiable = d.negotiable !== false;
     const images = Array.isArray(d.images) ? d.images.slice(0, 6) : [];
     if (!images.length || !images.every(i => i && typeof i.url === 'string' && i.url.startsWith(`${IK_ENDPOINT}listings/${uid}/`))) throw new UserError('الصور غير صالحة');
     const dhash = /^[0-9a-f]{16}$/.test(body.dhash || '') ? body.dhash : '';
@@ -153,10 +155,11 @@ export const ACTIONS = {
     await ref.set({
       sellerId: uid, sellerName: me.get('storeName') || me.get('name'), type: d.type, breed: d.breed, sex: d.sex,
       ageMonths: d.ageMonths, weightKg: d.weightKg, price: d.price, qty: d.qty, state: d.state.trim(), city: d.city.trim(),
-      description, images: images.map(i => ({ url: i.url, fileId: String(i.fileId || '') })), dhash, dhashBands: bands(dhash),
+      description, negotiable, ...(meetPoint ? { meetPoint } : {}), images: images.map(i => ({ url: i.url, fileId: String(i.fileId || '') })), dhash, dhashBands: bands(dhash),
       status: review ? 'pending' : 'active', ...(review ? { reviewReason: review } : {}),
       createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
     });
+    if (!review) await alertFollowers(db, ref.id).catch(e => console.error('alertFollowers', e));
     return { id: ref.id, status: review ? 'pending' : 'active', reviewReason: review };
   },
 
@@ -178,6 +181,17 @@ export const ACTIONS = {
       updatedAt: FieldValue.serverTimestamp()
     });
     return { status: 'pending', reviewReason: 'تغيير الصور' };
+  },
+
+  /* ===== متابعة بائع: تنبيه عند كل إعلان جديد له ===== */
+  async follow({ db, uid, body }) {
+    const sellerId = String(body.sellerId || ''), on = body.on !== false;
+    if (!sellerId || sellerId === uid) throw new UserError('لا يمكنك متابعة نفسك');
+    if (on) {
+      const n = (await db.collection(`users/${uid}/following`).limit(MAX_FOLLOWING).get()).size;
+      if (n >= MAX_FOLLOWING) throw new UserError(`الحد ${MAX_FOLLOWING} بائع. ألغِ متابعة بعضهم أولاً.`, 429);
+    }
+    try { return await setFollow(db, uid, sellerId, on); } catch (e) { if (e.user) throw new UserError(e.message, e.code); throw e; }
   },
 
   /* ===== إعادة نشر إعلان مباع (يخضع لحد الإعلانات النشطة) ===== */
@@ -214,6 +228,7 @@ export const ACTIONS = {
       await ref.update({ status: back, reviewReason: FieldValue.delete(), prevStatus: FieldValue.delete(), approvedAt: FieldValue.serverTimestamp(), ...(s.get('prevStatus') ? {} : { createdAt: FieldValue.serverTimestamp() }), updatedAt: FieldValue.serverTimestamp() });
       await db.doc(`users/${sellerId}`).update({ firstListingOk: true });
       await pushTo(db, sellerId, { title: '✅ نُشر إعلانك', body: 'وافقت الإدارة على إعلانك وأصبح ظاهراً للمشترين.', data: { kind: 'listing' }, tag: `l-${body.id}` });
+      if (back === 'active') await alertFollowers(db, body.id).catch(e => console.error('alertFollowers', e));
     } else if (body.decision === 'reject') {
       const note = String(body.note || 'الإعلان مخالف لشروط النشر').slice(0, 200);
       await ref.update({ status: 'hidden', hiddenReason: 'admin', adminNote: note, updatedAt: FieldValue.serverTimestamp() });
@@ -229,7 +244,10 @@ export const ACTIONS = {
     const sellerId = l.get('sellerId');
     if (sellerId === uid) throw new UserError('هذا إعلانك');
     const id = `${l.id}_${uid}`, ref = db.doc(`chats/${id}`);
-    if ((await ref.get()).exists) return { id };
+    const neg = l.get('negotiable') !== false;
+    const cur = await ref.get();
+    // التفاوض يتبع حالة الإعلان الحالية (لو غيّرها البائع بعد بدء المحادثة)
+    if (cur.exists) { if ((cur.get('negotiable') !== false) !== neg) await ref.update({ negotiable: neg }); return { id }; }
     if ((await db.doc(`users/${sellerId}/blocks/${uid}`).get()).exists) throw new UserError('لا يمكنك مراسلة هذا البائع', 403);
     const isNew = Date.now() - ms(me.get('createdAt')) < LIMITS.newUserDays * DAY;
     const cap = isNew ? LIMITS.chatsPerDay.newUser : LIMITS.chatsPerDay.normal;
@@ -241,7 +259,7 @@ export const ACTIONS = {
       listingId: l.id, buyerId: uid, sellerId, participants: [uid, sellerId],
       buyerName: me.get('name'), sellerName: seller.get('storeName') || seller.get('name') || l.get('sellerName'),
       listingTitle: `${{ goat: 'ماعز', sheep: 'خروف', cattle: 'عجل', camel: 'جمل' }[l.get('type')] || ''} ${l.get('breed')}`.trim(),
-      listingImage: (images[0] || {}).url || '', listingPrice: l.get('price'),
+      listingImage: (images[0] || {}).url || '', listingPrice: l.get('price'), negotiable: neg,
       lastMessage: '', lastSenderId: '', readAt: { [uid]: FieldValue.serverTimestamp() },
       createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
     });

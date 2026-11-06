@@ -6,7 +6,7 @@ import { adminDb } from './_firebase.js';
 
 export const PAGE = 24;
 const TYPES = ['goat', 'sheep', 'cattle', 'camel'];
-const FIELDS = ['sellerId', 'sellerName', 'type', 'breed', 'sex', 'ageMonths', 'weightKg', 'price', 'qty', 'state', 'city', 'description', 'images', 'status', 'featuredUntil'];
+const FIELDS = ['sellerId', 'sellerName', 'type', 'breed', 'sex', 'ageMonths', 'weightKg', 'price', 'qty', 'state', 'city', 'description', 'images', 'status', 'featuredUntil', 'negotiable', 'meetPoint'];
 const ms = (t) => (t && t.toMillis ? t.toMillis() : null);
 
 export default async function handler(req, res) {

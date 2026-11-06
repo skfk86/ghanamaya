@@ -14,9 +14,10 @@ const { chromium } = require('playwright'); const fs = require('fs'); const P = 
       const page = items.slice(0, 24); globalThis.__cdnHits = (globalThis.__cdnHits || 0) + 1;
       return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ items: page, sellers: { u2: { storeName: 'مزرعة الرحمة', verified: true } }, next: items.length > 24 ? `${page[23].createdAt}~${page[23].id}` : '' }) });
     }
+    if (u.includes('/api/seller')) { const a = JSON.parse(r.request().postData() || '{}'); globalThis.__sellerCalls = [...(globalThis.__sellerCalls || []), a]; return r.fulfill({ contentType: 'application/json', body: JSON.stringify(a.action === 'follow' ? { ok: true, following: a.on, followers: a.on ? 1 : 0 } : { ok: true }) }); }
     if (u.includes('/api/wallet')) { const a = JSON.parse(r.request().postData() || '{}').action; return r.fulfill({ contentType: 'application/json', body: JSON.stringify(a === 'pinStatus' ? { ok: true, hasPin: true } : a === 'deposit' ? { ok: true, paymentUrl: 'about:blank', sandbox: true, depositId: 'd1' } : { ok: true }) }); }
     if (u.startsWith('file:') || u === 'about:blank') return r.continue(); return r.fulfill({ status: 200, body: '{}' }); });
-  let html = fs.readFileSync(process.argv[2], 'utf8').replace('<script type="module">', `<script>${fs.readFileSync(P + '/seed.js', 'utf8')}</script><script type="module">`).replace(/<\/script>\s*<\/body>/, 'window.__dbg = { S };</script></body>');
+  let html = fs.readFileSync(process.argv[2], 'utf8').replace('<script type="module">', `<script>${fs.readFileSync(P + '/seed.js', 'utf8')}</script><script type="module">`).replace(/<\/script>\s*<\/body>/, 'window.__dbg = { S, push, render, filtered, parseQuery };</script></body>');
   fs.writeFileSync(P + '/_flow.html', html); await page.goto('file://' + P + '/_flow.html'); await page.waitForTimeout(900);
   const top = () => page.evaluate(() => { const s = __dbg.S.stack.at(-1); return s ? s.name : 'tab:' + __dbg.S.tab; });
   const tap = async (sel) => { const l = page.locator(sel).first(); await l.scrollIntoViewIfNeeded(); const bb = await l.boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.waitForTimeout(600); };
@@ -63,6 +64,40 @@ const { chromium } = require('playwright'); const fs = require('fs'); const P = 
   await page.fill('#q', 'حمرى'); await page.waitForTimeout(900);
   ok(await page.evaluate(() => [...document.querySelectorAll('.lcard .title')].every(t => t.textContent.includes('حمري'))) && await page.locator('.lcard').count() > 0, 'البحث بـ"حمرى" يجد "حمري"');
   await page.fill('#q', ''); await page.waitForTimeout(400);
+  // ===== البحث باللهجة =====
+  let pq = await page.evaluate(() => { const r = __dbg.parseQuery('نعجة حمري'); return { t: [...r.types], s: r.sex, terms: r.terms }; });
+  ok(pq.t.join() === 'sheep' && pq.s === 'f' && pq.terms.join() === 'حمري', 'تحليل "نعجة حمري": ضأن + أنثى + سلالة');
+  pq = await page.evaluate(() => [...__dbg.parseQuery('الغنم').types].sort().join());
+  ok(pq === 'goat,sheep', '"الغنم" = ماعز وضأن');
+  await page.fill('#q', 'نعجه'); await page.waitForTimeout(700);
+  ok(await page.evaluate(() => { const r = __dbg.filtered(); return r.length > 0 && r.every(l => l.type === 'sheep' && l.sex === 'f'); }), 'بحث "نعجه" يعرض إناث الضأن فقط');
+  await page.fill('#q', 'تيس'); await page.waitForTimeout(700);
+  ok(await page.evaluate(() => { const r = __dbg.filtered(); return r.length > 0 && r.every(l => l.type === 'goat' && l.sex === 'm'); }), 'بحث "تيس" يعرض ذكور الماعز');
+  await page.fill('#q', 'حمري بحري'); await page.waitForTimeout(700);
+  ok(await page.evaluate(() => { const r = __dbg.filtered(); return r.length > 0 && r.every(l => l.breed === 'حمري' && l.city === 'بحري'); }), 'كلمتان: كلتاهما مطلوبتان');
+  await page.fill('#q', 'كباشي'); await page.waitForTimeout(700);
+  ok(await page.evaluate(() => __dbg.filtered()[0].breed === 'كباشي'), 'الأكثر صلة أولاً');
+  ok(await page.locator('#qSugg option').count() > 10, 'اقتراحات البحث موجودة');
+  await page.fill('#q', ''); await page.waitForTimeout(400);
+  // ===== السعر الثابت ومكان المعاينة =====
+  await page.evaluate(() => __dbg.push('details', { id: 'l2' })); await page.waitForTimeout(500);
+  ok(await page.locator('text=سعر ثابت').count() >= 1 && await page.locator('text=سوق المويلح').count() === 1, 'التفاصيل: سعر ثابت + مكان المعاينة');
+  ok((await page.textContent('#chatL')).includes('راسل'), 'الإعلان الثابت: زر "راسل" بدل "فاوض"');
+  // ===== متابعة البائع =====
+  await page.evaluate(() => { __dbg.S.stack = []; __dbg.push('seller', { uid: 'u2' }); }); await page.waitForTimeout(600);
+  ok(await page.evaluate(() => { __dbg.S.stack = []; return true; }), 'تهيئة');
+  await page.evaluate(() => __dbg.push('seller', { uid: 'u2' })); await page.waitForTimeout(600);
+  ok(await page.locator('#follow').count() === 1 && await page.locator('text=صفقة مكتملة').count() === 1, 'ملف البائع: زر المتابعة والإحصائيات');
+  await tap('#follow'); await page.waitForTimeout(500);
+  ok((await page.textContent('#follow')).includes('إلغاء المتابعة') && (await page.textContent('#folCnt')) === '1', 'المتابعة تعمل وتحدّث العداد');
+  ok((globalThis.__sellerCalls || []).some(c => c.action === 'follow' && c.sellerId === 'u2' && c.on === true), 'تُرسل للسيرفر');
+  await page.evaluate(() => { __dbg.S.stack = []; __dbg.push('following'); }); await page.waitForTimeout(500);
+  ok(await page.evaluate(() => __dbg.S.stack.at(-1).name) === 'following' && await page.locator('#back').count() === 1, 'صفحة البائعين الذين أتابعهم تفتح');
+  // ===== محرر الإعلان =====
+  await page.evaluate(() => { __dbg.S.stack = []; __dbg.push('edit'); }); await page.waitForTimeout(600);
+  await tap('[data-neg="0"]');
+  ok(await page.locator('[data-neg="0"].on').count() === 1 && await page.locator('#meet').count() === 1, 'المحرر: اختيار السعر الثابت وحقل المعاينة');
+  await page.evaluate(() => { __dbg.S.stack = []; __dbg.S.tab = 'home'; __dbg.render(); }); await page.waitForTimeout(500);
   await ctx.setOffline(true); await page.waitForTimeout(400);
   ok(await page.locator('#offline').count() === 1, 'يظهر شريط "لا يوجد اتصال"');
   await ctx.setOffline(false); await page.waitForTimeout(400);

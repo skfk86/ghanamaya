@@ -689,5 +689,52 @@ section('حذف الحساب');
   ok(!SENT.slice(n3).some(m => /هل استلمت/.test(m.notification.title) && m.data.orderId === oid), 'التذكير مرة واحدة فقط');
 }
 
+{
+  section('توسع: متابعة البائعين وتنبيه المتابعين');
+  const S1 = user('sami', { profile: { whatsapp: '+249966666666', firstListingOk: true } });
+  const F1 = user('fadi'), F2 = user('farah');
+  let r = await sapi(F1, 'follow', { sellerId: 'sami' }); ok(r.code === 200 && r.following === true && r.followers === 1, 'متابعة بائع');
+  r = await sapi(F1, 'follow', { sellerId: 'sami' }); ok(r.followers === 1, 'تكرار المتابعة لا يضاعف العداد');
+  await sapi(F2, 'follow', { sellerId: 'sami' }); ok(g('users/sami').followersCount === 2 && !!g('users/sami/followers/fadi') && !!g('users/fadi/following/sami'), 'العداد والسجلان');
+  r = await sapi(S1, 'follow', { sellerId: 'sami' }); ok(r.code === 400, 'لا يتابع نفسه');
+  STORE.set('users/nos', { name: 'x', isSeller: false }); r = await sapi(F1, 'follow', { sellerId: 'nos' }); ok(r.code === 404, 'لا يتابع غير البائع');
+  const n0 = SENT.length;
+  r = await sapi(S1, 'createListing', { data: { type: 'goat', breed: 'شامي', sex: 'm', ageMonths: 10, weightKg: 30, price: 200000, qty: 1, state: 'الخرطوم', city: 'بحري', description: 'تيس', images: [{ url: 'https://ik.imagekit.io/7uwbsw4wl/listings/sami/a.jpg' }], negotiable: false, meetPoint: 'سوق المويلح' } });
+  ok(r.code === 200 && r.status === 'active', 'نشر إعلان مباشر');
+  const L1 = g(`listings/${r.id}`);
+  ok(L1.negotiable === false && L1.meetPoint === 'سوق المويلح', 'السعر الثابت ومكان المعاينة يُحفظان');
+  const alerts = SENT.slice(n0).filter(m => /نشر إعلاناً جديداً/.test(m.notification.title));
+  ok(alerts.length === 2 && alerts.every(m => ['fcm-fadi', 'fcm-farah'].includes(m.token)), 'كل متابع يُنبَّه بالإعلان الجديد');
+  ok(L1.followersNotified === true, 'التنبيه يُعلَّم حتى لا يتكرر');
+  const P = await import('./api/_follow.js'); const db = (await import('./api/_firebase.js')).adminDb();
+  ok(await P.alertFollowers(db, r.id) === 0, 'لا يُرسل التنبيه مرتين لنفس الإعلان');
+  await sapi(F2, 'follow', { sellerId: 'sami', on: false }); ok(g('users/sami').followersCount === 1 && !g('users/farah/following/sami'), 'إلغاء المتابعة');
+  // إعلان يمر بالمراجعة ⇒ التنبيه عند الموافقة فقط
+  STORE.set('users/sami', { ...g('users/sami'), firstListingOk: false });
+  const n1 = SENT.length;
+  r = await sapi(S1, 'createListing', { data: { type: 'sheep', breed: 'حمري', sex: 'f', ageMonths: 12, weightKg: 40, price: 300000, qty: 2, state: 'الخرطوم', city: 'بحري', description: 'نعجة', images: [{ url: 'https://ik.imagekit.io/7uwbsw4wl/listings/sami/b.jpg' }] } });
+  ok(r.status === 'pending' && !SENT.slice(n1).some(m => /نشر إعلاناً/.test(m.notification.title)), 'الإعلان قيد المراجعة لا يُنبّه المتابعين');
+  ok(g(`listings/${r.id}`).negotiable === true, 'الافتراضي: قابل للتفاوض');
+  await sapi(ADM, 'listingDecide', { id: r.id, decision: 'approve' });
+  ok(SENT.slice(n1).some(m => /نشر إعلاناً/.test(m.notification.title) && m.token === 'fcm-fadi'), 'الموافقة تُنبّه المتابعين');
+  // التفاوض في المحادثة يتبع الإعلان
+  const B2 = user('buyer2');
+  let c = await sapi(B2, 'startChat', { listingId: L1 ? Object.keys(Object.fromEntries(STORE)).find(k => k.startsWith('listings/') && g(k).meetPoint === 'سوق المويلح').split('/')[1] : '' });
+  ok(c.code === 200 && g(`chats/${c.id}`).negotiable === false, 'محادثة إعلان ثابت السعر: بلا عروض');
+  const lid = c.id.split('_')[0]; STORE.set(`listings/${lid}`, { ...g(`listings/${lid}`), negotiable: true });
+  await sapi(B2, 'startChat', { listingId: lid }); ok(g(`chats/${c.id}`).negotiable === true, 'تغيير البائع للتفاوض يُحدّث المحادثة');
+
+  section('توسع: إحصائيات البائع');
+  const oid = order('fadi', 'sami', 200000, { paymentMethod: 'cash', status: 'completed', listingId: lid, qty: 1 });
+  const before = g('users/sami').salesCount || 0;
+  await sapi(F1, 'applyStock', { orderId: oid }); await sapi(F1, 'applyStock', { orderId: oid });
+  ok(g('users/sami').salesCount === before + 1, 'عدد الصفقات يزيد مرة واحدة لكل طلب مكتمل');
+
+  section('توسع: حذف الحساب ينظف المتابعات');
+  TOKENS[F1].auth_time = Math.floor(Date.now() / 1000) - 30;
+  r = await sapi(F1, 'deleteMe', { confirm: 'حذف' }); if (r.code !== 200) console.log('deleteMe', r);
+  ok(!g('users/sami/followers/fadi') && g('users/sami').followersCount === 0, 'حذف المتابع يزيل متابعته ويحدّث العداد');
+}
+
 console.log(`\n${pass} نجح، ${fail} فشل`);
 if (fail) { console.log('الفاشلة:\n- ' + fails.join('\n- ')); process.exit(1); }

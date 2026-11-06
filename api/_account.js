@@ -4,6 +4,7 @@
 // يبقى (سجل مالي/قانوني) مع إخفاء الاسم: الطلبات، المعاملات، التقييمات، المحادثات.
 import { createHash } from 'node:crypto';
 import { FieldValue } from 'firebase-admin/firestore';
+import { dropFollows } from './_follow.js';
 import { adminAuth } from './_firebase.js';
 
 const GONE = 'مستخدم محذوف';
@@ -49,7 +50,8 @@ export async function deleteAccount(db, uid, { by = 'user', reason = '' } = {}) 
   }
   const del = async (q) => { const s = await q.get(); for (const d of s.docs) await d.ref.delete(); return s.size; };
   let n = 0;
-  for (const sub of ['favorites', 'blocks', 'private']) n += await del(uref.collection(sub));
+  await dropFollows(db, uid).catch(e => console.error('dropFollows', e));
+  for (const sub of ['favorites', 'blocks', 'private', 'following', 'followers']) n += await del(uref.collection(sub));
   n += await del(db.collection('listings').where('sellerId', '==', uid));
   for (const p of [`sellerApps/${uid}`, `verifyRequests/${uid}`, `walletPins/${uid}`, `wallets/${uid}`]) { await db.doc(p).delete(); n++; }
   // إخفاء الاسم في السجلات التي تبقى

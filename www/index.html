@@ -516,6 +516,7 @@ const TYPES = [
   { id: 'cattle', label: 'عجول', one: 'عجل', breeds: ['كناني','بطانة','بقارة','بلدي'] },
   { id: 'camel', label: 'إبل', one: 'جمل', breeds: ['عنافي','بشاري','بلدي'] }
 ];
+const memberSince = (t) => { const d = new Date(millis(t)); return isNaN(d) ? '' : d.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' }); };
 const typeOf = (id) => TYPES.find(t => t.id === id) || TYPES[0];
 const AGES = [{ label: 'أقل من 6 أشهر', min: 0, max: 5 }, { label: '6 – 12 شهر', min: 6, max: 12 }, { label: 'أكبر من سنة', min: 13, max: 999 }];
 const SORTS = ['الأحدث', 'الأقل سعراً', 'الأعلى سعراً'];
@@ -652,7 +653,7 @@ function render() {
   if (screenUnsub) { screenUnsub(); screenUnsub = null; }
   const top = S.stack[S.stack.length - 1];
   if (!top) return renderShell();
-  ({ details: renderDetails, seller: renderSeller, edit: renderEditor, mine: renderMine, favs: renderFavs, chat: renderChat, wallet: renderWallet, checkout: renderCheckout, order: renderOrder, reviews: renderReviews })[top.name](top.params);
+  ({ details: renderDetails, seller: renderSeller, edit: renderEditor, mine: renderMine, favs: renderFavs, following: renderFollowing, chat: renderChat, wallet: renderWallet, checkout: renderCheckout, order: renderOrder, reviews: renderReviews })[top.name](top.params);
 }
 
 /* ========== البيانات ========== */
@@ -754,6 +755,44 @@ async function toggleFav(id, btn) {
 /* ---------- الفلترة (على الجهاز) ---------- */
 // توحيد الكتابة العربية للبحث: أ/إ/آ ⇐ ا، ة ⇐ ه، ى ⇐ ي، وحذف التشكيل والتطويل
 const normAr = (t) => String(t || '').replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').toLowerCase();
+/* ---------- البحث باللهجة السودانية ----------
+   كلمات الناس للحيوان تتحول لفلتر نوع (وجنس عند الوضوح) بدل مطابقة حرفية،
+   وبقية الكلمات تُطابق كلمة كلمة (كلها مطلوبة) ثم تُرتب النتائج بالصلة ثم الحداثة. */
+const DIALECT = [
+  // [الأنواع، الجنس، الكلمات] — "غنم" في السودان تُطلق على الماعز والضأن معاً
+  [['sheep'], '', ['ضان', 'ضأن', 'خروف', 'خرفان', 'خراف', 'حولي', 'حوالي', 'طلي', 'طليان']],
+  [['sheep'], 'f', ['نعجه', 'نعجة', 'نعاج']], [['sheep'], 'm', ['كبش', 'كباش']],
+  [['goat'], '', ['ماعز', 'معز', 'سخل', 'سخله', 'سخول', 'عتود', 'عتان']],
+  [['goat'], 'f', ['عنز', 'عنزه', 'معزه', 'عنوز']], [['goat'], 'm', ['تيس', 'تيوس']],
+  [['goat', 'sheep'], '', ['غنم', 'اغنام', 'أغنام']],
+  [['cattle'], '', ['بقر', 'ابقار', 'أبقار', 'عجل', 'عجول', 'عجال']],
+  [['cattle'], 'f', ['بقره', 'بقرة', 'عجله']], [['cattle'], 'm', ['ثور', 'تور', 'تيران', 'ثيران']],
+  [['camel'], '', ['جمل', 'جمال', 'ابل', 'إبل', 'بعير', 'قعود', 'حاشي', 'حيران', 'حوار']],
+  [['camel'], 'f', ['ناقه', 'ناقة', 'نوق']]
+].map(([types, sex, words]) => ({ types, sex, words: new Set(words.map(w => normAr(w))) }));
+function parseQuery(q) {
+  const types = new Set(); let sex = ''; const terms = [];
+  for (const raw of normAr(q).split(/[\s،,]+/).filter(Boolean)) {
+    const w = raw.replace(/^ال(?=..)/, '');
+    const hit = DIALECT.find(d => d.words.has(raw) || d.words.has(w));
+    if (hit) { hit.types.forEach(t => types.add(t)); if (hit.sex) sex = hit.sex; } else terms.push(raw);
+  }
+  return { types, sex, terms };
+}
+// درجة الصلة: السلالة والمدينة أقوى من الوصف
+function relevance(l, terms) {
+  let score = 0;
+  const strong = normAr([l.breed, l.city, l.state].join(' ')), weak = normAr([l.description, l.sellerName, l.meetPoint].join(' '));
+  for (const t of terms) { if (strong.includes(t)) score += 3; else if (weak.includes(t)) score += 1; else return -1; }
+  return score;
+}
+function searchSuggestions() {
+  const words = new Set();
+  TYPES.forEach(t => { words.add(t.label); t.breeds.forEach(b => b !== 'بلدي' && words.add(`${t.one} ${b}`)); });
+  STATES.forEach(x => words.add(x));
+  ['خروف حمري', 'تيس شامي', 'نعجة', 'عجل كناني', 'ناقة'].forEach(x => words.add(x));
+  return [...words];
+}
 function filtered() {
   const f = S.f, q = S.q.trim();
   let out = (S.listings || []).filter(l => l.status === 'active' && !S.blocked.has(l.sellerId));
@@ -765,8 +804,15 @@ function filtered() {
   if (f.age >= 0) out = out.filter(l => l.ageMonths >= AGES[f.age].min && l.ageMonths <= AGES[f.age].max);
   if (f.state) out = out.filter(l => l.state === f.state);
   if (f.verified) out = out.filter(l => (S.sellers[l.sellerId] || S.sellerLite[l.sellerId] || {}).verified);
-  if (q) { const nq = normAr(q); out = out.filter(l => normAr([titleOf(l), l.breed, l.city, l.state, l.description, typeOf(l.type).label, l.sellerName].join(' ')).includes(nq)); }
   const cmp = [(a, b) => millis(b.createdAt) - millis(a.createdAt), (a, b) => a.price - b.price, (a, b) => b.price - a.price][f.sort];
+  if (q) {
+    const pq = parseQuery(q);
+    if (pq.types.size) out = out.filter(l => pq.types.has(l.type));
+    if (pq.sex) out = out.filter(l => l.sex === pq.sex);
+    const scored = out.map(l => [l, relevance(l, pq.terms)]).filter(([, sc]) => sc >= 0);
+    // بالصلة أولاً (إلا لو اختار المستخدم ترتيباً بالسعر)، ثم الحداثة
+    return scored.sort((a, b) => (f.sort ? 0 : b[1] - a[1]) || cmp(a[0], b[0])).map(([l]) => l);
+  }
   return out.sort((a, b) => (isFeatured(b) - isFeatured(a)) || cmp(a, b));
 }
 function activeFilterCount() {
@@ -936,7 +982,7 @@ function cardHTML(l) {
       ${isFeatured(l) ? '<span class="tag">مميز</span>' : ''}
       ${l.status === 'sold' ? '<span class="tag dark">مباع</span>' : ''}
       <button class="fav ${fav ? 'on' : ''}" data-fav="${l.id}" aria-label="المفضلة" aria-pressed="${fav}">${ic('heart')}</button>
-      <span class="pricetag"><bdi>${Number(l.price || 0).toLocaleString('en-US')}</bdi> <small>ج.س</small></span>
+      <span class="pricetag"><bdi>${Number(l.price || 0).toLocaleString('en-US')}</bdi> <small>ج.س${l.negotiable === false ? ' · ثابت' : ''}</small></span>
     </div>
     <div class="body">
       <span class="title">${esc(titleOf(l))}</span>
@@ -968,7 +1014,7 @@ function viewHome() {
       <button class="wchip" id="homeWallet" aria-label="المحفظة"><span id="homeBal">${S.wallet ? U(S.wallet.balance) : '—'}</span><span class="ico">${ic('wallet')}</span></button>
     </div>
     <div class="row">
-      <label class="search">${ic('search', 'style="color:var(--muted);width:20px;height:20px"')}<input id="q" type="search" placeholder="ابحث: حمري، شامي، بحري..." value="${esc(S.q)}" aria-label="بحث"></label>
+      <label class="search">${ic('search', 'style="color:var(--muted);width:20px;height:20px"')}<input id="q" type="search" list="qSugg" autocomplete="off" placeholder="ابحث: خروف حمري، تيس، نعجة، بحري..." value="${esc(S.q)}" aria-label="بحث"><datalist id="qSugg">${searchSuggestions().map(w => `<option value="${esc(w)}"></option>`).join('')}</datalist></label>
       <button class="filter-btn" id="openFilters" aria-label="الفلاتر">${ic('filter')}${n ? `<span class="dot">${n}</span>` : ''}</button>
     </div>
   </div>
@@ -1086,7 +1132,7 @@ async function renderDetails({ id }) {
     <div class="sheet-body">
       ${l.status !== 'active' ? `<div class="note ${l.status === 'hidden' ? 'note-warn' : 'note-ok'}">${l.status === 'sold' ? 'هذا الإعلان مباع.' : l.status === 'pending' ? 'هذا الإعلان قيد مراجعة الإدارة ولا يظهر للمشترين بعد.' : 'هذا الإعلان موقوف بعد مراجعة الإدارة.'}</div>` : ''}
       <div class="stack" style="gap:4px">
-        <div class="row" style="align-items:flex-start;justify-content:space-between"><h1 style="font-size:22px">${esc(titleOf(l))}</h1><span class="price" style="font-size:20px">${money(l.price)}</span></div>
+        <div class="row" style="align-items:flex-start;justify-content:space-between"><h1 style="font-size:22px">${esc(titleOf(l))}</h1><span class="stack" style="gap:0;align-items:flex-end"><span class="price" style="font-size:20px">${money(l.price)}</span><span class="muted" style="font-size:12px">${l.negotiable === false ? 'سعر ثابت' : 'قابل للتفاوض'}</span></span></div>
         <span class="muted row" style="gap:4px">${ic('pin', 'style="width:14px;height:14px"')}${esc(l.city)}، ${esc(l.state)} · ${ago(l.createdAt)}</span>
       </div>
       <div class="specs">
@@ -1095,6 +1141,7 @@ async function renderDetails({ id }) {
         <div class="spec"><span>الجنس</span><b>${l.sex === 'm' ? 'ذكر' : 'أنثى'}</b></div>
         <div class="spec"><span>المتاح</span><b>${l.qty}</b></div>
       </div>
+      ${l.meetPoint ? `<div class="note note-ok">${ic('pin', 'style="width:20px;height:20px"')}<span><b>مكان المعاينة:</b> ${esc(l.meetPoint)}</span></div>` : ''}
       <button class="card sellerbox" id="sellerBox">
         <div class="avatar sm">${ic('user')}</div>
         <span class="grow" style="display:flex;flex-direction:column">
@@ -1113,7 +1160,7 @@ async function renderDetails({ id }) {
     <div class="bottombar">
       ${mine
         ? `<button class="btn btn-outline" id="editL">${ic('edit')}تعديل</button>${l.status === 'active' ? `<button class="btn btn-primary" id="soldL">${ic('check')}تم البيع</button>` : ''}`
-        : `<button class="btn btn-outline" id="wa" style="flex:0 0 52px" aria-label="واتساب">${ic('wa')}</button><button class="btn btn-outline" id="chatL" style="flex:1" ${l.status !== 'active' ? 'disabled' : ''}>${ic('chat')}فاوض</button><button class="btn btn-primary" id="buyL" style="flex:1.3" ${l.status !== 'active' ? 'disabled' : ''}>اطلب الآن</button>`}
+        : `<button class="btn btn-outline" id="wa" style="flex:0 0 52px" aria-label="واتساب">${ic('wa')}</button><button class="btn btn-outline" id="chatL" style="flex:1" ${l.status !== 'active' ? 'disabled' : ''}>${ic('chat')}${l.negotiable === false ? 'راسل' : 'فاوض'}</button><button class="btn btn-primary" id="buyL" style="flex:1.3" ${l.status !== 'active' ? 'disabled' : ''}>اطلب الآن</button>`}
     </div>
   </div>`;
   $('#back').onclick = pop;
@@ -1157,9 +1204,12 @@ function renderError(e) {
 /* ---------- صفحة البائع ---------- */
 async function renderSeller({ uid }) {
   renderLoading();
-  let seller, items;
+  let seller, items, following = false;
   try {
-    seller = await getSeller(uid);
+    // الملف طازجاً: عدد المتابعين والصفقات يتغير
+    const [fresh, fs] = await Promise.all([loadProfile(uid), uid !== S.user.uid ? getDoc(doc(db, 'users', S.user.uid, 'following', uid)).catch(() => null) : null]);
+    seller = fresh || await getSeller(uid); if (fresh) S.sellers[uid] = fresh;
+    following = !!(fs && fs.exists());
     const snap = await getDocs(query(collection(db, 'listings'), where('sellerId', '==', uid)));
     items = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(l => l.status === 'active').sort((a, b) => millis(b.createdAt) - millis(a.createdAt));
   } catch (e) { return renderError(e); }
@@ -1178,7 +1228,11 @@ async function renderSeller({ uid }) {
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
         <div class="statbox"><b>${items.length}</b><span>إعلان نشط</span></div>
         <button class="statbox" id="rateBox" style="border:0"><b id="rateVal">—</b><span id="rateCnt">لا تقييمات بعد</span></button>
+        <div class="statbox"><b>${Number(seller.salesCount || 0)}</b><span>صفقة مكتملة</span></div>
+        <div class="statbox"><b id="folCnt">${Number(seller.followersCount || 0)}</b><span>متابِع</span></div>
       </div>
+      ${seller.createdAt ? `<span class="muted" style="font-size:13px">عضو منذ ${esc(memberSince(seller.createdAt))}</span>` : ''}
+      ${uid !== S.user.uid && seller.isSeller ? `<button class="btn ${following ? 'btn-outline' : 'btn-primary'}" id="follow" aria-pressed="${following}">${following ? 'تتابعه · إلغاء المتابعة' : 'تابِع البائع لتصلك إعلاناته الجديدة'}</button>` : ''}
     </div>
     <h2 style="padding:20px 16px 12px;font-size:16px">الإعلانات</h2>
     ${items.length ? `<div class="grid">${items.map(cardHTML).join('')}</div>` : viewEmpty('store', 'لا توجد إعلانات نشطة', 'هذا البائع لا يعرض شيئاً حالياً.')}
@@ -1187,6 +1241,16 @@ async function renderSeller({ uid }) {
   $('#back').onclick = pop;
   bindCards();
   const sm = $('#sMore'); if (sm) sm.onclick = () => openReport('user', uid, uid);
+  const fb = $('#follow');
+  if (fb) fb.onclick = async () => {
+    let r = null;
+    await busy(fb, async () => { try { r = await sellerApi('follow', { sellerId: uid, on: !following }); } catch (e) { toast(errMsg(e), 'error'); } });
+    if (!r) return;
+    following = r.following; $('#folCnt').textContent = r.followers;
+    fb.className = `btn ${following ? 'btn-outline' : 'btn-primary'}`; fb.setAttribute('aria-pressed', following);
+    fb.textContent = following ? 'تتابعه · إلغاء المتابعة' : 'تابِع البائع لتصلك إعلاناته الجديدة';
+    toast(following ? 'ستصلك إعلاناته الجديدة' : 'أُلغيت المتابعة', 'success');
+  };
   getRating(uid).then(r => {
     if (!r.count) return;
     $('#rateVal').innerHTML = `${ic('star', 'style="width:15px;height:15px;fill:var(--accent);stroke:var(--accent)"')} ${r.avg.toFixed(1)}`;
@@ -1241,8 +1305,9 @@ async function renderEditor({ id } = {}) {
   const st = existing ? {
     photos: existing.images.map(im => ({ ...im, preview: ik(im.url, 300) })),
     type: existing.type, breed: existing.breed, sex: existing.sex, age: existing.ageMonths, weight: existing.weightKg,
-    price: existing.price, qty: existing.qty, state: existing.state, city: existing.city, desc: existing.description || ''
-  } : { photos: [], type: 'sheep', breed: '', sex: 'm', age: '', weight: '', price: '', qty: 1, state: p.state, city: p.city, desc: '' };
+    price: existing.price, qty: existing.qty, state: existing.state, city: existing.city, desc: existing.description || '',
+    neg: existing.negotiable !== false, meet: existing.meetPoint || ''
+  } : { photos: [], type: 'sheep', breed: '', sex: 'm', age: '', weight: '', price: '', qty: 1, state: p.state, city: p.city, desc: '', neg: true, meet: '' };
 
   const photosHTML = () => st.photos.map((ph, i) => `
     <div class="photo"><img src="${esc(ph.preview)}" alt="">
@@ -1277,12 +1342,15 @@ async function renderEditor({ id } = {}) {
           <div class="field grow"><span>العدد المتاح</span><div class="stepper">
             <button type="button" id="inc" aria-label="زيادة">${ic('plus', 'style="width:18px;height:18px"')}</button><b id="qty">${st.qty}</b><button type="button" id="dec" aria-label="إنقاص">${ic('minus', 'style="width:18px;height:18px"')}</button></div></div>
         </div>
+        <div class="field"><span>السعر</span><div class="pick" style="grid-template-columns:1fr 1fr" id="neg">
+          <button type="button" data-neg="1" class="${st.neg ? 'on' : ''}">قابل للتفاوض</button><button type="button" data-neg="0" class="${st.neg ? '' : 'on'}">سعر ثابت</button></div></div>
       </form>
       <div class="card stack">
         <div class="row" style="align-items:flex-start">
           <label class="field grow"><span>الولاية</span><select class="input" id="state">${stateOptions(st.state)}</select></label>
           <label class="field grow"><span>المدينة أو الحي</span><input class="input" id="city" value="${esc(st.city)}"></label>
         </div>
+        <label class="field"><span>مكان المعاينة (اختياري)</span><input class="input" id="meet" maxlength="80" value="${esc(st.meet)}" placeholder="مثال: سوق المويلح، الزريبة جنب الجامع"></label>
         <label class="field"><span>الوصف</span><textarea class="input" id="desc" maxlength="1000" style="height:auto;min-height:96px;padding:12px 14px;line-height:1.7" placeholder="الحالة الصحية، التغذية، اللقاحات، مكان الاستلام...">${esc(st.desc)}</textarea></label>
       </div>
       <div id="prog" class="stack hidden" style="gap:6px"><span class="muted" id="progText"></span><div class="progress"><i id="progBar" style="width:0"></i></div></div>
@@ -1314,6 +1382,7 @@ async function renderEditor({ id } = {}) {
   $$('[data-type]').forEach(b => b.onclick = () => { st.type = b.dataset.type; $$('[data-type]').forEach(x => x.classList.toggle('on', x === b)); fillBreeds(); });
   $$('[data-sex]').forEach(b => b.onclick = () => { st.sex = b.dataset.sex; $$('[data-sex]').forEach(x => x.classList.toggle('on', x === b)); });
   $('#breed').onchange = (e) => st.breed = e.target.value;
+  $$('[data-neg]').forEach(b => b.onclick = () => { st.neg = b.dataset.neg === '1'; $$('[data-neg]').forEach(x => x.classList.toggle('on', x === b)); });
   $('#inc').onclick = () => { st.qty = Math.min(999, st.qty + 1); $('#qty').textContent = st.qty; };
   $('#dec').onclick = () => { st.qty = Math.max(1, st.qty - 1); $('#qty').textContent = st.qty; };
 
@@ -1342,7 +1411,7 @@ async function renderEditor({ id } = {}) {
         txt.textContent = 'حفظ الإعلان...';
         const data = {
           sellerName: p.storeName || p.name, type: st.type, breed: st.breed, sex: st.sex,
-          ageMonths: age, weightKg: weight, price, qty: st.qty, state, city, description: desc,
+          ageMonths: age, weightKg: weight, price, qty: st.qty, state, city, description: desc, negotiable: st.neg, meetPoint: $('#meet').value.trim().slice(0, 80),
           images: st.photos.map(ph => ({ url: ph.url, fileId: ph.fileId })), updatedAt: serverTimestamp()
         };
         let out = null;
@@ -1435,6 +1504,23 @@ async function renderFavs() {
   const br = $('#browse'); if (br) br.onclick = () => { S.stack = []; S.tab = 'home'; render(); };
 }
 
+async function renderFollowing() {
+  renderLoading();
+  let list = [];
+  try {
+    const snap = await getDocs(collection(db, 'users', S.user.uid, 'following'));
+    list = (await Promise.all(snap.docs.map(async d => ({ uid: d.id, p: await getSeller(d.id).catch(() => null) })))).filter(x => x.p);
+  } catch (e) { return renderError(e); }
+  app.innerHTML = `
+  <div class="screen" style="padding-bottom:24px">
+    <div class="topbar"><button class="ghost-btn" id="back" aria-label="رجوع">${ic('back')}</button><h1>البائعون الذين أتابعهم</h1><span class="muted">${list.length}</span></div>
+    ${list.length ? `<nav class="card menu" style="margin:0 16px">${list.map(x => `<button data-seller="${esc(x.uid)}"><div class="avatar sm">${ic('user')}</div><span class="grow">${esc(x.p.storeName || x.p.name)}${x.p.verified ? ' ✓' : ''}<br><span class="muted" style="font-size:12px">${esc(x.p.city || '')}</span></span>${ic('chev')}</button>`).join('')}</nav>`
+      : viewEmpty('store', 'لا تتابع أي بائع بعد', 'افتح ملف أي بائع واضغط "تابِع" لتصلك إعلاناته الجديدة فور نشرها.')}
+  </div>`;
+  $('#back').onclick = pop;
+  $$('[data-seller]').forEach(b => b.onclick = () => push('seller', { uid: b.dataset.seller }));
+}
+
 /* ========== المحادثات ========== */
 const OFFER_TTL = 24 * 3600 * 1000;
 const otherId = (c) => c.participants.find(p => p !== S.user.uid);
@@ -1495,7 +1581,8 @@ async function openChat(l, seller) {
   const id = `${l.id}_${S.user.uid}`;
   try {
     const snap = await getDoc(doc(db, 'chats', id)).catch(() => null);
-    if (!snap || !snap.exists()) await sellerApi('startChat', { listingId: l.id });
+    // موجودة لكن حالة التفاوض تغيّرت في الإعلان؟ السيرفر يحدّثها
+    if (!snap || !snap.exists() || (snap.get('negotiable') !== false) !== (l.negotiable !== false)) await sellerApi('startChat', { listingId: l.id });
     push('chat', { id });
   } catch (e) {
     toast(e.code === 'permission-denied' ? 'لا يمكنك مراسلة هذا البائع' : errMsg(e), 'error');
@@ -1597,7 +1684,7 @@ async function renderChat({ id }) {
     <div class="msgs" id="msgs" aria-live="polite"><div class="center"><div class="spinner"></div></div></div>
     ${iBlocked ? `<div class="blocked">لقد حظرت هذا المستخدم. <button class="btn-link" id="unblock">إلغاء الحظر</button></div>` : `
     <div class="composer">
-      <button class="offerbtn" id="offer">${ic('tag', 'style="width:18px;height:18px"')}عرض</button>
+      ${chat.negotiable === false ? '' : `<button class="offerbtn" id="offer">${ic('tag', 'style="width:18px;height:18px"')}عرض</button>`}
       <div class="box">
         <textarea id="txt" rows="1" placeholder="اكتب رسالة..." aria-label="رسالة"></textarea>
         <label class="ib" aria-label="إرسال صورة">${ic('image')}<input type="file" id="img" accept="image/*" hidden></label>
@@ -1673,7 +1760,7 @@ async function renderChat({ id }) {
     try { await sendMessage(chat, { kind: 'text', text: text.slice(0, 1000) }, text.slice(0, 80)); }
     catch (e) { txt.value = text; toast(errMsg(e), 'error'); }
   };
-  $('#offer').onclick = () => offerSheet(chat);
+  if ($('#offer')) $('#offer').onclick = () => offerSheet(chat);
   $('#img').onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
     toast('جارٍ رفع الصورة...');
@@ -2418,6 +2505,7 @@ function viewAccount() {
       ${p.isSeller ? item('mine', 'list', 'إعلاناتي') : ''}
       ${p.isSeller ? `<button class="row" id="walletToggle" style="gap:12px;width:100%;background:none;border:0;border-bottom:1px solid var(--line-soft);padding:12px 0;font:inherit;color:inherit;text-align:right">${ic('wallet', 'style="width:20px;height:20px;color:var(--ink-2)"')}<span class="grow" style="display:flex;flex-direction:column"><span>قبول الدفع بالمحفظة</span><span class="muted" style="font-size:12px">${p.walletOn === true ? 'مفعّل: تستلم USDT بعد تأكيد المشتري' : 'متوقف: المشترون يدفعون ببنكك أو نقداً'}</span></span><span class="switch ${p.walletOn === true ? 'on' : ''}" role="switch" aria-checked="${p.walletOn === true}"></span></button>` : ''}
       ${item('favs', 'heart', `المفضلة${S.favs.size ? ` (${S.favs.size})` : ''}`)}
+      ${item('following', 'store', 'البائعون الذين أتابعهم')}
       ${item('soon', 'bell', 'الإشعارات')}
       ${item('soon', 'help', 'المساعدة والدعم')}
     </nav>

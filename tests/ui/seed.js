@@ -10,7 +10,7 @@ window.__SEED = {
     ['users/u2', { walletOn: true, name: 'عثمان', state: 'الخرطوم', city: 'أم درمان', isSeller: true, storeName: 'مزرعة الرحمة', whatsapp: '+249911111111', verified: true, rating: 4.6, ratingCount: 41, createdAt: T(now - 200 * D) }],
     ['users/u3', { name: 'محمد أحمد', state: 'الجزيرة', city: 'ود مدني', isSeller: false, createdAt: T(now - 20 * D) }],
     L('l1', { type: 'sheep', breed: 'كباشي', sex: 'm', ageMonths: 14, weightKg: 62, price: 450000, ago: 2 * H, i: 0, featuredUntil: T(now + 3 * D) }),
-    L('l2', { type: 'sheep', breed: 'حمري', sex: 'm', ageMonths: 10, weightKg: 48, price: 320000, ago: 5 * H, i: 1, city: 'شرق النيل' }),
+    L('l2', { type: 'sheep', breed: 'حمري', sex: 'm', ageMonths: 10, weightKg: 48, price: 320000, ago: 5 * H, i: 1, city: 'شرق النيل', negotiable: false, meetPoint: 'سوق المويلح' }),
     L('l3', { type: 'goat', breed: 'شامي', sex: 'f', ageMonths: 18, weightKg: 40, price: 280000, ago: 26 * H, i: 2, qty: 3, sellerId: 'u1', sellerName: 'حوش علي للمواشي' }),
     L('l4', { type: 'goat', breed: 'نوبي', sex: 'm', ageMonths: 8, weightKg: 25, price: 150000, ago: 50 * H, i: 3, state: 'الجزيرة', city: 'ود مدني' }),
     L('l5', { type: 'cattle', breed: 'كناني', sex: 'm', ageMonths: 30, weightKg: 380, price: 2800000, ago: 3 * D, i: 4, state: 'سنار', city: 'سنجة' }),
