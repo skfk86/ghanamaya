@@ -63,6 +63,10 @@ service cloud.firestore {
         allow write: if isMe(uid) && docId == 'payout'
           && request.resource.data.keys().hasOnly(['bankak', 'updatedAt'])
           && request.resource.data.bankak.matches('^[0-9]{6,20}$');
+        // رمز الإشعارات: خاص بالمالك ولا يراه غيره
+        allow write: if isMe(uid) && docId == 'push'
+          && request.resource.data.keys().hasOnly(['fcmToken', 'updatedAt'])
+          && str(request.resource.data.fcmToken, 0, 400);
       }
     }
 
@@ -110,7 +114,8 @@ service cloud.firestore {
         // تغيير الصور يمر بمراجعة الإدارة (/api/seller editImages)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sellerId', 'createdAt', 'images'])
         && validListing(request.resource.data)
-        && (resource.data.status in ['hidden', 'pending']
+        // إعادة نشر المباع تمر بالسيرفر (/api/seller relist) لأنها تخضع لحد الإعلانات النشطة
+        && (resource.data.status in ['hidden', 'pending', 'sold']
               ? request.resource.data.status == resource.data.status
               : request.resource.data.status in ['active', 'sold']));
 
@@ -228,6 +233,10 @@ service cloud.firestore {
         && request.resource.data.qty <= listingDoc(request.resource.data.listingId).qty
         && request.resource.data.total == request.resource.data.unitPrice * request.resource.data.qty
         && request.resource.data.paymentMethod in ['bankak', 'cash', 'wallet']
+        // الأسماء والصورة لا تُزوَّر (تظهر في إشعارات الطرف الآخر)
+        && request.resource.data.buyerName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name
+        && request.resource.data.sellerName in [get(/databases/$(database)/documents/users/$(request.resource.data.sellerId)).data.get('storeName', ''), get(/databases/$(database)/documents/users/$(request.resource.data.sellerId)).data.name]
+        && (!('image' in request.resource.data) || request.resource.data.image == '' || request.resource.data.image.matches('^https://ik\\.imagekit\\.io/7uwbsw4wl/.*'))
         && request.resource.data.delivery in ['pickup', 'seller']
         && priceOk(request.resource.data);
 

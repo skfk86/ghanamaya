@@ -65,6 +65,21 @@ jobs:
           sed -i "s/versionCode 1$/versionCode ${{ github.run_number }}/" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"0.1.${{ github.run_number }}\"/" android/app/build.gradle
 
+      # يعمل التطبيق بدون إنترنت من أول فتح: مكتبات Firebase داخل الـ APK بدل تحميلها من الشبكة في كل تشغيل
+      - name: Bundle Firebase SDK (offline start)
+        run: |
+          set -e
+          V=13.0.0; mkdir -p www/vendor/firebase
+          for m in app auth firestore; do
+            curl -fsSL "https://www.gstatic.com/firebasejs/$V/firebase-$m.js" -o "www/vendor/firebase/firebase-$m.js"
+          done
+          sed -i "s#https://www.gstatic.com/firebasejs/$V/#./#g" www/vendor/firebase/*.js
+          sed -i "s#https://www.gstatic.com/firebasejs/$V/#./vendor/firebase/#g" www/index.html
+          # لا يبقى أي استيراد من الشبكة، وإلا يفشل البناء بدل نشر نسخة معطوبة
+          if grep -lE "(from|import)\s*[\"']https?://" www/vendor/firebase/*.js; then echo "remote import left in SDK"; exit 1; fi
+          if grep -q "gstatic.com/firebasejs" www/index.html; then echo "index.html still imports remote SDK"; exit 1; fi
+          ls -la www/vendor/firebase
+
       - name: Sync web assets
         run: npx cap sync android
 

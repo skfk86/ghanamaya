@@ -1413,7 +1413,7 @@ async function renderMine({ tab = 'active' } = {}) {
     catch (e) { toast(errMsg(e), 'error'); }
   });
   $$('[data-sold]').forEach(b => b.onclick = () => setStatus(b.dataset.sold, 'sold', b, 'تم تعليمه كمباع'));
-  $$('[data-relist]').forEach(b => b.onclick = () => setStatus(b.dataset.relist, 'active', b, 'أُعيد نشر الإعلان'));
+  $$('[data-relist]').forEach(b => b.onclick = () => busy(b, async () => { try { await sellerApi('relist', { id: b.dataset.relist }); (S.listings = null, S.feed = null); toast('أُعيد نشر الإعلان', 'success'); render(); } catch (e) { toast(errMsg(e), 'error'); } }));
   $$('[data-del]').forEach(b => b.onclick = () => confirmSheet('حذف الإعلان؟', 'لا يمكن التراجع عن الحذف.', 'حذف', async () => {
     await deleteDoc(doc(db, 'listings', b.dataset.del)); (S.listings = null, S.feed = null); toast('حُذف الإعلان'); render();
   }));
@@ -1762,9 +1762,12 @@ async function renderCheckout({ id, price, qty: q0, offerRef }) {
     $$('[data-pm]').forEach(b => b.onclick = () => { st.pay = b.dataset.pm; draw(); });
     $('#place').onclick = (e) => busy(e.currentTarget, async () => {
       try {
+        // الأسماء تُقرأ طازجة: القواعد تطابقها مع الملفات (لا تُزوَّر في إشعارات الطرف الآخر)
+        const [me, sp] = await Promise.all([loadProfile(S.user.uid), loadProfile(l.sellerId)]);
+        if (sp) S.sellers[l.sellerId] = sp;
         const data = {
           listingId: l.id, buyerId: S.user.uid, sellerId: l.sellerId, participants: [S.user.uid, l.sellerId],
-          buyerName: S.profile.name, sellerName: seller.storeName || seller.name, title: titleOf(l), image: (l.images[0] || {}).url || '',
+          buyerName: (me || S.profile).name, sellerName: (sp || seller).storeName || (sp || seller).name, title: titleOf(l), image: (l.images[0] || {}).url || '',
           unitPrice: unit, qty: st.qty, total: unit * st.qty, paymentMethod: st.pay, delivery: st.deliv,
           note: $('#note').value.trim().slice(0, 200), status: 'pending', createdAt: serverTimestamp(), updatedAt: serverTimestamp()
         };
@@ -2352,8 +2355,10 @@ async function setupPush() {
     const perm = await PN.requestPermissions();
     if (perm.receive !== 'granted') return;
     PN.addListener('registration', ({ value }) => {
-      if (value && S.profile && S.profile.fcmToken !== value) {
-        updateDoc(doc(db, 'users', S.user.uid), { fcmToken: value }).then(() => { S.profile.fcmToken = value; }).catch(() => {});
+      // الرمز يُحفظ في مكان خاص لا يقرؤه غير صاحبه، ويُمسح من الملف العام (للنسخ القديمة)
+      if (value && S.profile && S.pushSaved !== value) {
+        setDoc(doc(db, 'users', S.user.uid, 'private', 'push'), { fcmToken: value, updatedAt: serverTimestamp() }).then(() => { S.pushSaved = value; }).catch(() => {});
+        if (S.profile.fcmToken) updateDoc(doc(db, 'users', S.user.uid), { fcmToken: '' }).then(() => { S.profile.fcmToken = ''; }).catch(() => {});
       }
     });
     PN.addListener('pushNotificationReceived', (n) => {
@@ -2456,8 +2461,8 @@ function openSheet(html, onMount) {
   onMount && onMount(sh);
 }
 function confirmSheet(title, text, okLabel, onOk) {
-  openSheet(`<div class="stack" style="gap:16px;padding-top:6px"><h2 style="font-size:19px">${title}</h2>${text ? `<p class="muted" style="margin:0;font-size:14px">${text}</p>` : ''}
-    <div class="row"><button class="btn btn-ghost" data-close>إلغاء</button><button class="btn" id="okBtn" style="background:var(--danger);color:#fff">${okLabel}</button></div></div>`, (sh) => {
+  openSheet(`<div class="stack" style="gap:16px;padding-top:6px"><h2 style="font-size:19px">${esc(title)}</h2>${text ? `<p class="muted" style="margin:0;font-size:14px">${esc(text)}</p>` : ''}
+    <div class="row"><button class="btn btn-ghost" data-close>إلغاء</button><button class="btn" id="okBtn" style="background:var(--danger);color:#fff">${esc(okLabel)}</button></div></div>`, (sh) => {
     $('#okBtn', sh).onclick = (e) => busy(e.currentTarget, async () => { try { await onOk(); if (closeSheet) closeSheet(); } catch (err) { toast(errMsg(err), 'error'); } });
   });
 }

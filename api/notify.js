@@ -3,6 +3,14 @@
 // يتحقق أن المرسل طرف في المحادثة وأنه صاحب الرسالة، ثم يرسل FCM للطرف الآخر.
 import { getMessaging } from 'firebase-admin/messaging';
 import { cors, verifyUser, verifyToken, adminDb } from './_firebase.js';
+import { tokenOf, dropToken } from './_push.js';
+import { createHash } from 'node:crypto';
+
+// كل حدث يُرسَل مرة واحدة فقط (يمنع إغراق الطرف الآخر بإشعارات بتكرار الطلب)
+async function once(db, key) {
+  const id = createHash('sha256').update(key).digest('hex').slice(0, 40);
+  try { await db.doc(`notifyLog/${id}`).create({ at: new Date() }); return true; } catch (e) { return false; }
+}
 
 const preview = (m) => m.kind === 'image' ? 'أرسل صورة'
   : m.kind === 'offer' ? `عرض سعر: ${Number(m.offer.price).toLocaleString('en-US')} ج.س`
@@ -35,7 +43,7 @@ export default async function handler(req, res) {
     } else if (kind === 'warn') [title, body] = ['⚠️ تنبيه من إدارة غنماية', why || 'وصلتنا بلاغات عن نشاطك. تكرارها قد يؤدي لإيقاف حسابك.'];
     else if (kind === 'hide') [title, body] = ['أُوقف أحد إعلاناتك', why || 'خالف الإعلان شروط النشر. راجع إعلاناتك من حسابك.'];
     else return res.status(400).json({ error: 'نوع غير معروف' });
-    const token = (await db.doc(`users/${to}`).get()).get('fcmToken');
+    const token = await tokenOf(db, to);
     if (!token) return res.status(200).json({ ok: true, sent: false });
     try {
       await getMessaging().send({ token, notification: { title, body }, data: { kind: 'admin', event: String(kind) },
@@ -62,7 +70,8 @@ export default async function handler(req, res) {
     if (order.paymentMethod === 'wallet' && order.escrow && ['released', 'refunded'].includes(order.escrow.status) && event !== 'receipt') return res.status(200).json({ ok: true, sent: false });
     let [title, body] = texts[order.status] || ['تحديث على طلبك', order.title];
     if (event === 'receipt') [title, body] = ['إشعار تحويل جديد', `${order.buyerName} أرفق إشعار تحويل بنكك. تحقق منه في تطبيق البنك.`];
-    const token = (await db.doc(`users/${to}`).get()).get('fcmToken');
+    if (!(await once(db, `o:${orderId}:${order.status}:${event === 'receipt' ? 'r:' + (order.receiptUrl || '') : ''}`))) return res.status(200).json({ ok: true, sent: false, dup: true });
+    const token = await tokenOf(db, to);
     if (!token) return res.status(200).json({ ok: true, sent: false });
     try {
       await getMessaging().send({
@@ -88,8 +97,8 @@ export default async function handler(req, res) {
   if (!isReply && msg.senderId !== uid) return res.status(403).json({ error: 'forbidden' });
 
   const to = chat.participants.find(p => p !== uid);
-  const [toUser, fromUser] = await Promise.all([db.doc(`users/${to}`).get(), db.doc(`users/${uid}`).get()]);
-  const token = toUser.get('fcmToken');
+  if (!(await once(db, `m:${chatId}:${messageId}:${isReply ? 'reply:' + (msg.offer && msg.offer.status) : 'new'}`))) return res.status(200).json({ ok: true, sent: false, dup: true });
+  const [token, fromUser] = await Promise.all([tokenOf(db, to), db.doc(`users/${uid}`).get()]);
   if (!token) return res.status(200).json({ ok: true, sent: false });
 
   const fromName = fromUser.get('storeName') || fromUser.get('name') || 'غنماية';
@@ -107,7 +116,7 @@ export default async function handler(req, res) {
   } catch (e) {
     // توكن قديم: نحذفه حتى لا نحاول مجدداً
     if (String(e.code).includes('registration-token-not-registered')) {
-      await db.doc(`users/${to}`).update({ fcmToken: '' }).catch(() => {});
+      await dropToken(db, to);
     }
     return res.status(200).json({ ok: true, sent: false });
   }

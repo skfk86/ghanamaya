@@ -180,6 +180,20 @@ export const ACTIONS = {
     return { status: 'pending', reviewReason: 'تغيير الصور' };
   },
 
+  /* ===== إعادة نشر إعلان مباع (يخضع لحد الإعلانات النشطة) ===== */
+  async relist({ db, uid, me, body }) {
+    const ref = db.doc(`listings/${String(body.id || '')}`);
+    const s = await ref.get();
+    if (!s.exists || s.get('sellerId') !== uid) throw new UserError('غير موجود', 404);
+    if (s.get('status') !== 'sold') throw new UserError('الإعلان ليس مباعاً', 409);
+    const lim = me.get('verified') === true ? LIMITS.verified : LIMITS.unverified;
+    const mine = await db.collection('listings').where('sellerId', '==', uid).get();
+    const live = mine.docs.filter(x => ['active', 'pending'].includes(x.get('status'))).length;
+    if (live >= lim.active) throw new UserError(`الحد الأقصى ${lim.active} إعلانات نشطة لكل بائع. علّم المباع أو احذف القديم لتنشر جديداً.`, 429);
+    await ref.update({ status: 'active', updatedAt: FieldValue.serverTimestamp() });
+    return { status: 'active' };
+  },
+
   /* ===== بعد اكتمال طلب نقدي/بنكك: خصم الكمية (يستدعيه أي طرف، والسيرفر يتحقق) ===== */
   async applyStock({ db, uid, body }) {
     const o = await db.doc(`orders/${String(body.orderId || '')}`).get();

@@ -2,11 +2,19 @@
 import { getMessaging } from 'firebase-admin/messaging';
 
 // يرجع true/false. pushResult يرجع السبب أيضاً (لعرضه في لوحة الأدمن)
+// رمز الإشعارات خاص بالمستخدم (users/{uid}/private/push)، ولا يُقرأ من الملف العام إلا للنسخ القديمة
+export async function tokenOf(db, uid) {
+  const p = await db.doc(`users/${uid}/private/push`).get();
+  if (p.exists && p.get('fcmToken')) return p.get('fcmToken');
+  return (await db.doc(`users/${uid}`).get()).get('fcmToken') || '';
+}
+export async function dropToken(db, uid) {
+  await Promise.all([db.doc(`users/${uid}/private/push`).set({ fcmToken: '' }, { merge: true }).catch(() => {}), db.doc(`users/${uid}`).update({ fcmToken: '' }).catch(() => {})]);
+}
 export async function pushTo(db, uid, msg) { return (await pushResult(db, uid, msg)).sent; }
 export async function pushResult(db, uid, { title, body, data = {}, tag, channel = 'wallet' }) {
   try {
-    const ref = db.doc(`users/${uid}`);
-    const token = (await ref.get()).get('fcmToken');
+    const token = await tokenOf(db, uid);
     if (!token) return { sent: false, reason: 'المستخدم لم يفعّل الإشعارات (لم يفتح النسخة الحديثة أو رفض الإذن)' };
     const strData = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]));
     await getMessaging().send({
@@ -15,7 +23,7 @@ export async function pushResult(db, uid, { title, body, data = {}, tag, channel
     });
     return { sent: true };
   } catch (e) {
-    if (String(e.code).includes('registration-token-not-registered')) await db.doc(`users/${uid}`).update({ fcmToken: '' }).catch(() => {});
+    if (String(e.code).includes('registration-token-not-registered')) await dropToken(db, uid);
     console.error('push', uid, e.code || e.message);
     return { sent: false, reason: String(e.code || e.message || 'فشل الإرسال').includes('not-registered') ? 'رمز الإشعارات قديم: يحتاج المستخدم فتح التطبيق مجدداً' : `فشل الإرسال: ${e.code || e.message}` };
   }

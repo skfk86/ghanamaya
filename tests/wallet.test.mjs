@@ -646,5 +646,48 @@ section('حذف الحساب');
   r = await api(Object.keys(TOKENS).find(k => !TOKENS[k].admin), 'payoutCheck'); ok(r.code === 403, 'غير الأدمن لا يشغّل الفحص');
 }
 
+{
+  section('تدقيق: منع تكرار الإشعارات');
+  const o = order('alice', 'bob', 90000, { paymentMethod: 'cash', status: 'accepted' });
+  const call = async (tok, body) => { const res = mkRes(); await notify({ method: 'POST', headers: { authorization: `Bearer ${tok}` }, body }, res); return res; };
+  const n0 = SENT.length;
+  await call(B, { orderId: o }); await call(B, { orderId: o }); await call(B, { orderId: o });
+  ok(SENT.length === n0 + 1, 'تكرار نفس إشعار الطلب 3 مرات ⇒ يصل مرة واحدة');
+  STORE.set(`orders/${o}`, { ...g(`orders/${o}`), status: 'completed' });
+  await call(A, { orderId: o }); ok(SENT.length === n0 + 2, 'حالة جديدة للطلب ⇒ إشعار جديد');
+  STORE.set('chats/l9_carol', { participants: ['carol', 'bob'], listingTitle: 'خروف', updatedAt: Timestamp.fromMillis(NOW) });
+  STORE.set('chats/l9_carol/messages/m1', { senderId: 'carol', kind: 'text', text: 'مرحبا' });
+  const n1 = SENT.length;
+  for (let i = 0; i < 5; i++) await call(C, { chatId: 'l9_carol', messageId: 'm1' });
+  ok(SENT.length === n1 + 1, 'إعادة إرسال إشعار نفس الرسالة 5 مرات ⇒ مرة واحدة');
+
+  section('تدقيق: رمز الإشعارات خاص');
+  STORE.set('users/bob/private/push', { fcmToken: 'fcm-bob-private' });
+  const P = await import('./api/_push.js'); const db = (await import('./api/_firebase.js')).adminDb();
+  ok(await P.tokenOf(db, 'bob') === 'fcm-bob-private', 'يُقرأ الرمز من المكان الخاص أولاً');
+  ok(await P.tokenOf(db, 'alice') === 'fcm-alice', 'النسخ القديمة: يرجع للملف العام');
+  await P.dropToken(db, 'bob'); ok(!g('users/bob/private/push').fcmToken && !g('users/bob').fcmToken, 'الرمز القديم يُمسح من المكانين');
+  STORE.set('users/bob', { ...g('users/bob'), fcmToken: 'fcm-bob' });
+
+  section('تدقيق: إعادة النشر تخضع لحد الإعلانات');
+  const R = user('rita', { profile: { whatsapp: '+249955555555' } });
+  for (const [i, st] of ['active', 'active', 'active', 'sold'].entries()) STORE.set(`listings/rl${i}`, { sellerId: 'rita', status: st, type: 'goat', breed: 'شامي', price: 100 + i, createdAt: Timestamp.fromMillis(NOW - 3 * DAY) });
+  let r = await sapi(R, 'relist', { id: 'rl3' }); ok(r.code === 429 && g('listings/rl3').status === 'sold', '3 نشطة ⇒ لا تُعاد الرابعة');
+  STORE.set('listings/rl0', { ...g('listings/rl0'), status: 'sold' });
+  r = await sapi(R, 'relist', { id: 'rl3' }); ok(r.code === 200 && g('listings/rl3').status === 'active', 'بعد تفريغ مكان ⇒ تُعاد');
+  r = await sapi(B, 'relist', { id: 'rl0' }); ok(r.code === 404, 'لا يعيد نشر إعلان غيره');
+  r = await sapi(R, 'relist', { id: 'rl1' }); ok(r.code === 409, 'النشط لا يُعاد نشره');
+
+  section('تدقيق: تذكير قبل التحرير التلقائي');
+  const set = { releaseDays: 3 };
+  const oid = order('alice', 'bob', 9000, { status: 'accepted', acceptedAt: Timestamp.fromMillis(Date.now() - 2.5 * DAY), escrow: { amount: 100, rate: 9000, status: 'held' } });
+  process.env.CRON_SECRET = 'cs'; const n2 = SENT.length;
+  const res = mkRes(); await cron({ headers: { authorization: 'Bearer cs' } }, res);
+  ok(g(`orders/${oid}`).releaseReminded === true && SENT.slice(n2).some(m => /هل استلمت/.test(m.notification.title) && m.token === 'fcm-alice'), 'المشتري يُذكَّر قبل يوم من التحرير');
+  ok(g(`orders/${oid}`).escrow.status === 'held', 'التذكير لا يحرر المال');
+  const n3 = SENT.length; await cron({ headers: { authorization: 'Bearer cs' } }, mkRes());
+  ok(!SENT.slice(n3).some(m => /هل استلمت/.test(m.notification.title) && m.data.orderId === oid), 'التذكير مرة واحدة فقط');
+}
+
 console.log(`\n${pass} نجح، ${fail} فشل`);
 if (fail) { console.log('الفاشلة:\n- ' + fails.join('\n- ')); process.exit(1); }

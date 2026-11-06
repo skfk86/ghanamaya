@@ -3,7 +3,7 @@
 // الحماية: Vercel يرسل  Authorization: Bearer <CRON_SECRET>
 import { adminDb } from './_firebase.js';
 import { PLATFORM, walletSettings, readWallet, releaseEscrow } from './_ledger.js';
-import { pushRelease } from './_push.js';
+import { pushRelease, pushTo } from './_push.js';
 import { processDue } from './_payout.js';
 import { applyStock } from './_stock.js';
 
@@ -16,6 +16,12 @@ export default async function handler(req, res) {
   let released = 0;
   for (const d of snap.docs) {
     const at = d.get('acceptedAt');
+    // تذكير المشتري قبل يوم من التحرير التلقائي: إن لم يستلم الحيوان يفتح نزاعاً
+    if (at && at.toMillis() > cutoff && at.toMillis() <= cutoff + 86400000 && !d.get('releaseReminded')) {
+      await d.ref.update({ releaseReminded: true }).catch(() => {});
+      await pushTo(db, d.get('buyerId'), { title: '⏳ تذكير: هل استلمت الحيوان؟', body: `سيُحوَّل المبلغ للبائع تلقائياً خلال 24 ساعة (${d.get('title') || 'طلبك'}). لم تستلم؟ افتح نزاعاً من الطلب الآن.`, data: { kind: 'order', orderId: d.id }, tag: `remind-${d.id}`, channel: 'orders' });
+      continue;
+    }
     if (!at || at.toMillis() > cutoff) continue;
     let fee = null, o0 = null;
     try {

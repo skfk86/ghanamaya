@@ -16,6 +16,7 @@ class DocRef {
   collection(n) { return new ColRef(`${this.path}/${n}`); }
   async get() { return new Snap(this, STORE.get(this.path)); }
   async set(d, o) { applySet(this.path, d, o); }
+  async create(d) { if (STORE.has(this.path)) throw Object.assign(new Error('ALREADY_EXISTS'), { code: 6 }); applySet(this.path, d); }
   async update(d) { applyUpdate(this.path, d); }
   async delete() { STORE.delete(this.path); }
 }
