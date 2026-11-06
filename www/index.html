@@ -2357,8 +2357,10 @@ async function setupPush() {
     PN.addListener('registration', ({ value }) => {
       // الرمز يُحفظ في مكان خاص لا يقرؤه غير صاحبه، ويُمسح من الملف العام (للنسخ القديمة)
       if (value && S.profile && S.pushSaved !== value) {
-        setDoc(doc(db, 'users', S.user.uid, 'private', 'push'), { fcmToken: value, updatedAt: serverTimestamp() }).then(() => { S.pushSaved = value; }).catch(() => {});
-        if (S.profile.fcmToken) updateDoc(doc(db, 'users', S.user.uid), { fcmToken: '' }).then(() => { S.profile.fcmToken = ''; }).catch(() => {});
+        setDoc(doc(db, 'users', S.user.uid, 'private', 'push'), { fcmToken: value, updatedAt: serverTimestamp() })
+          .then(() => { S.pushSaved = value; if (S.profile.fcmToken) return updateDoc(doc(db, 'users', S.user.uid), { fcmToken: '' }).then(() => { S.profile.fcmToken = ''; }); })
+          // القواعد الجديدة لم تُنشر بعد: نبقي الطريقة القديمة حتى لا تتوقف الإشعارات
+          .catch(() => { if (S.profile.fcmToken !== value) updateDoc(doc(db, 'users', S.user.uid), { fcmToken: value }).then(() => { S.profile.fcmToken = value; }).catch(() => {}); });
       }
     });
     PN.addListener('pushNotificationReceived', (n) => {
