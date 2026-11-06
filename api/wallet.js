@@ -5,7 +5,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { cors, verifyToken, adminDb } from './_firebase.js';
 import { applyStock } from './_stock.js';
 import { pinStatus, pinSet, withdrawGuard } from './_pin.js';
-import { scheduleWithdrawal, processDue, processWithdrawal, cancelWithdrawal, OPEN } from './_payout.js';
+import { scheduleWithdrawal, processDue, processWithdrawal, cancelWithdrawal, payoutCheck, OPEN } from './_payout.js';
 import { pushTo, pushRelease, pushRefund, usd } from './_push.js';
 import { PLATFORM, fmt, walletSettings, readWallet, writeWallet, logTx, releaseEscrow, refundEscrow } from './_ledger.js';
 
@@ -192,6 +192,9 @@ const ACTIONS = {
     const set = await walletSettings(db);
     return { processed: await processDue(db, set, 3) };
   },
+
+  /* ===== الأدمن: فحص الإيداع والسحب قبل التشغيل ===== */
+  payoutCheck: Object.assign(async ({ db }) => ({ checks: await payoutCheck(db, await walletSettings(db)) }), { admin: true }),
 
   /* ===== الأدمن: مسح بيانات التجربة (يعمل فقط في وضع التجربة) ===== */
   resetSandbox: Object.assign(async ({ db }) => {

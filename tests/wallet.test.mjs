@@ -13,7 +13,15 @@ const H = 3600e3, DAY = 24 * H;
 
 // ---- fetch mock (OxaPay) ----
 let FETCH = []; let payoutMode = 'ok';
+let CUR = { status: 200, data: { USDT: { symbol: 'USDT', networks: { TRON: { network: 'TRON', name: 'Tron', withdraw_min: 1, withdraw_fee: 1 }, BSC: { network: 'Binance Smart Chain', name: 'BNB Smart Chain (BEP20)', withdraw_min: 0.5, withdraw_fee: 0.15 } } } } };
 globalThis.fetch = async (url, opt) => {
+  if (!opt || !opt.body) { // طلبات GET لـ OxaPay (القوائم والفحص)
+    FETCH.push({ url, get: true, headers: opt && opt.headers });
+    if (url.includes('common/currencies')) return CUR === 'down' ? resp(500, {}) : resp(200, CUR);
+    if (url.includes('accepted-currencies')) return resp(200, { status: 200, data: { list: ['USDT', 'TRX'] } });
+    if (url.includes('payout?')) return opt.headers.payout_api_key === 'BADKEY' ? resp(401, { status: 401, error: { message: 'Invalid payout api key' } }) : resp(200, { status: 200, data: { list: [] } });
+    throw new Error('unexpected GET ' + url);
+  }
   const body = JSON.parse(opt.body); FETCH.push({ url, body, headers: opt.headers });
   if (url.includes('/payment/invoice')) return resp(200, { data: { payment_url: 'https://pay/x', track_id: 'TRK' + FETCH.length, expired_at: 0 } });
   if (url.includes('/payout')) {
@@ -610,6 +618,32 @@ section('حذف الحساب');
   const NEWU = user('ivan'); STORE.set('users/ivan', { ...g('users/ivan'), isSeller: false });
   r = await sapi(NEWU, 'apply', { storeName: 'جديد', whatsapp: '0944444444' }); ok(r.code === 403 && /موقوف/.test(r.error), 'رقم المحذوف من الأدمن لا يعود للبيع');
   r = await sapi(NEWU, 'apply', { storeName: 'جديد', whatsapp: '0933333333' }); ok(r.whatsapp === '+249933333333', 'رقم من حذف حسابه بنفسه يمكن استخدامه');
+}
+
+{
+  section('شبكة السحب وفحص الأدمن');
+  const P = await import('./api/_payout.js');
+  let n = await P.usdtBscNetwork();
+  ok(n && n.network === 'Binance Smart Chain' && n.min === 0.5 && n.fee === 0.15, 'يقرأ اسم شبكة BSC الدقيق من OxaPay (شكل كائن)');
+  ok(await P.payoutNetwork() === 'Binance Smart Chain', 'السحب يستخدم الاسم الذي تعطيه OxaPay');
+  process.env.OXAPAY_PAYOUT_NETWORK = 'BSC'; ok(await P.payoutNetwork() === 'BSC', 'متغير Vercel يتقدم عند ضبطه'); delete process.env.OXAPAY_PAYOUT_NETWORK;
+  const db = (await import('./api/_firebase.js')).adminDb(); const set = await (await import('./api/_ledger.js')).walletSettings(db);
+  const prevSb = process.env.OXAPAY_SANDBOX, prevP = process.env.OXAPAY_PAYOUT_KEY, prevM = process.env.OXAPAY_MERCHANT_KEY;
+  delete process.env.OXAPAY_SANDBOX; process.env.OXAPAY_PAYOUT_KEY = 'PKEY'; process.env.OXAPAY_MERCHANT_KEY = 'MKEY';
+  let c = await P.payoutCheck(db, set); const by = (l) => c.find(x => x.label === l) || {};
+  ok(by('اسم الشبكة').ok && /Binance Smart Chain/.test(by('اسم الشبكة').detail), 'الفحص يعرض اسم الشبكة');
+  ok(by('صلاحية مفتاح السحب').ok && by('صلاحية مفتاح الإيداع').ok && /USDT/.test(by('صلاحية مفتاح الإيداع').detail), 'الفحص يتحقق من المفتاحين');
+  ok(by('أقل سحب').ok, 'أقل سحب في التطبيق ≥ حد OxaPay');
+  process.env.OXAPAY_PAYOUT_KEY = 'BADKEY'; process.env.OXAPAY_PAYOUT_NETWORK = 'TRON';
+  c = await P.payoutCheck(db, set);
+  ok(!by('صلاحية مفتاح السحب').ok && /IP/.test(by('صلاحية مفتاح السحب').detail), 'مفتاح سحب خاطئ ⇒ يظهر في الفحص');
+  ok(!by('اسم الشبكة').ok, 'اسم شبكة خاطئ في Vercel ⇒ يظهر في الفحص');
+  delete process.env.OXAPAY_PAYOUT_NETWORK;
+  process.env.OXAPAY_SANDBOX = 'true'; c = await P.payoutCheck(db, set); ok(!by('وضع التشغيل').ok, 'ينبّه لوضع التجربة');
+  process.env.OXAPAY_SANDBOX = prevSb ?? ''; if (prevSb === undefined) delete process.env.OXAPAY_SANDBOX; process.env.OXAPAY_PAYOUT_KEY = prevP ?? ''; process.env.OXAPAY_MERCHANT_KEY = prevM ?? '';
+  const ADM2 = 'tok-admin'; let r = await api(Object.keys(TOKENS).find(k => TOKENS[k].admin) || ADM2, 'payoutCheck');
+  ok(Array.isArray(r.checks), 'الأدمن يشغّل الفحص من اللوحة');
+  r = await api(Object.keys(TOKENS).find(k => !TOKENS[k].admin), 'payoutCheck'); ok(r.code === 403, 'غير الأدمن لا يشغّل الفحص');
 }
 
 console.log(`\n${pass} نجح، ${fail} فشل`);

@@ -140,7 +140,7 @@ export async function processWithdrawal(db, set, ref) {
       method: 'POST',
       headers: { 'payout_api_key': process.env.OXAPAY_PAYOUT_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        address: w.address, currency: 'USDT', network: process.env.OXAPAY_PAYOUT_NETWORK || 'BEP20',
+        address: w.address, currency: 'USDT', network: await payoutNetwork(),
         amount: Number(fmt(w.amount)), callback_url: 'https://ghanamaya.vercel.app/api/oxapay-webhook', description: `ghanamaya ${ref.id}`
       }),
       signal: AbortSignal.timeout(15000)
@@ -185,3 +185,71 @@ export async function cancelWithdrawal(db, uid, id) {
     return { amount: s.get('amount') };
   });
 }
+
+
+/* ---------- شبكة السحب: يُقرأ اسمها الدقيق من OxaPay نفسها بدل التخمين ---------- */
+const NET_RE = /bep-?20|\bbsc\b|binance smart chain|bnb smart chain/i;
+let netCache = null;
+async function oxa(path, headers = {}) {
+  const r = await fetch(`https://api.oxapay.com/v1/${path}`, { headers: { 'Content-Type': 'application/json', ...headers }, signal: AbortSignal.timeout(10000) });
+  const j = await r.json().catch(() => ({}));
+  return { ok: r.ok && (j.status === undefined || j.status === 200), status: r.status, j };
+}
+// يبحث في قائمة عملات OxaPay عن شبكة USDT على BSC ويرجع اسمها كما تقبله الـ API
+export async function usdtBscNetwork() {
+  if (netCache && Date.now() - netCache.at < 6 * H) return netCache.v;
+  const { ok, j } = await oxa('common/currencies');
+  if (!ok) return null;
+  const root = j.data || j;
+  const usdt = root.USDT || root.usdt || Object.values(root).find(c => c && (c.symbol === 'USDT'));
+  if (!usdt || !usdt.networks) return null;
+  const list = Array.isArray(usdt.networks) ? usdt.networks : Object.entries(usdt.networks).map(([k, v]) => ({ key: k, ...(v || {}) }));
+  const hit = list.find(n => [n.network, n.name, n.key].some(x => typeof x === 'string' && NET_RE.test(x)));
+  if (!hit) return null;
+  const v = { network: String(hit.network || hit.key || hit.name), name: String(hit.name || hit.network || ''),
+    min: Number(hit.withdraw_min ?? hit.min_withdraw ?? NaN), fee: Number(hit.withdraw_fee ?? hit.fee ?? NaN) };
+  netCache = { at: Date.now(), v };
+  return v;
+}
+export async function payoutNetwork() {
+  if (process.env.OXAPAY_PAYOUT_NETWORK) return process.env.OXAPAY_PAYOUT_NETWORK;
+  try { const n = await usdtBscNetwork(); if (n) return n.network; } catch {}
+  return 'BEP20';
+}
+
+/* ---------- فحص شامل قبل أي سحب حقيقي (للأدمن) ---------- */
+export async function payoutCheck(db, set) {
+  const out = []; const add = (ok, label, detail = '') => out.push({ ok, label, detail });
+  const sb = sandbox();
+  add(!sb, 'وضع التشغيل', sb ? 'وضع التجربة مفعّل (OXAPAY_SANDBOX): لن يخرج مال حقيقي. احذفه من Vercel للإطلاق' : 'تشغيل حقيقي');
+  add(!!process.env.OXAPAY_MERCHANT_KEY, 'مفتاح الإيداع (Merchant)', process.env.OXAPAY_MERCHANT_KEY ? 'موجود' : 'غير موجود في Vercel');
+  add(!!process.env.OXAPAY_PAYOUT_KEY, 'مفتاح السحب (Payout)', process.env.OXAPAY_PAYOUT_KEY ? 'موجود' : 'غير موجود في Vercel');
+  try {
+    const n = await usdtBscNetwork();
+    if (!n) add(false, 'شبكة BEP20 لدى OxaPay', 'لم أجد USDT على BSC في قائمة OxaPay');
+    else {
+      const env = process.env.OXAPAY_PAYOUT_NETWORK;
+      add(!env || env === n.network, 'اسم الشبكة', env && env !== n.network ? `OXAPAY_PAYOUT_NETWORK="${env}" لكن OxaPay تسميها "${n.network}": احذف المتغير` : `سيُستخدم "${n.network}" (${n.name})`);
+      if (Number.isFinite(n.min)) add(set.minWithdraw / 100 >= n.min, 'أقل سحب', `OxaPay: ${n.min} USDT، تطبيقك: ${fmt(set.minWithdraw)} USDT`);
+      if (Number.isFinite(n.fee)) add(true, 'رسوم الشبكة لدى OxaPay', `${n.fee} USDT لكل سحب`);
+    }
+  } catch (e) { add(false, 'الاتصال بـ OxaPay', 'تعذر الوصول: ' + String(e.message || e).slice(0, 80)); }
+  if (process.env.OXAPAY_MERCHANT_KEY) {
+    try { const r = await oxa('payment/accepted-currencies', { merchant_api_key: process.env.OXAPAY_MERCHANT_KEY });
+      const list = JSON.stringify(r.j.data || {});
+      add(r.ok, 'صلاحية مفتاح الإيداع', r.ok ? (/USDT/.test(list) ? 'صالح ويقبل USDT' : 'صالح، لكن USDT غير مفعّل في التاجر') : msgOf(r));
+    } catch { add(false, 'صلاحية مفتاح الإيداع', 'تعذر الاتصال'); }
+  }
+  if (process.env.OXAPAY_PAYOUT_KEY) {
+    try { const r = await oxa('payout?size=1', { payout_api_key: process.env.OXAPAY_PAYOUT_KEY });
+      add(r.ok, 'صلاحية مفتاح السحب', r.ok ? 'صالح ويقبله OxaPay من سيرفر Vercel' : msgOf(r) + ' (تحقق من المفتاح، وأزل قيود الـ IP عنه)');
+    } catch { add(false, 'صلاحية مفتاح السحب', 'تعذر الاتصال'); }
+  }
+  add(set.autoWithdraw !== false, 'السحب التلقائي', set.autoWithdraw !== false ? 'مفعّل' : 'متوقف: ' + (set.autoPausedReason || 'أوقفه الأدمن'));
+  if (!sb) {
+    const t = await db.collection('transactions').where('sandbox', '==', true).limit(1).get();
+    add(t.empty, 'بيانات التجربة', t.empty ? 'نظيفة' : 'توجد أرصدة تجريبية: اضغط "مسح بيانات التجربة"');
+  }
+  return out;
+}
+function msgOf(r) { const e = r.j && (r.j.error || {}); return String(e.message || r.j.message || `HTTP ${r.status}`).slice(0, 120); }

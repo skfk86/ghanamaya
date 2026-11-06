@@ -502,6 +502,9 @@ async function finance() {
         <label><span class="muted">التحرير التلقائي بعد (أيام)</span><input class="input" id="sDays" inputmode="numeric" value="${set.releaseDays || 3}"></label>
         <label><span class="muted">أقل سحب (USDT)</span><input class="input" id="sMin" inputmode="decimal" value="${usd(set.minWithdraw || 500)}"></label>
       </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:10px;background:var(--bg)"><h2>فحص الإيداع والسحب</h2>
+        <span class="muted">يتحقق من المفاتيح واسم شبكة BEP20 وحدود OxaPay مباشرة من السيرفر، بدون إرسال أي مال. شغّله قبل أول سحب حقيقي.</span>
+        <button class="btn primary" id="pCheck" style="align-self:flex-start">افحص الآن</button><div id="pOut"></div></div>
       <h2 style="margin-top:6px">السحب التلقائي</h2>
       ${set.autoWithdraw === false && set.autoPausedReason ? `<div class="note" style="border-color:var(--danger);color:var(--danger)"><b>⚠ ${esc(set.autoPausedReason)}</b><span>راجع السحوبات المجمّدة وسجل OxaPay، ثم أعد التفعيل.</span></div>` : ''}
       <label style="display:flex;align-items:center;gap:10px;font-weight:700"><input type="checkbox" class="switch" id="aOn" ${set.autoWithdraw !== false ? 'checked' : ''}> مفتاح الطوارئ: السحب التلقائي ${set.autoWithdraw !== false ? '<span class="tag t-green">يعمل</span>' : '<span class="tag t-red">متوقف</span>'}</label>
@@ -517,6 +520,8 @@ async function finance() {
     <div class="card" style="display:flex;flex-direction:column;gap:10px;border:1.5px dashed var(--danger)"><h2 style="color:var(--danger)">مسح بيانات التجربة</h2>
       <span class="muted">يحذف كل الأرصدة والمعاملات والإيداعات والسحوبات ورموز المحفظة، ويلغي طلبات المحفظة المفتوحة. استخدمه <b>قبل أول إيداع حقيقي</b>. بعد وصول أي إيداع حقيقي يُرفض المسح لحماية أموال المستخدمين.</span>
       <button class="btn danger" id="resetSb" style="align-self:flex-start">مسح بيانات التجربة</button></div>`;
+  $('#pCheck').onclick = (e) => run(e.currentTarget, async () => { const r = await api('payoutCheck', {}); const bad = r.checks.filter(c => !c.ok).length;
+    $('#pOut').innerHTML = `<b style="color:${bad ? 'var(--danger)' : 'var(--ok, #2f6b3a)'}">${bad ? `⚠ ${bad} مشكلة تحتاج إصلاحاً` : '✅ كل شيء جاهز للسحب الحقيقي'}</b>` + r.checks.map(c => `<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span>${c.ok ? '✅' : '❌'}</span><span><b>${esc(c.label)}</b> — <span class="muted">${esc(c.detail)}</span></span></div>`).join(''); });
   $('#resetSb').onclick = (e) => { if (prompt('لا يمكن التراجع. اكتب: مسح') !== 'مسح') return; run(e.currentTarget, async () => { const r = await api('resetSandbox', {}); toast(`مُسح ${r.cleared} عنصراً`); await go(); }); };
   $$('[data-sent]').forEach(b => b.onclick = () => { const h = prompt('رقم المعاملة (TX hash):'); if (!h) return; run(b, async () => { await api('withdrawDecide', { id: b.dataset.sent, decision: 'sent', txHash: h }); await go(); }, 'سُجّل الإرسال'); });
   $$('[data-now]').forEach(b => b.onclick = () => { if (!confirm('إرسال هذا السحب الآن عبر OxaPay؟')) return; run(b, async () => { await api('withdrawDecide', { id: b.dataset.now, decision: 'now' }); await go(); }, 'أُرسل للتنفيذ'); });
