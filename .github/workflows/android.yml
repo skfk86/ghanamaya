@@ -80,6 +80,25 @@ jobs:
           if grep -q "gstatic.com/firebasejs" www/index.html; then echo "index.html still imports remote SDK"; exit 1; fi
           ls -la www/vendor/firebase
 
+      # الخط العربي داخل الـ APK: نفس الشكل بدون إنترنت ومن أول فتح.
+      # ننسخ ملف Google كما هو (كل المجموعات: العربية واللاتينية للأرقام) ونحوّل روابطه لملفات محلية.
+      - name: Bundle Arabic font (offline start)
+        run: |
+          set -e
+          mkdir -p www/vendor/fonts && cd www/vendor/fonts
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+          curl -fsSL -A "$UA" "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" -o plex.css
+          n=0
+          for u in $(grep -o 'https://fonts.gstatic.com/[^)]*' plex.css | sort -u); do
+            n=$((n+1)); f="f$n.woff2"; curl -fsSL "$u" -o "$f"; sed -i "s#$u#$f#g" plex.css
+          done
+          [ "$n" -ge 2 ] || { echo "font files missing"; exit 1; }
+          grep -q "gstatic" plex.css && { echo "remote font url left"; exit 1; } || true
+          cd - >/dev/null
+          sed -i 's#https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700\&display=swap#vendor/fonts/plex.css#' www/index.html
+          grep -q 'vendor/fonts/plex.css' www/index.html || { echo "font link not rewritten"; exit 1; }
+          ls -la www/vendor/fonts
+
       - name: Sync web assets
         run: npx cap sync android
 

@@ -107,6 +107,7 @@ const { chromium } = require('playwright'); const fs = require('fs'); const P = 
   ok(await page.locator('#place.btn-primary').count() === 1, 'زر الإرسال بلون الإجراء الأساسي');
   // الطلب: وقت التحرير التلقائي بالضبط
   await go("__dbg.S.stack=[{name:'order',params:{id:'o1'}}];__dbg.render()");
+  const ot = await page.textContent('body');
   ok(/يُحوَّل المبلغ تلقائياً بعد يومين و20 ساعة/.test(ot) && !/\d يومين/.test(ot), 'تفاصيل الطلب: الوقت المتبقي للتحرير التلقائي');
   // محادثة جديدة: أسئلة جاهزة تُرسل بلمسة
   await go("__dbg.S.stack=[{name:'chat',params:{id:'l4_u1'}}];__dbg.render()"); await page.waitForTimeout(500);

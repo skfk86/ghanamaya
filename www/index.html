@@ -6,23 +6,33 @@
 <meta name="theme-color" content="#F7F3EC">
 <title>غنماية</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- الخط مضمّن داخل التطبيق عند البناء (vendor/fonts)، وإلا يُحمَّل من Google -->
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet" id="fontcss">
 <style>
 /* ========== نظام التصميم ========== */
 :root{
   --brand:#3F5A2E; --brand-dark:#2C4120; --brand-soft:#EEF2E6; --brand-tint:#D9E3C8;
-  --accent:#C8601E; --accent-soft:#FFF4E8; --accent-ink:#7A3D12;
+  --accent:#A84E18; --accent-bright:#C8601E; --accent-soft:#FFF4E8; --accent-ink:#7A3D12;
   --danger:#9A2E1C; --danger-soft:#F8E9E5;
   --bg:#F7F3EC; --surface:#FFFFFF; --line:#ECE6DB; --line-soft:#F1ECE3;
   --ink:#1F1D1A; --ink-2:#45413B; --muted:#6B655C;
   --r-sm:12px; --r-md:14px; --r-lg:18px; --r-xl:24px;
+  /* سلم الخطوط: لا نص أصغر من 12px */
+  --t-xs:12px; --t-sm:13px; --t-md:15px; --t-lg:17px; --t-xl:20px; --t-2xl:28px;
+  /* سلم المسافات */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+  /* ألوان الحالات (منفصلة عن هوية العلامة) */
+  --st-wait:#8A5A12; --st-wait-bg:#FBF1DD; --st-live:#2C4120; --st-live-bg:#E3ECD6;
+  --st-done:#FFFFFF; --st-done-bg:#3F5A2E; --st-off:#5E5850; --st-off-bg:#EDE8E0; --st-bad:#9A2E1C; --st-bad-bg:#F8E9E5;
   --shadow:0 1px 3px rgba(31,29,26,.07);
   --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
 }
 @media (prefers-color-scheme:dark){
   :root{
     --brand:#8DB06F; --brand-dark:#A9C78E; --brand-soft:#26301F; --brand-tint:#3A4A2C;
-    --accent:#E07A38; --accent-soft:#3A2618; --accent-ink:#F3B98F;
+    --accent:#E07A38; --accent-bright:#E07A38; --accent-soft:#3A2618; --accent-ink:#F3B98F;
+    --st-wait:#F0C77A; --st-wait-bg:#3A2E18; --st-live:#C9DDB4; --st-live-bg:#2C3A22;
+    --st-done:#151412; --st-done-bg:#8DB06F; --st-off:#C2BBB0; --st-off-bg:#2E2B27; --st-bad:#F0A090; --st-bad-bg:#3A201B;
     --danger:#E0745F; --danger-soft:#3A201B;
     --bg:#151412; --surface:#201E1B; --line:#2E2B27; --line-soft:#2A2723;
     --ink:#F2EEE7; --ink-2:#D5CFC5; --muted:#A39C91;
@@ -416,6 +426,51 @@ h1{letter-spacing:-.2px}
 @keyframes cring{0%{box-shadow:0 0 0 0 rgba(63,90,46,.45)}70%{box-shadow:0 0 0 22px rgba(63,90,46,0)}100%{box-shadow:0 0 0 0 rgba(63,90,46,0)}}
 @keyframes cfall{to{transform:translateY(520px) rotate(540deg);opacity:0}}
 @media (prefers-reduced-motion:reduce){.celeb,.celeb .ring,.celeb .conf,.celeb-bg{animation:none}}
+
+/* ========== نظام التصميم v2 — الطبقة الأخيرة تتقدم على ما قبلها ==========
+   القواعد: الأخضر لكل إجراء أساسي، والبرتقالي فقط لزر النشر (+) وشارة "مميز".
+   ألوان الحالات منفصلة عن العلامة. لا نص أصغر من 12px. */
+body{font-variant-numeric:tabular-nums}
+/* الأزرار: نوع واحد لكل دور */
+.btn-accent{background:var(--brand);color:#fff}
+.btn-primary,.btn-accent{box-shadow:0 1px 2px rgba(31,29,26,.12)}
+.btn-outline{border-width:1.5px}
+.btn-danger{background:none;border:1.5px solid var(--danger);color:var(--danger)}
+.btn-onhero{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.7)}
+.fab{background:var(--accent-bright)}
+.tag{background:var(--accent-bright)}
+/* أحجام لا تقل عن 12px */
+.status,.st,.badge,.tab,.lcard .city,.lcard .meta{font-size:var(--t-xs)}
+/* الحالات */
+.st-pending,.s-pending{background:var(--st-wait-bg);color:var(--st-wait)}
+.st-accepted,.st-paid,.s-active{background:var(--st-live-bg);color:var(--st-live)}
+.st-completed{background:var(--st-done-bg);color:var(--st-done)}
+.st-rejected,.st-cancelled,.s-sold{background:var(--st-off-bg);color:var(--st-off)}
+.st-disputed,.s-hidden{background:var(--st-bad-bg);color:var(--st-bad)}
+/* شريط التنقل والرأس: خلفية مصمتة، المحتوى لا يظهر من خلفهما */
+.tabbar{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:0 4px 24px rgba(31,29,26,.10),0 0 0 1px var(--line)}
+.topbar{background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}
+/* شريط التصنيفات: حافة متلاشية تدل على أن فيه المزيد */
+.chips{-webkit-mask-image:linear-gradient(to left,transparent 0,#000 28px);mask-image:linear-gradient(to left,transparent 0,#000 28px);padding-left:28px}
+.chips[style*="wrap"]{-webkit-mask-image:none;mask-image:none;padding-left:16px}
+/* بطاقة الإعلان: السعر تحت الصورة بخط واضح بدل الأبيض فوق الصورة */
+.lcard .img{aspect-ratio:1/1}
+.lcard .img::after{display:none}
+.lcard .body{padding:10px 12px 12px;gap:2px}
+.lcard .lprice{font-size:var(--t-lg);font-weight:700;color:var(--ink);display:flex;align-items:center;gap:4px;flex-wrap:wrap;line-height:1.3;row-gap:2px}
+.lcard .lprice small{white-space:nowrap}
+.lcard .lprice small{font-size:var(--t-xs);font-weight:500;color:var(--muted)}
+.lcard .fixed{font-size:var(--t-xs);font-weight:700;color:var(--ink-2);background:var(--line);border-radius:6px;padding:0 6px;line-height:1.6;white-space:nowrap}
+.lcard .title{font-size:var(--t-sm);font-weight:500;color:var(--ink-2)}
+.qtytag{position:absolute;bottom:8px;right:8px;background:rgba(20,18,15,.72);color:#fff;font-size:var(--t-xs);font-weight:700;border-radius:8px;padding:2px 8px}
+/* تفاصيل الإعلان: صورة أقصر حتى يظهر السعر والمواصفات معاً */
+.gallery{height:min(300px,44vh)}
+/* الأرقام الكبيرة لا تتجاوز حاوياتها */
+.price,.lprice,.wallet-hero .bal b,.sum span{overflow-wrap:anywhere}
+.wallet-hero .bal b{font-size:clamp(30px,10vw,40px)}
+/* تركيز واضح للوحة المفاتيح */
+:focus-visible{outline:2.5px solid var(--brand);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -984,11 +1039,12 @@ function cardHTML(l) {
       ${isFeatured(l) ? '<span class="tag">مميز</span>' : ''}
       ${l.status === 'sold' ? '<span class="tag dark">مباع</span>' : ''}
       <button class="fav ${fav ? 'on' : ''}" data-fav="${l.id}" aria-label="المفضلة" aria-pressed="${fav}">${ic('heart')}</button>
-      <span class="pricetag"><bdi>${Number(l.price || 0).toLocaleString('en-US')}</bdi> <small>ج.س${l.negotiable === false ? ' · ثابت' : ''}</small></span>
+      ${l.qty > 1 ? `<span class="qtytag">${l.qty} رؤوس</span>` : ''}
     </div>
     <div class="body">
+      <span class="lprice"><bdi>${Number(l.price || 0).toLocaleString('en-US')}</bdi> <small>ج.س${l.qty > 1 ? ' للرأس' : ''}</small>${l.negotiable === false ? '<span class="fixed">ثابت</span>' : ''}</span>
       <span class="title">${esc(titleOf(l))}</span>
-      <span class="meta"><span>${ageText(l.ageMonths)} · ${l.weightKg} كجم${l.qty > 1 ? ` · ${l.qty} رأس` : ''}</span></span>
+      <span class="meta"><span>${ageText(l.ageMonths)} · ${l.weightKg} كجم</span></span>
       <span class="meta"><span class="city">${ic('pin', 'style="width:12px;height:12px"')}${esc(l.city)}</span><span style="flex-shrink:0">${ago(l.createdAt)}</span></span>
     </div>
   </div>`;
@@ -1028,7 +1084,7 @@ function feedHTML() {
   if (!S.listings.length && !more && !S.q && !activeFilterCount() && S.cat === 'all') return viewEmpty('store', 'لا توجد إعلانات بعد', 'كن أول من يعرض ماعزه أو ضأنه في غنماية.', `<button class="btn btn-accent" style="width:auto;padding:0 24px;height:48px" id="emptyAdd">أضف أول إعلان</button>`);
   if (!list.length && more) return `<div style="display:flex;justify-content:center;padding:30px 0"><div class="spinner"></div></div><div id="moreFeed"></div>`;
   if (!list.length) return viewEmpty('search', 'لا نتائج', 'جرّب تغيير البحث أو الفلاتر.', `<button class="btn btn-ghost" style="width:auto;padding:0 24px;height:48px" id="clearAll">مسح الفلاتر</button>`);
-  return `<div class="section-h"><h2>${S.q || activeFilterCount() || S.cat !== 'all' ? 'النتائج' : 'أحدث الإعلانات'}</h2><span class="muted">${list.length}${more ? '+' : ''} إعلان · <button class="link-ic" id="refresh" aria-label="تحديث">${ic('refresh')}تحديث</button></span></div><div class="grid">${list.map(cardHTML).join('')}</div>
+  return `<div class="section-h"><h2>${S.q || activeFilterCount() || S.cat !== 'all' ? 'النتائج' : 'أحدث الإعلانات'}</h2><span class="muted row" style="gap:6px">${S.q || activeFilterCount() || S.cat !== 'all' ? `${list.length}${more ? '+' : ''} إعلان ·` : ''}<button class="link-ic" id="refresh" aria-label="تحديث">${ic('refresh')}تحديث</button></span></div><div class="grid">${list.map(cardHTML).join('')}</div>
     ${more ? `<div id="moreFeed" style="display:flex;justify-content:center;padding:18px 0"><button class="btn btn-ghost" id="moreBtn" style="width:auto;padding:0 22px;height:44px">عرض المزيد</button></div>` : ''}`;
 }
 function refreshFeed() {
@@ -2161,7 +2217,7 @@ function drawWalletTop() {
     ${w.held ? `<div class="held">${ic('clock', 'style="width:16px;height:16px;color:#CFE0BC"')}<span class="grow" style="color:#CFE0BC">محجوز في طلبات جارية</span><b class="num" dir="ltr">${usdt(w.held)}</b></div>` : ''}
     <div class="acts">
       <button class="btn" id="dep" style="background:#fff;color:#2C4120">${ic('plus', 'style="width:20px;height:20px"')}إيداع</button>
-      <button class="btn" id="wd" style="background:rgba(255,255,255,.16);color:#fff">${ic('up', 'style="width:20px;height:20px"')}سحب</button>
+      <button class="btn btn-onhero" id="wd">${ic('up', 'style="width:20px;height:20px"')}سحب</button>
     </div>`;
   $('#dep').onclick = depositSheet;
   $('#wd').onclick = withdrawSheet;
@@ -2195,7 +2251,7 @@ async function renderWallet() {
       : `سحب ${U(d.amount)} قيد التحقق الأمني من الإدارة. رصيدك محفوظ.`;
     $('#wPending').innerHTML = [
       ...pendDep.map(d => `<div class="note note-warn" style="margin-bottom:8px">${ic('clock', 'style="width:20px;height:20px"')}<span class="grow">إيداع ${U(d.amount)} ${d.status === 'paying' ? 'قيد التأكيد على الشبكة' : 'بانتظار الدفع'}${d.sandbox ? ' (تجريبي)' : ''}</span>${d.status === 'pending' ? `<a class="btn-link" href="${esc(d.paymentUrl)}" target="_blank" style="padding:0">ادفع</a>` : ''}</div>`),
-      ...pendWd.map(d => `<div class="note ${d.status === 'frozen' || d.status === 'pending' ? 'note-warn' : 'note-ok'}" style="margin-bottom:8px">${ic(d.status === 'processing' ? 'send' : 'shield', 'style="width:20px;height:20px"')}<span class="grow">${wdNote(d)}</span>${d.status !== 'processing' ? `<button class="btn btn-outline" data-wdc="${d.id}" style="height:40px;padding:0 14px;color:var(--danger);border-color:var(--danger);flex:none">إلغاء السحب</button>` : ''}</div>`)
+      ...pendWd.map(d => `<div class="note ${d.status === 'frozen' || d.status === 'pending' ? 'note-warn' : 'note-ok'}" style="margin-bottom:8px">${ic(d.status === 'processing' ? 'send' : 'shield', 'style="width:20px;height:20px"')}<span class="grow">${wdNote(d)}</span>${d.status !== 'processing' ? `<button class="btn btn-outline" data-wdc="${d.id}" style="height:40px;width:auto;padding:0 14px;color:var(--danger);border-color:var(--danger);flex:none;align-self:center;white-space:nowrap">إلغاء السحب</button>` : ''}</div>`)
     ].join('');
     $$('[data-wdc]').forEach(b => b.onclick = () => confirmSheet('إلغاء طلب السحب؟', 'يعود المبلغ لرصيدك فوراً.', 'إلغاء السحب', async () => {
       try { await walletApi('withdrawCancel', { id: b.dataset.wdc }); toast('أُلغي السحب وعاد المبلغ لرصيدك', 'success'); render(); } catch (err) { toast(errMsg(err), 'error'); }

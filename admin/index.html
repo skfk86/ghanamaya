@@ -91,6 +91,19 @@ nav button.on{box-shadow:0 6px 16px rgba(0,0,0,.25)}
 .switch:checked{background:var(--brand)}.switch:checked::after{right:23px}
 tbody tr:hover td{background:#FBF8F3}
 h2{display:flex;align-items:center;gap:8px}
+
+/* ===== نظام التصميم v2 (لوحة الإدارة) =====
+   الإجراء الآمن الأساسي أخضر ممتلئ. كل إجراء مدمّر بإطار أحمر وبنفس الشكل في كل الصفحات، ويطلب تأكيداً قبل التنفيذ.
+   "إيقاف الحساب" وحده ممتلئ بالأحمر لأنه الأشد. */
+.btn.orange,.btn.danger{background:none;border:1.5px solid var(--danger);color:var(--danger)}
+[data-d="ban"].btn.danger{background:var(--danger);color:#fff}
+.btn.warn{border:1.5px solid transparent}
+.btn:focus-visible{outline:2.5px solid var(--brand);outline-offset:2px}
+table{font-variant-numeric:tabular-nums}
+thead th{position:sticky;top:0;background:var(--surface);z-index:1}
+tbody tr:hover{background:color-mix(in srgb,var(--brand) 4%,transparent)}
+@media (min-width:1100px){.todo{grid-template-columns:repeat(5,1fr)}}
+.kpis b,.kpis .n{overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -196,7 +209,7 @@ async function home() {
   const hr = new Date().getHours();
   const ST = { pending: ['جديد', 't-orange'], accepted: ['مقبول', 't-blue'], paid: ['مدفوع', 't-blue'], completed: ['مكتمل', 't-green'], rejected: ['مرفوض', 't-gray'], cancelled: ['ملغى', 't-gray'], disputed: ['نزاع', 't-red'] };
   const PM = { wallet: 'المحفظة', bankak: 'بنكك', cash: 'نقداً' };
-  $('#main').innerHTML = `<div class="head"><div><h1>${hr < 12 ? 'صباح الخير' : 'مساء الخير'} 👋</h1><span class="muted">${new Date().toLocaleDateString('ar', { weekday: 'long', day: 'numeric', month: 'long' })}</span></div></div>
+  $('#main').innerHTML = `<div class="head"><div><h1>${hr < 12 ? 'صباح الخير' : 'مساء الخير'}</h1><span class="muted">${new Date().toLocaleDateString('ar', { weekday: 'long', day: 'numeric', month: 'long' })}</span></div></div>
     <div class="todo">${todo.map(([k, i, l, n]) => `<button data-go="${k}" class="${n ? 'on' : 'zero'}"><span class="c">${n}</span><span class="grow"><b>${l}</b><br><span class="muted">${n ? 'تحتاج قرارك' : 'لا شيء الآن'}</span></span>${ic(i)}</button>`).join('')}</div>
     <div class="kpis">
       <div class="card kpi"><span class="ki">${ic('user')}</span><span class="muted">المستخدمون</span><b>${users}</b><span class="muted">${sellers} بائع</span></div>
@@ -374,7 +387,7 @@ async function users() {
       <td>${esc(u.city)}، ${esc(u.state)}</td><td dir="ltr" style="text-align:right">${esc(u.whatsapp || '')}</td>
       <td><div style="display:flex;gap:4px;flex-wrap:wrap">${u.isSeller ? '<span class="tag t-blue">بائع</span>' : '<span class="tag t-gray">مشترٍ</span>'}${u.verified ? '<span class="tag t-green">موثّق</span>' : ''}${u.banned ? '<span class="tag t-red">موقوف</span>' : ''}${u.warnings ? `<span class="tag t-orange">${u.warnings} تحذير</span>` : ''}</div></td>
       <td class="muted">${ago(u.createdAt)}</td>
-      <td><div class="actions">${u.isSeller ? `<button class="btn" data-v="${u.uid}">${u.verified ? 'إلغاء التوثيق' : 'توثيق'}</button>` : ''}<button class="btn ${u.banned ? '' : 'danger'}" data-b="${u.uid}">${u.banned ? 'رفع الإيقاف' : 'إيقاف'}</button><button class="btn" data-del="${u.uid}" title="حذف نهائي">حذف</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="empty">لا نتائج</td></tr>';
+      <td><div class="actions">${u.isSeller ? `<button class="btn" data-v="${u.uid}">${u.verified ? 'إلغاء التوثيق' : 'توثيق'}</button>` : ''}<button class="btn ${u.banned ? '' : 'danger'}" data-b="${u.uid}">${u.banned ? 'رفع الإيقاف' : 'إيقاف'}</button><button class="btn orange" data-del="${u.uid}" title="حذف نهائي">حذف</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="empty">لا نتائج</td></tr>';
     $$('[data-v]').forEach(b => b.onclick = () => run(b, async () => { const u = all.find(x => x.uid === b.dataset.v); const r = await sellerApi('verifyDecide', { uid: u.uid, decision: u.verified ? 'revoke' : 'approve' }); u.verified = !u.verified; draw($('#q').value); toast(r.notified ? 'تم · أُرسل إشعار ✓' : `تم · لم يُرسل إشعار: ${r.reason}`); }));
     $$('#rows [data-del]').forEach(b => b.onclick = () => {
       const u = all.find(x => x.uid === b.dataset.del);
