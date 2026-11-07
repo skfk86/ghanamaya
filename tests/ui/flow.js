@@ -98,6 +98,18 @@ const { chromium } = require('playwright'); const fs = require('fs'); const P = 
   await tap('[data-neg="0"]');
   ok(await page.locator('[data-neg="0"].on').count() === 1 && await page.locator('#meet').count() === 1, 'المحرر: اختيار السعر الثابت وحقل المعاينة');
   await page.evaluate(() => { __dbg.S.stack = []; __dbg.S.tab = 'home'; __dbg.render(); }); await page.waitForTimeout(500);
+  // ===== انحدار: مغادرة الشاشة أثناء التحميل =====
+  await page.evaluate(() => { __dbg.S.stack = []; __dbg.S.tab = 'home'; __dbg.render(); }); await page.waitForTimeout(500);
+  const L0 = await page.evaluate(() => globalThis.__fbListeners());
+  await page.evaluate(() => { __dbg.push('details', { id: 'l3' }); __dbg.S.stack.pop(); __dbg.render(); }); await page.waitForTimeout(700);
+  ok(await page.locator('.gallery').count() === 0 && await page.locator('[data-tab="home"].on').count() === 1, 'رجوع قبل تحميل الإعلان: لا يُرسم فوق الرئيسية');
+  await page.evaluate(() => { __dbg.S.chats = []; __dbg.push('chat', { id: 'l1_u1' }); __dbg.S.stack.pop(); __dbg.render(); }); await page.waitForTimeout(700);
+  ok(await page.locator('#msgs').count() === 0, 'رجوع قبل تحميل المحادثة: لا تُرسم');
+  ok(await page.evaluate(() => globalThis.__fbListeners()) === L0, `لا مستمع حي بعد مغادرة المحادثة (${L0})`);
+  await page.evaluate(() => { __dbg.push('chat', { id: 'l1_u1' }); }); await page.waitForTimeout(700);
+  const L1 = await page.evaluate(() => globalThis.__fbListeners());
+  await page.evaluate(() => { __dbg.S.stack.pop(); __dbg.render(); }); await page.waitForTimeout(400);
+  ok(L1 > L0 && await page.evaluate(() => globalThis.__fbListeners()) === L0, 'مستمع المحادثة يُلغى عند الخروج منها');
   // ===== رحلات UX =====
   const go = (js) => page.evaluate(js).then(() => page.waitForTimeout(600));
   // إتمام الطلب: الإجمالي فوق الزر، والعداد مخفي لرأس واحد

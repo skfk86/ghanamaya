@@ -49,6 +49,7 @@ export const setDoc = async (r, d, o) => { store.set(r.path, { ...(o && o.merge 
 export const addDoc = async (c, d) => { const r = doc(c); await setDoc(r, d); return r; };
 export const updateDoc = async (r, d) => { store.set(r.path, { ...store.get(r.path), ...res(d) }); notify(); };
 export const deleteDoc = async (r) => { store.delete(r.path); notify(); };
+globalThis.__fbListeners = () => listeners.size; // للاختبار: عدد المستمعين الأحياء
 export function onSnapshot(r, cb) { const run = () => cb(r.type === 'doc' ? snapDoc(r.path) : runQ(r.type === 'col' ? { path: r.path, c: [] } : r)); setTimeout(run, 0); listeners.add(run); return () => listeners.delete(run); }
 export const writeBatch = () => { const w = []; return { set: (r, d, o) => w.push(() => setDoc(r, d, o)), update: (r, d) => w.push(() => updateDoc(r, d)), delete: (r) => w.push(() => deleteDoc(r)), commit: async () => { for (const f of w) await f(); } }; };
 export const increment = (n) => n;
