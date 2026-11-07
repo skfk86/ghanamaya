@@ -17,7 +17,7 @@ const { chromium } = require('playwright'); const fs = require('fs'); const P = 
     if (u.includes('/api/seller')) { const a = JSON.parse(r.request().postData() || '{}'); globalThis.__sellerCalls = [...(globalThis.__sellerCalls || []), a]; return r.fulfill({ contentType: 'application/json', body: JSON.stringify(a.action === 'follow' ? { ok: true, following: a.on, followers: a.on ? 1 : 0 } : { ok: true }) }); }
     if (u.includes('/api/wallet')) { const a = JSON.parse(r.request().postData() || '{}').action; return r.fulfill({ contentType: 'application/json', body: JSON.stringify(a === 'pinStatus' ? { ok: true, hasPin: true } : a === 'deposit' ? { ok: true, paymentUrl: 'about:blank', sandbox: true, depositId: 'd1' } : { ok: true }) }); }
     if (u.startsWith('file:') || u === 'about:blank') return r.continue(); return r.fulfill({ status: 200, body: '{}' }); });
-  let html = fs.readFileSync(process.argv[2], 'utf8').replace('<script type="module">', `<script>${fs.readFileSync(P + '/seed.js', 'utf8')}</script><script type="module">`).replace(/<\/script>\s*<\/body>/, 'window.__dbg = { S, push, render, filtered, parseQuery };</script></body>');
+  let html = fs.readFileSync(process.argv[2], 'utf8').replace('<script type="module">', `<script>${fs.readFileSync(P + '/seed.js', 'utf8')}</script><script type="module">`).replace(/<\/script>\s*<\/body>/, 'window.__dbg = { S, push, render, filtered, parseQuery, renderError };</script></body>');
   fs.writeFileSync(P + '/_flow.html', html); await page.goto('file://' + P + '/_flow.html'); await page.waitForTimeout(900);
   const top = () => page.evaluate(() => { const s = __dbg.S.stack.at(-1); return s ? s.name : 'tab:' + __dbg.S.tab; });
   const tap = async (sel) => { const l = page.locator(sel).first(); await l.scrollIntoViewIfNeeded(); const bb = await l.boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.waitForTimeout(600); };
@@ -98,6 +98,40 @@ const { chromium } = require('playwright'); const fs = require('fs'); const P = 
   await tap('[data-neg="0"]');
   ok(await page.locator('[data-neg="0"].on').count() === 1 && await page.locator('#meet').count() === 1, 'المحرر: اختيار السعر الثابت وحقل المعاينة');
   await page.evaluate(() => { __dbg.S.stack = []; __dbg.S.tab = 'home'; __dbg.render(); }); await page.waitForTimeout(500);
+  // ===== رحلات UX =====
+  const go = (js) => page.evaluate(js).then(() => page.waitForTimeout(600));
+  // إتمام الطلب: الإجمالي فوق الزر، والعداد مخفي لرأس واحد
+  await go("__dbg.S.stack=[{name:'checkout',params:{id:'l1'}}];__dbg.render()");
+  ok((await page.textContent('#barTotal')).includes('450,000'), 'إتمام الطلب: الإجمالي ظاهر بجانب زر الإرسال');
+  ok(!(await page.locator('#qi').isVisible()), 'رأس واحد متاح: لا عداد كمية بلا فائدة');
+  ok(await page.locator('#place.btn-primary').count() === 1, 'زر الإرسال بلون الإجراء الأساسي');
+  // الطلب: وقت التحرير التلقائي بالضبط
+  await go("__dbg.S.stack=[{name:'order',params:{id:'o1'}}];__dbg.render()");
+  ok(/يُحوَّل المبلغ تلقائياً بعد يومين و20 ساعة/.test(ot) && !/\d يومين/.test(ot), 'تفاصيل الطلب: الوقت المتبقي للتحرير التلقائي');
+  // محادثة جديدة: أسئلة جاهزة تُرسل بلمسة
+  await go("__dbg.S.stack=[{name:'chat',params:{id:'l4_u1'}}];__dbg.render()"); await page.waitForTimeout(500);
+  ok(await page.locator('[data-quick]').count() >= 3, 'محادثة فارغة: أسئلة جاهزة');
+  // المحرر: الخطأ عند الحقل نفسه
+  await go("__dbg.S.stack=[{name:'edit',params:{}}];__dbg.render()");
+  ok((await page.getAttribute('[name=age]', 'placeholder')).startsWith('مثال'), 'المحرر: النص المؤقت لا يشبه قيمة حقيقية');
+  await page.evaluate(() => document.querySelector('#publish').click()); await page.waitForTimeout(500);
+  ok(await page.locator('#photos.invalid').count() === 1, 'نشر بلا صور: حقل الصور يُعلَّم');
+  // إعلاناتي: الحد ظاهر
+  await go("__dbg.S.stack=[{name:'mine',params:{}}];__dbg.render()");
+  ok(/من 3/.test(await page.textContent('body')), 'إعلاناتي: "X من 3 إعلانات نشطة"');
+  // المحفظة: إلغاء السحب زر واضح
+  await go("__dbg.S.stack=[{name:'wallet',params:{}}];__dbg.render()"); await page.waitForTimeout(500);
+  ok(await page.locator('button[data-wdc]:has-text("إلغاء السحب")').count() === 1, 'المحفظة: "إلغاء السحب" زر بحجم لمس كامل');
+  // حسابي: لا أزرار ميتة، والمساعدة تعمل
+  await go("__dbg.S.stack=[];__dbg.S.tab='account';__dbg.render()");
+  ok(await page.locator('[data-go="soon"]').count() === 0, 'حسابي: لا بنود "قيد التجهيز"');
+  await page.evaluate(() => document.querySelector('[data-go="help"]').click()); await page.waitForTimeout(600);
+  ok(await page.locator('.sheet details').count() >= 3, 'المساعدة: أسئلة وأجوبة');
+  await page.evaluate(() => document.querySelectorAll('.sheet,.sheet-bg').forEach(e => e.remove()));
+  // خطأ التحميل: إعادة المحاولة
+  await go("__dbg.renderError({ userMsg: 'تجربة' })");
+  ok(await page.locator('#retry').count() === 1, 'شاشة الخطأ فيها "إعادة المحاولة"');
+  await go("__dbg.S.stack=[];__dbg.S.tab='home';__dbg.render()");
   await ctx.setOffline(true); await page.waitForTimeout(400);
   ok(await page.locator('#offline').count() === 1, 'يظهر شريط "لا يوجد اتصال"');
   await ctx.setOffline(false); await page.waitForTimeout(400);
